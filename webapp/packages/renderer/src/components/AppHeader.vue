@@ -64,7 +64,8 @@
     -webkit-app-region: no-drag;
     text-align: right;
     font-size: 20px;
-    color: #7c7c7c;
+    color: #fff;
+    mix-blend-mode: difference;
     display: flex;
     align-items: center;
   }
