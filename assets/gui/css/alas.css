@@ -482,7 +482,7 @@ pre.rich-traceback-code {
     margin: auto !important;
 }
 
-#pywebio-scope-header_title {
+#pywebio-scope-header > #pywebio-scope-header_title {
     position: absolute !important;
     left: 50%;
     transform: translateX(-50%);
