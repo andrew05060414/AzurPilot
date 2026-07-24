@@ -11,14 +11,13 @@
 }
 
 .btn-off {
-    background-color: #ffffff;
-    border: 1px solid #79747e;
-    color: #4e4c97;
+    background-color: white;
+    border: 1px solid lightgrey;
 }
 
 .btn-on {
     background-color: #4e4c97;
-    border: 1px solid #4e4c97;
+    border: 1px solid lightgrey;
     color: white;
 }
 

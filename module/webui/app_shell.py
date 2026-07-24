@@ -298,13 +298,14 @@ class AppShellMixin(WebUIMixinBase):
             "light",
             "advanced_material",
             "dark_advanced_material",
+            "classic",
         ):
             theme = "default"
         cls.theme = theme
         State.deploy_config.Theme = theme
         State.theme = theme
         pywebio_theme = theme if theme in ("default", "dark", "light") else "dark"
-        if theme in ("advanced_material", "dark_advanced_material"):
+        if theme in ("advanced_material", "dark_advanced_material", "classic"):
             pywebio_theme = "default"
 
         webconfig(theme=pywebio_theme)

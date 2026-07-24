@@ -56,6 +56,10 @@ footer {
     display: none;
 }
 
+#pywebio-scope-running {
+    min-height: 7.2rem;
+}
+
 .btn:focus {
     box-shadow: unset;
 }

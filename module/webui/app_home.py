@@ -92,6 +92,11 @@ class HomeMixin(WebUIMixinBase):
                         "value": "dark_advanced_material",
                         "color": "dark",
                     },
+                    {
+                        "label": "经典怀旧",
+                        "value": "classic",
+                        "color": "info",
+                    },
                 ],
                 onclick=lambda t: set_theme(t),
             ).style("text-align: center")

@@ -5,6 +5,7 @@ from pywebio.output import clear, put_html, put_scope, put_text, use_scope
 from pywebio.session import defer_call, info, run_js
 
 from module.webui.utils import Icon, WebIOTaskHandler, set_localstorage
+from module.webui.setting import State
 
 
 class Base:
@@ -95,11 +96,13 @@ class Frame(Base):
     @staticmethod
     @use_scope("ROOT", clear=True)
     def _show() -> None:
+        alas_icon = Icon.ALAS_CLASSIC if State.theme == "classic" else Icon.ALAS
+        header_text = "Alas" if State.theme == "classic" else "港区OA"
         put_scope(
             "header",
             [
-                put_html(Icon.ALAS).style("--header-icon--"),
-                put_text("港区OA").style("--header-text--"),
+                put_html(alas_icon).style("--header-icon--"),
+                put_text(header_text).style("--header-text--"),
                 put_scope("header_status"),
                 put_scope("header_title"),
             ],

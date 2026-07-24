@@ -1,3 +1,5 @@
 allowBuilds:
+  electron: true
+  electron-winstaller: true
   esbuild: true
   simple-git-hooks: true
