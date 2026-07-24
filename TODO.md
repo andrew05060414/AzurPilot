@@ -3,7 +3,7 @@
 ## Current Delivery
 
 - [ ] 在独立部署副本中运行 personal `master` 的 portable EXE，验收启动、托盘、四个窗口按钮和 classic 主题。
-- [ ] 验收通过后确认运行目录的 `deploy.yaml` 跟踪个人 fork 的 `master`。
+- [x] 验收通过后确认运行目录的 `deploy.yaml` 跟踪个人 fork 的 `master`。
 
 ## Maintenance
 
