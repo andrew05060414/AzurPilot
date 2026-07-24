@@ -96,13 +96,11 @@ class Frame(Base):
     @staticmethod
     @use_scope("ROOT", clear=True)
     def _show() -> None:
-        alas_icon = Icon.ALAS_CLASSIC if State.theme == "classic" else Icon.ALAS
-        header_text = "Alas" if State.theme == "classic" else "港区OA"
         put_scope(
             "header",
             [
-                put_html(alas_icon).style("--header-icon--"),
-                put_text(header_text).style("--header-text--"),
+                put_html(Icon.ALAS).style("--header-icon--"),
+                put_text("ALAS").style("--header-text--"),
                 put_scope("header_status"),
                 put_scope("header_title"),
             ],
