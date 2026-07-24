@@ -53,11 +53,29 @@ jobs:
             git checkout --ours -- \
               webapp/package.json \
               webapp/pnpm-workspace.yaml \
-              webapp/packages/renderer/src/App.vue
+              webapp/tsconfig.json \
+              webapp/types/vite-env.d.ts \
+              webapp/packages/renderer/index.html \
+              webapp/packages/renderer/tsconfig.json \
+              webapp/packages/renderer/vite.config.mjs \
+              webapp/packages/renderer/types/shims-vue.d.ts \
+              webapp/packages/renderer/src/App.vue \
+              webapp/packages/renderer/src/components/Alas.vue \
+              webapp/packages/renderer/src/index.ts \
+              webapp/packages/renderer/src/router.ts
             git add -- \
               webapp/package.json \
               webapp/pnpm-workspace.yaml \
-              webapp/packages/renderer/src/App.vue
+              webapp/tsconfig.json \
+              webapp/types/vite-env.d.ts \
+              webapp/packages/renderer/index.html \
+              webapp/packages/renderer/tsconfig.json \
+              webapp/packages/renderer/vite.config.mjs \
+              webapp/packages/renderer/types/shims-vue.d.ts \
+              webapp/packages/renderer/src/App.vue \
+              webapp/packages/renderer/src/components/Alas.vue \
+              webapp/packages/renderer/src/index.ts \
+              webapp/packages/renderer/src/router.ts
             if [ -n "$(git diff --name-only --diff-filter=U)" ]; then
               echo 'Unresolved upstream conflicts remain outside the protected UI files.'
               git diff --name-only --diff-filter=U
