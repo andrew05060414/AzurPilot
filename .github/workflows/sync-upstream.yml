@@ -46,5 +46,23 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git merge --no-edit azurpilot-upstream/master
+          # Keep the personal Electron shell when upstream removes or changes it.
+          if git merge --no-edit -X ours azurpilot-upstream/master; then
+            :
+          else
+            git checkout --ours -- \
+              webapp/package.json \
+              webapp/pnpm-workspace.yaml \
+              webapp/packages/renderer/src/App.vue
+            git add -- \
+              webapp/package.json \
+              webapp/pnpm-workspace.yaml \
+              webapp/packages/renderer/src/App.vue
+            if [ -n "$(git diff --name-only --diff-filter=U)" ]; then
+              echo 'Unresolved upstream conflicts remain outside the protected UI files.'
+              git diff --name-only --diff-filter=U
+              exit 1
+            fi
+            git commit --no-edit
+          fi
           git push origin HEAD:master
