@@ -64,10 +64,15 @@
     -webkit-app-region: no-drag;
     text-align: right;
     font-size: 20px;
-    color: #fff;
-    mix-blend-mode: difference;
+    color: #1f2937;
     display: flex;
     align-items: center;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .header-icon {
+      color: #ffffff;
+    }
   }
 
   .icon {
