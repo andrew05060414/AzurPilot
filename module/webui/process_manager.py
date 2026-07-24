@@ -5,6 +5,7 @@ import argparse
 from collections.abc import Sequence
 import os
 import queue
+import subprocess
 import threading
 import time
 from multiprocessing import Process
@@ -118,10 +119,11 @@ class ProcessManager:
         with lock:
             process = self._process
             if process is not None and process.is_alive():
-                process.kill()
+                self._kill_process_tree(process)
                 self.renderables.append(
                     Text(f"[{self.config_name}] exited. Reason: Manual stop\n")
                 )
+            self._process = None
             log_queue_handler = self.thd_log_queue_handler
             if log_queue_handler is not None:
                 log_queue_handler.join(timeout=1)
@@ -130,6 +132,40 @@ class ProcessManager:
                         "Log queue handler thread does not stop within 1 seconds"
                     )
         logger.info(f"[{self.config_name}] exited")
+
+    @staticmethod
+    def _kill_process_tree(process: Process) -> None:
+        """终止 worker 及其派生进程，避免关闭 WebUI 后任务留在后台。"""
+        pid = process.pid
+        if pid is None:
+            return
+
+        if os.name == "nt":
+            try:
+                subprocess.run(
+                    ["taskkill", "/PID", str(pid), "/T", "/F"],
+                    check=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+            except OSError:
+                process.kill()
+        else:
+            try:
+                import psutil
+
+                parent = psutil.Process(pid)
+                for child in reversed(parent.children(recursive=True)):
+                    try:
+                        child.kill()
+                    except psutil.NoSuchProcess:
+                        pass
+            except (ImportError, psutil.Error if "psutil" in locals() else OSError):
+                pass
+            process.kill()
+
+        process.join(timeout=3)
 
     def _thread_log_queue_handler(self) -> None:
         while self.alive:

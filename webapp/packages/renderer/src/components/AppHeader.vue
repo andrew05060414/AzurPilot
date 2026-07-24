@@ -64,14 +64,14 @@
     -webkit-app-region: no-drag;
     text-align: right;
     font-size: 20px;
-    color: #1f2937;
+    color: #666666;
     display: flex;
     align-items: center;
   }
 
   @media (prefers-color-scheme: dark) {
     .header-icon {
-      color: #ffffff;
+      color: #b0b0b0;
     }
   }
 

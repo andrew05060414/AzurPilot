@@ -71,7 +71,7 @@ pre.rich-traceback-code,
 .btn-menu:hover,
 .btn-menu-active {
     font-weight: bold !important;
-    border-left: 3px solid #666666 !important;
+    border-left: 3px solid #4e4c97 !important;
     padding-right: .625rem !important;
     background-color: transparent !important; /* 经典版选中没有背景颜色 */
 }
@@ -85,7 +85,7 @@ pre.rich-traceback-code,
 }
 .btn-aside:hover,
 .btn-aside-active {
-    border-left: 4px solid #666666 !important;
+    border-left: 4px solid #4e4c97 !important;
     padding-left: 3px !important;
     background-color: transparent !important; /* 经典版选中没有背景颜色 */
 }
@@ -99,10 +99,10 @@ body {
 .btn-off {
     background-color: white !important;
     border: 1px solid lightgrey !important;
-    color: #666666 !important;
+    color: #4e4c97 !important;
 }
 .btn-on {
-    background-color: #666666 !important;
+    background-color: #4e4c97 !important;
     border: 1px solid lightgrey !important;
     color: white !important;
 }
