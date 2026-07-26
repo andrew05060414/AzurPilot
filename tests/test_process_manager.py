@@ -145,7 +145,9 @@ class TestProcessManagerRegistry(unittest.TestCase):
             self.assertFalse(manager.stop())
 
         kill.assert_not_called()
-        process.join.assert_not_called()
+        # join(timeout=0) 是僵尸检测探针（不阻塞），不应与实际 join(timeout>0) 混淆
+        join_calls = [c.kwargs.get("timeout") for c in process.join.call_args_list]
+        self.assertNotIn(3, join_calls, "不应调用阻塞式 join(timeout=3)")
         self.assertIs(manager._process, process)
         self.assertNotIn("alas", State.process_registry)
 
