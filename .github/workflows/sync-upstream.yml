@@ -81,6 +81,7 @@ jobs:
           uv run ruff check module/webui/process_manager.py --select F821
           uv run python -m unittest \
             tests.test_process_manager \
+            tests.test_webui_session_lifecycle \
             tests.test_webui_lifecycle \
             tests.test_webui_worker_registry
 
