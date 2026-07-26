@@ -24,15 +24,6 @@ class Base:
     def stop(self) -> None:
         self.alive = False
         self.task_handler.stop()
-        # 页面断开时也停止本地 AzurPilot worker，避免关闭前台后任务继续运行。
-        try:
-            from module.webui.process_manager import ProcessManager
-
-            for manager in list(ProcessManager._processes.values()):
-                manager.stop()
-        except Exception:
-            # 页面清理不能阻塞 PyWebIO 会话关闭；全局 shutdown 会再次兜底清理。
-            pass
 
 
 class Frame(Base):
