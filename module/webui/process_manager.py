@@ -168,19 +168,49 @@ class ProcessManager:
         """停止 worker 进程树，并返回是否确认全部结束。"""
         with self._get_lifecycle_lock(self.config_name):
             process = self._process
-            pid = (
-                process.pid
-                if process is not None and process.is_alive()
-                else self._registered_pid()
-            )
-            stopped = pid is None
-            if pid is not None:
-                if process is not None:
-                    process.kill()
-                    process.join(timeout=3)
-                    stopped = not process.is_alive()
+            local_process_alive = self._is_process_alive(process)
+
+            if local_process_alive:
+                pid, record, pid_verified = self._registered_worker(process.pid)
+            else:
+                pid, record, pid_verified = self._registered_worker()
+
+            # _registered_worker 可能已通过 join(0) 回收僵尸句柄，
+            # 或 worker 在此期间自然退出。同步本地活性状态，
+            # 避免因过时的 local_process_alive 误判 stop 失败。
+            if local_process_alive and not self._is_process_alive(self._process):
+                local_process_alive = False
+
+            stopped = pid is None and not local_process_alive
+            if pid is not None and not pid_verified:
+                # _registered_worker 可能已通过 join(0) 回收了僵尸句柄；
+                # 若句柄已被清理说明 worker 已确认退出，视为成功停止。
+                if self._is_process_alive(self._process):
+                    logger.error(
+                        f"[{self.config_name}] worker PID {pid} 身份无法确认，拒绝终止未知进程"
+                    )
+                    stopped = False
                 else:
-                    stopped = self._kill_process_tree(pid)
+                    logger.info(
+                        f"[{self.config_name}] worker PID {pid} 本地句柄已回收，确认已退出"
+                    )
+                    stopped = True
+            elif pid is not None:
+                if local_process_alive and process is not None:
+                    # 优先使用本地 Process 句柄的 terminate/kill，
+                    # 比 taskkill 更可靠。
+                    stopped = ProcessManager._stop_local_process(process)
+                    if not stopped:
+                        # 本地句柄失败时回退到 taskkill 终止进程树
+                        stopped = self._kill_registered_process_tree(pid, record)
+                        if stopped:
+                            process.join(timeout=3)
+                            stopped = not self._is_process_alive(process)
+                else:
+                    stopped = self._kill_registered_process_tree(pid, record)
+                    if stopped and process is not None:
+                        process.join(timeout=3)
+                        stopped = not self._is_process_alive(process)
             if stopped:
                 self._process = None
                 stopped = self._unregister_process()
@@ -326,7 +356,7 @@ class ProcessManager:
             os.kill(pid, 9)
         except ProcessLookupError:
             return True
-        return not ProcessManager._pid_exists(pid)
+        return ProcessManager._wait_pid_exit(pid, timeout=3)
 
     @staticmethod
     def _pid_exists(pid: int) -> bool:
@@ -338,7 +368,19 @@ class ProcessManager:
             return True
         return True
 
-    def _registered_pid(self) -> int | None:
+    @staticmethod
+    def _wait_pid_exit(pid: int, timeout: float) -> bool:
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if not ProcessManager._pid_exists(pid):
+                return True
+            time.sleep(0.1)
+        return not ProcessManager._pid_exists(pid)
+
+    def _registered_worker(
+        self, expected_pid: int | None = None
+    ) -> tuple[int | None, dict | None, bool]:
+        """返回已验证的 worker 身份；调用方必须持有生命周期锁。"""
         registry = State.process_registry
         cached_pid = None
         if registry is not None:

@@ -43,44 +43,48 @@ jobs:
           fi
 
       - name: Merge AzurPilot upstream
+        id: merge
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          # Keep the personal Electron shell when upstream removes or changes it.
-          if git merge --no-edit -X ours azurpilot-upstream/master; then
-            :
-          else
-            git checkout --ours -- \
-              webapp/package.json \
-              webapp/pnpm-workspace.yaml \
-              webapp/tsconfig.json \
-              webapp/types/vite-env.d.ts \
-              webapp/packages/renderer/index.html \
-              webapp/packages/renderer/tsconfig.json \
-              webapp/packages/renderer/vite.config.mjs \
-              webapp/packages/renderer/types/shims-vue.d.ts \
-              webapp/packages/renderer/src/App.vue \
-              webapp/packages/renderer/src/components/Alas.vue \
-              webapp/packages/renderer/src/index.ts \
-              webapp/packages/renderer/src/router.ts
-            git add -- \
-              webapp/package.json \
-              webapp/pnpm-workspace.yaml \
-              webapp/tsconfig.json \
-              webapp/types/vite-env.d.ts \
-              webapp/packages/renderer/index.html \
-              webapp/packages/renderer/tsconfig.json \
-              webapp/packages/renderer/vite.config.mjs \
-              webapp/packages/renderer/types/shims-vue.d.ts \
-              webapp/packages/renderer/src/App.vue \
-              webapp/packages/renderer/src/components/Alas.vue \
-              webapp/packages/renderer/src/index.ts \
-              webapp/packages/renderer/src/router.ts
-            if [ -n "$(git diff --name-only --diff-filter=U)" ]; then
-              echo 'Unresolved upstream conflicts remain outside the protected UI files.'
-              git diff --name-only --diff-filter=U
-              exit 1
-            fi
-            git commit --no-edit
+
+          if git merge-base --is-ancestor azurpilot-upstream/master HEAD; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo 'AzurPilot upstream is already represented by the deployment branch.'
+            exit 0
           fi
+
+          # Never choose a conflict side globally. A conflict must stop publication
+          # so code and its tests cannot be combined from different implementations.
+          git merge --no-edit azurpilot-upstream/master
+          echo 'changed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Install uv
+        if: steps.merge.outputs.changed == 'true'
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        if: steps.merge.outputs.changed == 'true'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.14'
+
+      - name: Install validation dependencies
+        if: steps.merge.outputs.changed == 'true'
+        run: uv sync
+
+      - name: Validate merged WebUI lifecycle
+        if: steps.merge.outputs.changed == 'true'
+        run: |
+          uv run ruff check module/webui/process_manager.py --select F821
+          uv run python -m unittest \
+            tests.test_process_manager \
+            tests.test_webui_lifecycle \
+            tests.test_webui_worker_registry
+
+      - name: Publish validated deployment branch
+        if: steps.merge.outputs.changed == 'true'
+        run: |
           git push origin HEAD:master
