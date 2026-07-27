@@ -19,7 +19,6 @@ THEME_OPTIONS = [
     "light",
     "advanced_material",
     "dark_advanced_material",
-    "classic",
 ]
 REMOTE_ACCESS_MODE_OPTIONS = ["auto", "webrtc", "ssh"]
 TURN_CREDENTIAL_MODE_OPTIONS = ["static", "ephemeral"]

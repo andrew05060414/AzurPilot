@@ -448,7 +448,6 @@ def load_webui_styles(theme=None, is_mobile=None):
             "advanced-material-alas",
             "dark-advanced-material-overrides-alas",
         ),
-        "classic": ("light-alas", "classic-alas"),
     }
     styles.extend(theme_styles.get(theme, ("light-alas",)))
 
@@ -467,7 +466,6 @@ class Icon:
     """
 
     ALAS = _read(filepath_icon("alas"))
-    ALAS_CLASSIC = _read(filepath_icon("alas-classic"))
     SETTING = _read(filepath_icon("setting"))
     RUN = _read(filepath_icon("run"))
     DEVELOP = _read(filepath_icon("develop"))

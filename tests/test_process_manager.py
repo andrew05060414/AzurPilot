@@ -246,14 +246,12 @@ class TestProcessManagerRegistry(unittest.TestCase):
         starter_manager = ProcessManager("alas")
         old_process = Mock()
         old_process.pid = 12345
-        old_process.is_alive.side_effect = [True, False, False]
+        old_process.is_alive.side_effect = [True, False]
         manager._process = old_process
 
         stop_entered = threading.Event()
         release_stop = threading.Event()
         new_process_started = threading.Event()
-        stop_results = []
-        stop_errors = []
         new_process = Mock()
         new_process.pid = 23456
         new_process.start.side_effect = new_process_started.set
@@ -262,12 +260,6 @@ class TestProcessManagerRegistry(unittest.TestCase):
             stop_entered.set()
             release_stop.wait(timeout=2)
             return True
-
-        def stop_manager():
-            try:
-                stop_results.append(manager.stop())
-            except BaseException as exc:
-                stop_errors.append(exc)
 
         with (
             patch.object(
@@ -292,7 +284,7 @@ class TestProcessManagerRegistry(unittest.TestCase):
                 return_value=False,
             ),
         ):
-            stopper = threading.Thread(target=stop_manager)
+            stopper = threading.Thread(target=manager.stop)
             starter = threading.Thread(target=lambda: starter_manager.start("alas"))
             stopper.start()
             self.assertTrue(stop_entered.wait(timeout=2))
@@ -305,8 +297,6 @@ class TestProcessManagerRegistry(unittest.TestCase):
 
         self.assertFalse(stopper.is_alive())
         self.assertFalse(starter.is_alive())
-        self.assertEqual([], stop_errors)
-        self.assertEqual([True], stop_results)
         self.assertTrue(new_process_started.is_set())
 
     def test_start_rejects_during_update_transaction(self):

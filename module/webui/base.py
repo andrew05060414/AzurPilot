@@ -12,7 +12,6 @@ from pywebio.output import clear, put_html, put_scope, put_text, use_scope
 from pywebio.session import defer_call, info, run_js
 
 from module.webui.utils import Icon, WebIOTaskHandler, set_localstorage
-from module.webui.setting import State
 
 
 class Base:
@@ -107,7 +106,7 @@ class Frame(Base):
             "header",
             [
                 put_html(Icon.ALAS).style("--header-icon--"),
-                put_text("ALAS").style("--header-text--"),
+                put_text("港区OA").style("--header-text--"),
                 put_scope("header_status"),
                 put_scope("header_title"),
             ],
