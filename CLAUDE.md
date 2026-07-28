@@ -555,10 +555,10 @@ page_main.link(button=MAIN_GOTO_REWARD, destination=page_reward)
 - **MCP**：mcp、sse-starlette
 - **工具**：pyyaml、inflection、psutil、chardet、matplotlib、pycryptodome、watchdog、numba、lz4
 
-## Webapp（Electron）
-独立的前端在 `webapp/`——Vue 3 + Ant Design Vue + Electron。使用 pnpm、Vite、electron-builder。用 `pnpm lint` 检查，`pnpm typecheck` 类型检查，`pnpm test` 测试。
+## Webapp 静态资源
+当前个人分支的 `webapp/` 只保留 Python WebUI 读取的静态模板和图表脚本，不是桌面应用源码。必须保留的文件包括 `ap_chart.js`、`ap_chart_panel.html`、`copyable_device_id.html`、`muted_notice.html`、`recommendation_box.html`、`resource_chart.html`、`resource_chart.js`、`simple_table.html` 和 `title_block.html`。
 
-Monorepo 结构：`webapp/packages/main`（Electron 主进程）、`webapp/packages/preload`（预加载脚本）、`webapp/packages/renderer`（Vue 前端）。
+桌面 launcher 是独立的 Tauri 项目，源码在 `D:\模拟器\alas-launcher-repair`，正式 exe 在 `D:\模拟器\AzurPilot\alas-launcher.exe`。旧 Electron 的 `packages`、构建脚本、配置和 `app.asar` 不属于当前运行链，不能重新复制到生产目录；源码归属和部署流程见 `LOCAL_DEPLOYMENT_ARCHITECTURE.md`。
 
 ## CI
 GitHub Actions 使用 `uv sync --frozen` 和 `uv run`。运行：ruff lint、`button_extract.py`、`config_updater.py`（检查未提交的 diff）、Docker 发布、上游同步。
