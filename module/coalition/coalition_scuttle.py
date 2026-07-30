@@ -7,7 +7,6 @@ from module.combat.assets import (
     OPTS_INFO_D,
     EXP_INFO_D, EXP_INFO_A, EXP_INFO_B, EXP_INFO_S
 )
-from module.handler.assets import GET_MISSION
 from module.coalition.assets import *
 from module.coalition.combat import CoalitionCombat
 from module.coalition.coalition import Coalition
@@ -21,15 +20,18 @@ class CoalitionScuttleCombat(CoalitionCombat):
 
     triggered_normal_end = False
     _is_shipwreck = False  # 当前战斗是否为沉船D评价
+    _is_s_rank = False  # 当前战斗是否为S评价
 
     def auto_search_combat_execute(self, emotion_reduce=True, fleet_index=1, expected_end=None):
         """
-        重写自动搜索战斗执行，D评价沉船时不额外扣减10心情。
+        重写自动搜索战斗执行，联盟沉船不额外扣减心情。
 
-        进入战斗扣减2心情（正常出击代价），D评价不执行 shipwreck=True 的额外扣减。
+        联盟沉船中一个关卡包含多次战斗（1/2/3/4队），
+        但游戏只在整个关卡进入时扣1次2点心情，不按内部战斗次数扣减。
+        D评价也不执行 shipwreck=True 的额外扣减。
 
         Args:
-            emotion_reduce (bool): 是否扣减心情。
+            emotion_reduce (bool): 是否扣减心情（仅在第一场战斗时为True）。
             fleet_index (int): 舰队编号。
             expected_end (callable): 自定义结束条件。
         """
@@ -41,7 +43,8 @@ class CoalitionScuttleCombat(CoalitionCombat):
         self.device.stuck_record_clear()
         self.device.click_record_clear()
 
-        # 进入战斗扣减2心情（正常出击代价）
+        # 联盟沉船仅在第一场战斗时扣减2心情（关卡进入代价）
+        # 后续战斗（2/3/4队）不再扣减，与游戏服务端行为一致
         if emotion_reduce:
             self.emotion.reduce(fleet_index)
 
@@ -81,14 +84,15 @@ class CoalitionScuttleCombat(CoalitionCombat):
             if self.handle_get_ship():
                 continue
 
-            # D评价沉船：不执行 emotion.reduce(shipwreck=True)
+            # D评价沉船：不额外扣减心情
             if self.appear_then_click(OPTS_INFO_D, offset=(30, 30), interval=2):
                 self._withdraw = True
                 self._is_shipwreck = True
                 break
+            # D评价结算界面：S/A/B评价的动画过渡帧可能短暂误匹配D评价模板，
+            # 但只有真正的沉船才会出现OPTS_INFO_D弹窗。
+            # 此处不设置沉船标记（未经过OPTS_INFO_D确认），让后续S/A/B条件覆盖。
             if self.appear(BATTLE_STATUS_D) or self.appear(EXP_INFO_D):
-                self._withdraw = True
-                self._is_shipwreck = True
                 break
             if confirm_timer.reached():
                 self._withdraw = True
@@ -97,16 +101,16 @@ class CoalitionScuttleCombat(CoalitionCombat):
                 confirm_timer.reset()
                 break
 
-            # A/B评价正常扣减心情
+            # A/B/S评价：联盟沉船中不额外扣减心情
+            # 游戏服务端只在整个关卡进入时扣1次2点，不按战斗结算类型扣减
             if self.appear(BATTLE_STATUS_A) or self.appear(BATTLE_STATUS_B) \
                     or self.appear(EXP_INFO_A) or self.appear(EXP_INFO_B):
-                if emotion_reduce:
-                    self.emotion.reduce(fleet_index, shipwreck=True)
                 break
 
             # S评价或自动搜索运行中
             if self.appear(BATTLE_STATUS_S) or self.appear(EXP_INFO_S) \
-                    or self.appear(GET_MISSION) or self.is_auto_search_running():
+                    or self.is_auto_search_running():
+                self._is_s_rank = True
                 self.device.screenshot_interval_set()
                 break
 
@@ -117,21 +121,24 @@ class CoalitionScuttleCombat(CoalitionCombat):
 
     def coalition_combat(self):
         """
-        联盟沉船战斗执行，进入战斗扣减2心情，D评价不额外扣减。
+        联盟沉船战斗执行，仅在第一场战斗扣减2心情。
 
-        原因：沉船任务中舰船被击沉后需要换新船，不应扣减额外心情。
+        联盟沉船一个关卡包含多次战斗（1/2/3/4队），
+        但游戏只在整个关卡进入时扣1次2点心情，后续战斗不再扣减。
         """
         from module.exception import CampaignEnd
 
         self.battle_count = 0
-        self.combat_preparation(emotion_reduce=False)  # 不在此扣减，由 auto_search_combat_execute 统一扣减
+        self.combat_preparation(emotion_reduce=False)
 
         try:
             while 1:
                 logger.hr(f'{self.FUNCTION_NAME_BASE}{self.battle_count}', level=2)
-                self._is_shipwreck = False  # 重置沉船标记
+                self._is_shipwreck = False
+                self._is_s_rank = False
+                # 仅第一场战斗扣减2心情（关卡进入代价），后续战斗不再扣减
                 self.auto_search_combat_execute(
-                    emotion_reduce=True,  # 进入战斗扣减2心情
+                    emotion_reduce=self.battle_count == 0,
                     fleet_index=1,
                     expected_end=self.auto_search_combat_end
                 )
@@ -247,7 +254,7 @@ class CoalitionScuttleCombat(CoalitionCombat):
 
 
 class CoalitionScuttleRun(Coalition, CoalitionScuttleCombat):
-    """联盟沉船主循环，沉船任务不扣减心情。"""
+    """联盟沉船主循环，沉船任务进入关卡只扣1次2点心情。"""
 
     def handle_combat_low_emotion(self):
         """
@@ -257,15 +264,53 @@ class CoalitionScuttleRun(Coalition, CoalitionScuttleCombat):
         """
         return self.handle_popup_confirm('IGNORE_LOW_EMOTION')
 
+    def coalition_execute_once(self, event, stage, fleet):
+        """执行一次联盟沉船战斗。
+
+        覆盖父类方法，将心情预估从多场战斗改为1场（整个关卡只扣1次2点）。
+        联盟沉船虽然内部有多次战斗（1/2/3/4队），但游戏只在整个关卡进入时扣1次心情。
+
+        Args:
+            event: 活动名称。
+            stage: 关卡名称。
+            fleet: 舰队模式。
+        """
+        self.config.override(
+            Campaign_Name=f'{event}_{stage}',
+            Campaign_UseAutoSearch=False,
+            Fleet_FleetOrder='fleet1_all_fleet2_standby',
+        )
+        if self.config.Coalition_Fleet == 'single' and self.config.Emotion_Fleet1Control == 'prevent_red_face':
+            logger.warning('AL does not allow single coalition with emotion < 30, '
+                           'emotion control is forced to prevent_yellow_face')
+            self.config.override(Emotion_Fleet1Control='prevent_yellow_face')
+        if stage == 'sp':
+            self.config.override(Coalition_Fleet='multi')
+
+        # 联盟沉船：整个关卡只扣1次2点心情，不按内部战斗次数预估
+        try:
+            self.emotion.check_reduce(battle=1)
+        except ScriptEnd:
+            self.coalition_map_exit(event)
+            raise
+
+        if self._coalition_has_oil_icon and self.triggered_stop_condition(oil_check=True, coin_check=True):
+            self.coalition_map_exit(event)
+            raise ScriptEnd
+
+        self.enter_map(event=event, stage=stage, mode=fleet)
+        self.coalition_combat()
+
     def triggered_stop_condition(self, oil_check=False, pt_check=False, coin_check=False):
         """
-        检查是否触发了停止条件，在父类基础上增加沉船正常结束检测。
+        检查是否触发了停止条件。
+
+        联盟沉船不因 triggered_normal_end（舰船被击沉）而停止任务，
+        由 RunCount 控制何时停止。D评价和非D评价都算1次有效战斗。
 
         Returns:
             bool: 是否触发了停止条件。
         """
-        if self.triggered_normal_end:
-            return True
         if super().triggered_stop_condition(oil_check=oil_check, pt_check=pt_check, coin_check=coin_check):
             return True
 
@@ -342,10 +387,10 @@ class CoalitionScuttleRun(Coalition, CoalitionScuttleCombat):
             if self.config.StopCondition_RunCount:
                 self.config.StopCondition_RunCount -= 1
 
-            # SP关卡非D评价（沉船）：视为已通过，延迟至服务器刷新
-            # D评价视为未通过，继续出击
-            if mode == 'sp' and self.triggered_normal_end and not self._is_shipwreck:
-                logger.info('SP以非D评价通过')
+            # SP关卡仅S评价视为已通过，延迟至服务器刷新
+            # A/B/C/D评价均视为未通过，继续出击
+            if mode == 'sp' and self._is_s_rank and not self._is_shipwreck:
+                logger.info('SP以S评价通过')
                 self.config.task_delay(server_update=True)
                 self.config.task_stop()
 

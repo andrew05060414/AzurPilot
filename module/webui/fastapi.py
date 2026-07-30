@@ -5,6 +5,7 @@ Copy from pywebio.platform.fastapi
 import asyncio
 import logging
 import os
+from collections.abc import Mapping
 from typing import Any, cast
 
 import uvicorn
@@ -21,6 +22,7 @@ from pywebio.platform.fastapi import (
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.responses import PlainTextResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
@@ -33,11 +35,27 @@ Disallow: /
 
 logger = logging.getLogger(__name__)
 
+STATIC_ASSET_CACHE_CONTROL = "no-cache"
+NO_CACHE_CONTROL = "no-cache"
+HTTP_GZIP_MINIMUM_SIZE = 1024
+HTTP_GZIP_COMPRESS_LEVEL = 5
+
 
 class HeaderMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
-        response.headers["Cache-Control"] = "no-cache"
+        path = request.url.path
+        is_static_asset = path.startswith("/static/assets/") or path.startswith(
+            "/pywebio_static/"
+        )
+        is_cacheable_response = (
+            200 <= response.status_code < 300 or response.status_code == 304
+        )
+        if request.method in {"GET", "HEAD"} and is_static_asset and is_cacheable_response:
+            # 部分静态资源没有内容哈希，必须在每次使用前重新验证。
+            response.headers["Cache-Control"] = STATIC_ASSET_CACHE_CONTROL
+        else:
+            response.headers["Cache-Control"] = NO_CACHE_CONTROL
         response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
         return response
 
@@ -99,11 +117,12 @@ def patch_pywebio_websocket_connection():
 
 def asgi_app(
     applications,
-    cdn: str | bool = True,
+    cdn: str | bool = False,
     static_dir=None,
     debug: bool = False,
     allowed_origins=None,
     check_origin=None,
+    static_mounts: Mapping[str, str] | None = None,
     **starlette_settings,
 ):
     debug = bool(os.environ.get("PYWEBIO_DEBUG", debug))
@@ -120,6 +139,9 @@ def asgi_app(
         check_origin=check_origin,
     )
     routes.insert(0, Route("/robots.txt", robots_txt, methods=["GET", "HEAD"]))
+    if static_mounts:
+        for mount_path, directory in static_mounts.items():
+            routes.append(Mount(mount_path, app=StaticFiles(directory=directory)))
     if static_dir:
         routes.append(
             Mount("/static", app=StaticFiles(directory=static_dir), name="static")
@@ -141,7 +163,15 @@ def asgi_app(
 
         logging.getLogger(__name__).error(f"Failed to load api routes: {e}")
 
-    middleware = [Middleware(HeaderMiddleware)]
+    middleware = [
+        # 仅处理 HTTP 响应；WebSocket 不经过该中间件，Starlette 也会跳过 SSE。
+        Middleware(
+            GZipMiddleware,
+            minimum_size=HTTP_GZIP_MINIMUM_SIZE,
+            compresslevel=HTTP_GZIP_COMPRESS_LEVEL,
+        ),
+        Middleware(HeaderMiddleware),
+    ]
     return Starlette(
         routes=routes, middleware=middleware, debug=debug, **starlette_settings
     )
@@ -151,13 +181,14 @@ def start_server(
     applications,
     port=0,
     host="",
-    cdn: str | bool = True,
+    cdn: str | bool = False,
     static_dir=None,
     remote_access=False,
     debug=False,
     allowed_origins=None,
     check_origin=None,
     auto_open_webbrowser=False,
+    static_mounts: Mapping[str, str] | None = None,
     **uvicorn_settings,
 ):
 
@@ -165,6 +196,7 @@ def start_server(
         applications,
         cdn=cdn,
         static_dir=static_dir,
+        static_mounts=static_mounts,
         debug=debug,
         allowed_origins=allowed_origins,
         check_origin=check_origin,
