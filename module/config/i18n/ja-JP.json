@@ -878,6 +878,16 @@
       "goto_main": "メイン画面に移動",
       "close_game": "ゲームを閉じる",
       "close_emulator": "エミュレーターを閉じる"
+    },
+    "PauseOnUserInput": {
+      "name": "Optimization.PauseOnUserInput.name",
+      "help": "Optimization.PauseOnUserInput.help",
+      "True": "True",
+      "False": "False"
+    },
+    "UserInputIdleTimeout": {
+      "name": "Optimization.UserInputIdleTimeout.name",
+      "help": "Optimization.UserInputIdleTimeout.help"
     }
   },
   "DropRecord": {

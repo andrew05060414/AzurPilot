@@ -878,6 +878,16 @@
       "goto_main": "前往主界面",
       "close_game": "关闭游戏",
       "close_emulator": "关闭模拟器"
+    },
+    "PauseOnUserInput": {
+      "name": "Optimization.PauseOnUserInput.name",
+      "help": "Optimization.PauseOnUserInput.help",
+      "True": "True",
+      "False": "False"
+    },
+    "UserInputIdleTimeout": {
+      "name": "Optimization.UserInputIdleTimeout.name",
+      "help": "Optimization.UserInputIdleTimeout.help"
     }
   },
   "DropRecord": {

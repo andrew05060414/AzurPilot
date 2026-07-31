@@ -878,6 +878,16 @@
       "goto_main": "回主界面喵",
       "close_game": "关闭游戏喵",
       "close_emulator": "关闭模拟器喵"
+    },
+    "PauseOnUserInput": {
+      "name": "Optimization.PauseOnUserInput.name",
+      "help": "Optimization.PauseOnUserInput.help",
+      "True": "True",
+      "False": "False"
+    },
+    "UserInputIdleTimeout": {
+      "name": "Optimization.UserInputIdleTimeout.name",
+      "help": "Optimization.UserInputIdleTimeout.help"
     }
   },
   "DropRecord": {

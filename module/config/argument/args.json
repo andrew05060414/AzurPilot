@@ -650,6 +650,22 @@
           "close_game",
           "close_emulator"
         ]
+      },
+      "PauseOnUserInput": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "UserInputIdleTimeout": {
+        "type": "input",
+        "value": 30,
+        "validate": [
+          1,
+          300
+        ]
       }
     },
     "DropRecord": {

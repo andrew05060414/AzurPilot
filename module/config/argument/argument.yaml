@@ -247,6 +247,13 @@ Optimization:
   WhenSchedulerStopped:
     value: stay_there
     option: [stay_there, goto_main, close_game, close_emulator]
+  PauseOnUserInput:
+    type: checkbox
+    value: true
+    option: [true, false]
+  UserInputIdleTimeout:
+    value: 30
+    validate: [1, 300]
 DropRecord:
   SaveFolder: ./screenshots
   AzurStatsID: null

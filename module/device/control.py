@@ -234,6 +234,7 @@ class Control(Hermit, Minitouch, Scrcpy, MaaTouch, NemuIpc):
             p2 (tuple): 终点坐标 (x, y)。
             hold_time (int, float, tuple): 在终点保持的时间（秒）。
         """
+        self.handle_control_check('ISLAND_SWIPE_HOLD')
         p1, p2 = ensure_int(p1, p2)
         hold_time = ensure_time(hold_time)
         method = self.config.Emulator_ControlMethod
