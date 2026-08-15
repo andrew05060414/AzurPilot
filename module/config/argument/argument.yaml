@@ -88,6 +88,9 @@ Restart:
     type: checkbox
     value: false
     option: [true, false]
+  LoginWaitTimeout:
+    value: 30
+    validate: [1, 3600]
 Emulator:
   Serial:
     value: auto
@@ -212,34 +215,16 @@ Optimization:
     option: [true, false]
   OcrModelVersionEnglish:
     value: auto
-    option:
-      [
-        auto,
-        alocr_en_900k,
-        azur_lane_v6_6,
-        azur_lane_v6_5,
-        ppocr_v6,
-        alocr_en_v2_6,
-        alocr_en_v2_0,
-        alocr_en_v1_0,
-      ]
+    option: [auto, lite, standard, pro, alocr_en_v2_6]
   OcrModelVersionChinese:
     value: auto
-    option:
-      [
-        auto,
-        cn_v6_1,
-        cn_v6,
-        ppocr_v6,
-        alocr_cn_v3,
-        alocr_cn_v2_5,
-      ]
+    option: [auto, lite, standard, pro, alocr_cn_v3]
   OcrModelVersionJapanese:
     value: auto
-    option: [auto, azur_lane_jp_v6, ppocr_v6]
+    option: [auto, lite, standard, pro]
   OcrModelVersionTraditionalChinese:
     value: auto
-    option: [auto, ppocr_v6]
+    option: [auto, lite, standard, pro]
   ScreenshotInterval: 0.3
   CombatScreenshotInterval: 1.0
   TaskHoardingDuration: 0
@@ -545,6 +530,10 @@ GemsFarming:
   AllowLowVanguardLevel: false
   DelayTaskIFNoFlagship: false
   CommissionLimit: false
+  HighValueCommissionFilterCount:
+    type: input
+    value: 32
+  HighValueCommissionReserve: 2
   VanguardLevelMin:
     value: 1
     validate: [1, 125]
@@ -630,7 +619,22 @@ Commission:
       - chip_24h
       - oil
       - custom
-  AddShortest: True
+  DynamicProgramming: true
+  TierValueRatio:
+    type: input
+    value: 2.0
+  DelayHalfLife:
+    type: input
+    value: 100.0
+  DeadlineFutureHorizon:
+    type: input
+    value: 0.5
+  FilterValueFloor:
+    type: input
+    value: 0.6
+  FilterValueHalfLife:
+    type: input
+    value: 4.0
   CustomFilter: |-
     DailyEvent > Gem-4 > Gem-2 > Gem-8 > ExtraCube-0:30
     > UrgentCube-1:30 > UrgentCube-1:45 > UrgentCube-3
@@ -638,7 +642,6 @@ Commission:
     > UrgentCube-2:15 > UrgentCube-4
     > ExtraDrill-1 > UrgentCube-6 > ExtraCube-1:30
     > ExtraDrill-2:40 > ExtraDrill-0:20
-    > expire
     > Major > DailyChip > DailyResource
     > ExtraPart-0:30 > ExtraOil-1 > UrgentBox-6
     > ExtraCube-3 > ExtraPart-1 > UrgentBox-3
@@ -649,6 +652,9 @@ Commission:
     > UrgentDrill-1 > UrgentDrill-1:30 > UrgentDrill-1:10
     > Extra-0:20 > Extra-0:30 > Extra-1:00 > Extra-1:30 > Extra-2:00
     > shortest
+  Blacklist:
+    type: textarea
+    value: ""
   DoMajorCommission: false
   CommissionNotifyReward:
     type: checkbox
@@ -1097,7 +1103,6 @@ OpsiMeowfficerFarming:
   TargetZone:
     value: 0
   StayInZone: false
-  APPreserveUntilReset: false
 OpsiTarget:
   TargetFarming: false
   TargetZone:
@@ -1181,6 +1186,16 @@ OpsiScheduling:
   TaskPriority:
     type: textarea
     value: OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming
+  MonthEndActionPointCleanupEnable:
+    value: false
+    option: [true, false]
+  MonthEndActionPointCleanupDays:
+    value: 0
+  MonthEndActionPointPreserve:
+    value: 0
+  MonthEndShopPurchase:
+    value: true
+    option: [true, false]
 OpsiPreventActionPointOverflow:
   Task:
     value: OpsiScheduling
@@ -1231,7 +1246,11 @@ IslandNursery:
     option: [ 0, 1, 2 ]
 IslandRancher:
   MinChicken: 300
+  ChickenFilter: |-
+    WorkerJuu
   MinPork: 300
+  PigFilter: |-
+    WorkerJuu
   Milk: true
   RancherFilter: |-
     WorkerJuu
@@ -1302,48 +1321,48 @@ IslandRestaurant:
   DoubleBambooShoots: false
   Meal1:
     value: tofu_meat
-    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish]
+    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish, matsutake_chicken_soup, persimmon_cake]
   MealNumber1:
     value: 7
   Meal2:
     value: hearty_meal
-    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish]
+    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish, matsutake_chicken_soup, persimmon_cake]
   MealNumber2:
     value: 7
   Meal3:
     value: omurice
-    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish]
+    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish, matsutake_chicken_soup, persimmon_cake]
   MealNumber3:
     value: 7
   Meal4:
     value: None
-    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish]
+    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish, matsutake_chicken_soup, persimmon_cake]
   MealNumber4:
     value: 0
   Meal5:
     value: None
-    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish]
+    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish, matsutake_chicken_soup, persimmon_cake]
   MealNumber5:
     value: 0
   Meal6:
     value: None
-    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish]
+    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish, matsutake_chicken_soup, persimmon_cake]
   MealNumber6:
     value: 0
   Meal7:
     value: None
-    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish]
+    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish, matsutake_chicken_soup, persimmon_cake]
   MealNumber7:
     value: 0
   Meal8:
     value: None
-    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish]
+    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish, matsutake_chicken_soup, persimmon_cake]
   MealNumber8:
     value: 0
 IslandRestaurantNextTask:
   AwayCook:
     value: None
-    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish]
+    option: [ None, tofu, omurice, cabbage_tofu, salad, tofu_meat, tofu_combo, hearty_meal , double_bamboo_shoots, asparagus_shrimp, fish_chip, fo_tiao, onion_fish, matsutake_chicken_soup, persimmon_cake]
 IslandTeahouse:
   PostNumber:
     value: 2
@@ -1353,48 +1372,48 @@ IslandTeahouse:
   Seasonal: false
   Meal1:
     value: floral_fruity
-    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea]
+    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea, chrysanthemum_tea, carrot_pear_juice]
   MealNumber1:
     value: 7
   Meal2:
     value: lavender_tea
-    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea]
+    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea, chrysanthemum_tea, carrot_pear_juice]
   MealNumber2:
     value: 7
   Meal3:
     value: strawberry_lemon
-    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea]
+    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea, chrysanthemum_tea, carrot_pear_juice]
   MealNumber3:
     value: 7
   Meal4:
     value: None
-    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea]
+    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea, chrysanthemum_tea, carrot_pear_juice]
   MealNumber4:
     value: 0
   Meal5:
     value: None
-    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea]
+    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea, chrysanthemum_tea, carrot_pear_juice]
   MealNumber5:
     value: 0
   Meal6:
     value: None
-    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea]
+    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea, chrysanthemum_tea, carrot_pear_juice]
   MealNumber6:
     value: 0
   Meal7:
     value: None
-    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea]
+    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea, chrysanthemum_tea, carrot_pear_juice]
   MealNumber7:
     value: 0
   Meal8:
     value: None
-    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea]
+    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea, chrysanthemum_tea, carrot_pear_juice]
   MealNumber8:
     value: 0
 IslandTeahouseNextTask:
   AwayCook:
     value: None
-    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea]
+    option: [ None, apple_juice, banana_mango, honey_lemon, strawberry_lemon, strawberry_honey, floral_fruity, fruit_paradise, lavender_tea, sunny_honey, spring_flower_tea, chrysanthemum_tea, carrot_pear_juice]
 IslandGrill:
   PostNumber:
     value: 1
@@ -1651,6 +1670,11 @@ _IslandBusinessChar: &IslandBusinessChar
     - OceanCrosser
     - FeiYun
     - Takao
+    - Anchorage
+    - Belfast
+    - ChangFeng
+    - Mogador
+    - RoyalFortune
 
 _IslandBusinessProduct1: &IslandBusinessProduct1
   type: select
@@ -1663,6 +1687,8 @@ _IslandBusinessProduct1: &IslandBusinessProduct1
     - hearty_meal
     - fo_tiao
     - amaranth_rice_ball
+    - matsutake_chicken_soup
+    - persimmon_cake
 
 _IslandBusinessProduct2: &IslandBusinessProduct2
   type: select
@@ -1677,6 +1703,8 @@ _IslandBusinessProduct2: &IslandBusinessProduct2
     - lavender_tea
     - sunny_honey
     - watermelon_juice
+    - chrysanthemum_tea
+    - carrot_pear_juice
 
 _IslandBusinessProduct3: &IslandBusinessProduct3
   type: select
@@ -1707,6 +1735,7 @@ _IslandBusinessProduct5: &IslandBusinessProduct5
   option:
     - None
     - cheese
+    - citrus_coffee
     - strawberry_milkshake
     - morning_light
     - wake_up_call
@@ -1738,6 +1767,8 @@ IslandBusinessShop1:
       - hearty_meal
       - fo_tiao
       - amaranth_rice_ball
+      - matsutake_chicken_soup
+      - persimmon_cake
   BoostReplaceFilter:
     value: |-
       30 > 20 > 10
@@ -1757,6 +1788,21 @@ IslandBusinessShop2:
     <<: *IslandBusinessProduct2
   Product5:
     <<: *IslandBusinessProduct2
+  SeasonalFallback:
+    type: select
+    value: sunny_honey
+    option:
+      - None
+      - spring_flower_tea
+      - strawberry_lemon
+      - strawberry_honey
+      - floral_fruity
+      - fruit_paradise
+      - lavender_tea
+      - sunny_honey
+      - watermelon_juice
+      - chrysanthemum_tea
+      - carrot_pear_juice
   BoostReplaceFilter:
     value: |-
       30 > 20 > strawberry_honey > fruit_paradise > 10
@@ -1817,6 +1863,18 @@ IslandBusinessShop5:
   BoostReplaceFilter:
     value: |-
       30 > 20 > cheese > 10
+
+# ==================== Fleet Management ====================
+
+FleetInfo:
+  Result:
+    type: stored
+    value: {}
+    display: hide
+  Record:
+    type: stored
+    value: 2020-01-01 00:00:00
+    display: hide
 
 # ==================== Tools ====================
 

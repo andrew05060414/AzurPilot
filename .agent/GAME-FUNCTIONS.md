@@ -53,11 +53,11 @@ alwaysApply: true
 |------|---------|--------|---------|--------|
 | research | 3336 | `RewardResearch` | 科研项目管理、队列调度 | 高 |
 | commission | 1513 | `RewardCommission` | 委托识别、选择、执行 | 高 |
-| tactical | 851 | `RewardTacticalClass` | 战术学院教材选择、技能学习 | 中 |
+| tactical | 722 | `RewardTacticalClass` | 战术学院教材选择、技能学习 | 中 |
 | dorm | 897 | `RewardDorm` | 宿舍喂食、收集、家具购买 | 中 |
 | meowfficer | 1494 | `RewardMeowfficer` | 指挥喵购买、训练、强化 | 中 |
 | guild | 1437 | `GuildLobby` | 大舰队奖励、后勤、作战 | 中 |
-| shop | 2222 | `GeneralShop` | 通用商店、勋章商店等 | 高 |
+| shop | 2222 | `GeneralShop_250814` | 通用商店、勋章商店等 | 高 |
 | shop_event | 1105 | `ShopEvent` | 活动商店购买 | 中 |
 | reward | 326 | `Reward` | 基础奖励收取 | 低 |
 | exercise | 789 | `Exercise` | 演习 PvP 战斗 | 中 |
@@ -80,8 +80,13 @@ alwaysApply: true
 | retire | 2478 | `Retirement` | 舰船退役、强化 | 高 |
 | equipment | 842 | `Equipment` | 装备管理、更换 | 中 |
 | meta_reward | 349 | `MetaReward` | META 奖励收取 | 低 |
+| auto_equip | 88 | `AutoEquip` | 自动配装 | 低 |
+| storage | 331 | `StorageHandler` | 仓库管理、箱子拆解 | 中 |
+| game_setting | 227 | `GameSetting` | 游戏内设置（player_prefs） | 低 |
+| template | 8 | - | 模板匹配资源（assets.py） | 低 |
+| combat_ui | 41 | - | 战斗 UI 资源（35 个主题按钮） | 低 |
 
-**总计**: 约 28,000 行代码
+**总计**: 约 28,000 行代码（28 个主模块 + 5 个辅助模块）
 
 ---
 
@@ -200,13 +205,13 @@ def _commission_detect(self, image):
     return SelectedGrids(commission)
 ```
 
-**2. 委托选择 (`commission.py:L116-L217`)**
+**2. 委托选择 (`commission.py`)**
 ```python
 def _commission_choose(self, daily, urgent):
-    """根据过滤器选择最优委托"""
-    COMMISSION_FILTER.load(string)
-    run = COMMISSION_FILTER.apply(total.grids, func=self._commission_check)
-    return daily_choose, urgent_choose
+    """默认使用传统贪心策略，按实验开关分派有证书的多项式规划器"""
+    if self.config.Commission_DynamicProgramming:
+        return self._commission_choose_dynamic(daily, urgent)
+    return self._commission_choose_legacy(daily, urgent)
 ```
 
 **3. 委托执行 (`commission.py:L356-L436`)**
@@ -223,7 +228,11 @@ def _commission_start_click(self, comm, is_urgent=False):
 
 #### 特殊处理
 - **夜间委托转换**: 自动将紧急委托转换为夜间委托格式
-- **过期委托优先**: 优先处理即将过期的重要委托
+- **传统贪心策略（默认）**: 严格按过滤器顺序选择，并用最短委托补足空槽
+- **有限层级价值**: `tier` 分隔价值层级；未填写时每条规则为独立层级。相邻层级使用有限倍率，层内编号使用有下限的价值修正
+- **统一启动时间折现**: 所有委托统一使用 `f(s,d)=(1-s/d)^((T/d)^2)×2^(-s/H)`；没有游戏内 deadline 的委托以本轮服务器刷新剩余时间作为 `d`，预计启动达到 deadline 时不可行。立即启动价值不变
+- **有证书的多项式规划（实验性）**: 开启 `Commission.DynamicProgramming` 后，综合运行槽位、委托时长、可启动截止时间和服务器刷新边界；所有折现因子先按 `10^9` 缩放舍入，调度目标只做整数比较。求解器每层保留至多 `max(128, min(n², 16n))=O(n)` 个状态，状态数为 `O(n²)`，当前实现的最坏时间为 `O(n⁴)`、内存为 `O(n³)`，不会退化成指数枚举
+- **最优性证书**: 每个被束宽裁剪的状态都保留严格乐观上界。最终计划达到所有被裁剪分支的上界时标记为“已证明全局最优”；否则输出全局最优值上界和最大可能价值差距，不把近似结果冒充精确结果
 - **委托收入记录**: 记录委托奖励到数据库
 
 ---
@@ -237,7 +246,7 @@ def _commission_start_click(self, comm, is_urgent=False):
 
 | 文件 | 行数 | 导出类型 | 主要职责 |
 |------|------|---------|---------|
-| `tactical_class.py` | 851 | `RewardTacticalClass` | 战术学院主类 |
+| `tactical_class.py` | 722 | `RewardTacticalClass` | 战术学院主类 |
 | `assets.py` | ~100 | - | 按钮和模板资源 |
 
 #### 核心功能
@@ -416,11 +425,11 @@ def guild_lobby_get_report(self):
 | 文件 | 行数 | 导出类型 | 主要职责 |
 |------|------|---------|---------|
 | `shop_general.py` | 160 | `GeneralShop_250814` | 通用商店 |
-| `shop_medal.py` | ~150 | `MedalShop` | 勋章商店 |
+| `shop_medal.py` | ~150 | `MedalShop2_250814` | 勋章商店 |
 | `shop_merit.py` | ~150 | `MeritShop` | 功勋商店 |
 | `shop_guild.py` | ~150 | `GuildShop` | 舰队商店 |
 | `shop_voucher.py` | ~150 | `VoucherShop` | 凭证商店 |
-| `shop_core.py` | ~150 | `CoreShop` | 核心商店 |
+| `shop_core.py` | ~150 | `CoreShop_250814` | 核心商店 |
 | `shop_reward.py` | ~150 | `RewardShop` | 奖励商店 |
 | `shop_status.py` | ~100 | `ShopStatus` | 商店状态检测 |
 | `clerk.py` | ~200 | `ShopClerk` | 购买逻辑 |
@@ -890,8 +899,15 @@ def get_event_pt(self):
 | `island_shop_base.py` | `IslandShopBase` | 餐饮商店生产流程基类 |
 | `island_business.py` / `island_cargo_preparation.py` | 各业务任务类 | 商业区经营与货运准备 |
 | `island_daily_gather.py` / `island_daily_order.py` / `island_daily_interact.py` | 各每日任务类 | 岛屿每日活动 |
+| `island_air_drop.py` / `island_manufacture.py` / `island_pearl_sell.py` | 各任务类 | 空投、制造、珍珠出售 |
+| `island_fishery.py` / `island_grill.py` | 各任务类 | 渔业、烧烤 |
+| `island_teahouse.py` / `island_juu_coffee.py` / `island_juu_eatery.py` | 各餐饮任务类 | 茶室、啾咖啡、啾食堂 |
+| `island_restaurant.py` | `IslandRestaurant` | 餐厅经营 |
+| `island_select_character.py` / `island_season.py` | 各任务类 | 角色选择、赛季任务 |
 | `ui.py` / `warehouse.py` | `IslandUI` / `WarehouseOCR` | 页面导航和仓库数量识别 |
 | `assets.py` | - | 自动生成的按钮和模板资源 |
+
+> 完整文件清单：`module/island/` 下共 25 个 py 文件，alas.py 中对应 18 个独立任务方法（`island` + `island_*`）。
 
 ---
 

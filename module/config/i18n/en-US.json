@@ -32,6 +32,10 @@
       "name": "Island Plan",
       "help": ""
     },
+    "FleetManagement": {
+      "name": "Fleet Management",
+      "help": ""
+    },
     "Tool": {
       "name": "Tools Plus",
       "help": ""
@@ -362,6 +366,14 @@
       "name": "Weekly Pearl Trade",
       "help": "Only supports minitouch. Process pearls every Tuesday at 01:00."
     },
+    "FleetScan": {
+      "name": "Fleet Scan",
+      "help": "Scan ships assigned to fleets"
+    },
+    "FleetInfo": {
+      "name": "Fleet Information",
+      "help": "View the latest fleet scan result"
+    },
     "Daemon": {
       "name": "Semi-Auto Click",
       "help": ""
@@ -461,6 +473,10 @@
       "help": "When restarting the game client, delete external cache files under /sdcard/Android/data/<package>/cache/ after force-stopping the app.",
       "True": "Enabled",
       "False": "Disabled"
+    },
+    "LoginWaitTimeout": {
+      "name": "Login wait timeout",
+      "help": "Maximum time (seconds) to wait for login/startup to complete after the game restarts.\nIncrease this if the game starts slowly when the emulator runs in the background, to avoid false stuck detection and restart loops.\nDefault 30 seconds; only affects the post-restart login wait phase."
     }
   },
   "Emulator": {
@@ -555,6 +571,7 @@
       "en-3": "[EN] Washington",
       "en-4": "[EN] Amagi",
       "en-5": "[EN] Little Enterprise",
+      "en-6": "[EN] Belfast",
       "jp-0": "[JP] ブレスト",
       "jp-1": "[JP] 横須賀",
       "jp-2": "[JP] 佐世保",
@@ -572,7 +589,12 @@
       "jp-14": "[JP] キール",
       "jp-15": "[JP] 若松",
       "jp-16": "[JP] オデッサ",
-      "jp-17": "[JP] スイートバン"
+      "jp-17": "[JP] スイートバン",
+      "tw-0": "[TW] 珍珠港",
+      "tw-1": "[TW] 珊瑚海",
+      "tw-2": "[TW] 中途島",
+      "tw-3": "[TW] 瓜達康納爾",
+      "tw-4": "[TW] 雷伊泰灣"
     },
     "ScreenshotMethod": {
       "name": "Select Screenshot Method",
@@ -772,38 +794,37 @@
     },
     "OcrModelVersionEnglish": {
       "name": "OCR English Model Version",
-      "help": "Choose the English OCR model version. Auto uses the recommended English AlOCR v2.6 model. This affects the English Azur Lane model; ncnn ignores this setting.",
+      "help": "Choose the English OCR model tier. Lite is lightest and fastest, Standard is balanced, Pro is highest accuracy. Auto uses Standard. alocr_en_v2_6 is the legacy AlOCR English model (ONNX backend only). This affects the English Azur Lane model.",
       "auto": "Auto Recommended",
-      "alocr_en_900k": "alocr_en_900k",
-      "azur_lane_v6_6": "English v6.6 (Azur Lane)",
-      "azur_lane_v6_5": "English v6.5 (Azur Lane)",
-      "ppocr_v6": "Generic PP-OCRv6",
-      "alocr_en_v2_6": "English AlOCR v2.6",
-      "alocr_en_v2_0": "English AlOCR v2.0",
-      "alocr_en_v1_0": "English AlOCR v1.0"
+      "lite": "Lite",
+      "standard": "Standard",
+      "pro": "Pro",
+      "alocr_en_v2_6": "AlOCR v2.6 (Legacy)"
     },
     "OcrModelVersionChinese": {
       "name": "OCR Chinese Model Version",
-      "help": "Choose the Simplified Chinese OCR model version. Auto uses the recommended Chinese v6.1 model. This affects cnocr/Chinese models; ncnn ignores this setting.",
+      "help": "Choose the Simplified Chinese OCR model tier. Lite is lightest and fastest, Standard is balanced, Pro is highest accuracy. Auto uses Standard. alocr_cn_v3 is the legacy AlOCR Chinese model (ONNX backend only). This affects cnocr/Chinese models.",
       "auto": "Auto Recommended",
-      "cn_v6_1": "Chinese v6.1",
-      "cn_v6": "Chinese v6",
-      "ppocr_v6": "Generic PP-OCRv6",
-      "alocr_cn_v3": "Chinese AlOCR v3",
-      "alocr_cn_v2_5": "Chinese AlOCR v2.5"
+      "lite": "Lite",
+      "standard": "Standard",
+      "pro": "Pro",
+      "alocr_cn_v3": "AlOCR v3 (Legacy)"
     },
     "OcrModelVersionJapanese": {
       "name": "OCR Japanese Model Version",
-      "help": "Choose the Japanese OCR model version. Auto uses the Japanese Azur Lane v6 model. This affects Japanese models; ncnn ignores this setting.",
+      "help": "Choose the Japanese OCR model tier. Lite is lightest and fastest but does not support Japanese, Standard is balanced, Pro is highest accuracy. Auto uses Standard. This affects Japanese models.",
       "auto": "Auto Recommended",
-      "azur_lane_jp_v6": "Japanese v6 (Azur Lane JP)",
-      "ppocr_v6": "Generic PP-OCRv6"
+      "lite": "Lite",
+      "standard": "Standard",
+      "pro": "Pro"
     },
     "OcrModelVersionTraditionalChinese": {
       "name": "OCR Traditional Chinese Model Version",
-      "help": "Choose the Traditional Chinese OCR model version. Currently only the generic PP-OCRv6 model is available; this separate setting is kept for future models. ncnn ignores this setting.",
+      "help": "Choose the Traditional Chinese OCR model tier. Lite is lightest and fastest, Standard is balanced, Pro is highest accuracy. Auto uses Standard.",
       "auto": "Auto Recommended",
-      "ppocr_v6": "Generic PP-OCRv6"
+      "lite": "Lite",
+      "standard": "Standard",
+      "pro": "Pro"
     },
     "ScreenshotInterval": {
       "name": "Slow Down Screenshot Speed to X Seconds per Frame",
@@ -1160,6 +1181,7 @@
       "event_20260417_cn": "Vacation Lane – Beachside Brilliance",
       "event_20260520_cn": "Alliance Before the Hagiobull",
       "event_20260625_cn": "Miracle by Midnight",
+      "event_20260813_cn": "沉溺于星光之城",
       "raid_20200624": "Air Raid Drills with Essex Rerun",
       "raid_20210708": "Cross Wave rerun",
       "raid_20220127": "Mystery Investigation",
@@ -1705,7 +1727,15 @@
     },
     "CommissionLimit": {
       "name": "Prevent Too Many Urgent Commissions",
-      "help": "To prevent the number of emergency orders from being too large and unable to complete daily orders when running 7x24, it is recommended to select only short-term high-yield orders in the order filter."
+      "help": "When enabled, commission scheduling reserves high-value commissions according to the following settings and delays urgent-commission farming when the reserve threshold is reached."
+    },
+    "HighValueCommissionFilterCount": {
+      "name": "High-Value Commission Filter Count",
+      "help": "Treat the first X regular rules in the active commission filter as high-value rules. Control markers such as tier and shortest are not counted."
+    },
+    "HighValueCommissionReserve": {
+      "name": "High-Value Commission Reserve",
+      "help": "After starting commissions, delay urgent-commission farming when the number of pending commissions matching high-value rules reaches this value."
     },
     "VanguardLevelMin": {
       "name": "Vanguard Minimum Level",
@@ -1926,13 +1956,37 @@
       "oil": "Diamond > Oil > Cubes",
       "custom": "Customize"
     },
-    "AddShortest": {
-      "name": "Automatically choose the shortest daily commission",
-      "help": "Automatically accept the shortest daily commission, excluding urgent commissions. Has lower priority than the commission filter"
+    "DynamicProgramming": {
+      "name": "Experimental Dynamic Programming",
+      "help": "When disabled, commissions are selected greedily in filter order. Enable it to use the polynomial planner with a rigorous optimality certificate and the five value-model settings below."
+    },
+    "TierValueRatio": {
+      "name": "Adjacent Tier Value Ratio",
+      "help": "Base-value ratio between one tier and the next; must be greater than 1. Higher values make the planner less willing to delay a higher tier for a lower tier. Default: 2."
+    },
+    "DelayHalfLife": {
+      "name": "Base Delay Half-Life (Hours)",
+      "help": "H in the unified factor 2^(-s/H). Lower values apply a stronger base delay penalty to every commission. Must be positive; one decimal place is supported."
+    },
+    "DeadlineFutureHorizon": {
+      "name": "Deadline Discount Scale (Hours)",
+      "help": "T in the unified relative-window exponent (T/d)^2. Larger values impose a stronger penalty for the same start delay and deadline. Must be positive; one decimal place is supported. Default: 2.0 hours."
+    },
+    "FilterValueFloor": {
+      "name": "In-Tier Filter Value Floor",
+      "help": "Minimum value fraction retained by very late rules within one tier. Range: greater than 0 and at most 1. Lower values make in-tier order matter more. Default: 0.6."
+    },
+    "FilterValueHalfLife": {
+      "name": "In-Tier Index Half-Life",
+      "help": "Number of filter rules required for the in-tier adjustment to move halfway toward its floor; must be positive and may use one decimal place. Lower values concentrate more value in early rules."
     },
     "CustomFilter": {
       "name": "Custom Commission Filter",
-      "help": "Custom commission filter syntax is the same as the Commission Preset filter"
+      "help": "Set Commission Filter to Customize to use this filter. With experimental dynamic programming enabled, tier separates value levels; without tier, every rule becomes its own level. The planner discounts finite tier and in-tier values by expected start delay and may drop low-value commissions. The traditional greedy strategy ignores tier; shortest fills unmatched slots."
+    },
+    "Blacklist": {
+      "name": "Commission Blacklist",
+      "help": "Enter commission filter rules to ignore, separated by half-width commas (,), for example: ExtraBook, UrgentOil-8, Major. The blacklist applies to both the traditional greedy strategy and the planner."
     },
     "DoMajorCommission": {
       "name": "Run Major Commissions (1200/1000 Oil)",
@@ -3260,10 +3314,6 @@
     "StayInZone": {
       "name": "Planned Operation in Target Zone",
       "help": "After enabling this, the task runs according to Target Zone. With one zone it stays there; with multiple zones it cycles through them in the configured order. Only takes effect when Target Zone is not 0."
-    },
-    "APPreserveUntilReset": {
-      "name": "Preserve Action Points Until End of Month",
-      "help": "'Preserve X Action Points' setting will no longer decrease before Operation Siren reset.\nNote: Once enabled, these AP will only be consumed in cross-month daily tasks. This setting is invalid when cross-month daily tasks are not enabled, which means you need to manually use these AP to obtain higher benefits."
     }
   },
   "OpsiTarget": {
@@ -3460,6 +3510,26 @@
     "TaskPriority": {
       "name": "Replenishment Task Priority",
       "help": "The priority order of tasks for yellow coin replenishment when they are insufficient. Separated by >."
+    },
+    "MonthEndActionPointCleanupEnable": {
+      "name": "OpsiScheduling.MonthEndActionPointCleanupEnable.name",
+      "help": "OpsiScheduling.MonthEndActionPointCleanupEnable.help",
+      "True": "True",
+      "False": "False"
+    },
+    "MonthEndActionPointCleanupDays": {
+      "name": "OpsiScheduling.MonthEndActionPointCleanupDays.name",
+      "help": "OpsiScheduling.MonthEndActionPointCleanupDays.help"
+    },
+    "MonthEndActionPointPreserve": {
+      "name": "OpsiScheduling.MonthEndActionPointPreserve.name",
+      "help": "OpsiScheduling.MonthEndActionPointPreserve.help"
+    },
+    "MonthEndShopPurchase": {
+      "name": "OpsiScheduling.MonthEndShopPurchase.name",
+      "help": "OpsiScheduling.MonthEndShopPurchase.help",
+      "True": "True",
+      "False": "False"
     }
   },
   "OpsiPreventActionPointOverflow": {
@@ -3490,7 +3560,7 @@
     },
     "Season": {
       "name": "Current Season",
-      "help": "Some items are season-limited. Adjust according to the current season.",
+      "help": "Some items are season-limited. Adjust according to the current season. Autumn limited items: Persimmon Cake, Matsutake Chicken Soup, Carrot Pear Juice, Chrysanthemum Tea, Autumn Pear, Persimmon, Peanut Oil, Autumn Bouquet.",
       "spring": "Spring",
       "summer": "Summer",
       "autumn": "Autumn",
@@ -3512,7 +3582,7 @@
     },
     "WorkerFilter": {
       "name": "Farm Worker Filter",
-      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
+      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
     },
     "MinFarm": {
       "name": "Crop Stock Threshold",
@@ -3543,7 +3613,7 @@
     },
     "WorkerFilter": {
       "name": "Orchard Worker Filter",
-      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
+      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
     },
     "MinOrchard": {
       "name": "Fruit Stock Threshold",
@@ -3580,7 +3650,7 @@
     },
     "WorkerFilter": {
       "name": "Nursery Worker Filter",
-      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
+      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
     },
     "MinNursery": {
       "name": "Nursery Crop Stock Threshold",
@@ -3607,9 +3677,17 @@
       "name": "Chicken Stock Threshold",
       "help": ""
     },
+    "ChickenFilter": {
+      "name": "Chicken Worker Filter",
+      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
+    },
     "MinPork": {
       "name": "Pork Stock Threshold",
       "help": ""
+    },
+    "PigFilter": {
+      "name": "Pig Worker Filter",
+      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
     },
     "Milk": {
       "name": "Raise Cattle",
@@ -3617,7 +3695,7 @@
     },
     "RancherFilter": {
       "name": "Character Filter",
-      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
+      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
     },
     "Wool": {
       "name": "Raise Sheep",
@@ -3625,7 +3703,7 @@
     },
     "WoolWorkerFilter": {
       "name": "Sheep Worker Filter",
-      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
+      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
     }
   },
   "IslandFishery": {
@@ -3682,7 +3760,7 @@
     },
     "RancherFilter": {
       "name": "Character Filter",
-      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
+      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
     }
   },
   "IslandMine": {
@@ -3709,7 +3787,7 @@
     },
     "WorkerFilter": {
       "name": "Mine Worker Filter",
-      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
+      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
     },
     "MinCopper": {
       "name": "Copper Ore Min Stock",
@@ -3756,7 +3834,7 @@
     },
     "WorkerFilter": {
       "name": "Forest Worker Filter",
-      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
+      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
     },
     "MinElegant": {
       "name": "Elegant Wood Min Stock",
@@ -3778,7 +3856,7 @@
     },
     "WorkerFilter": {
       "name": "Gathering Worker Filter",
-      "help": "Connect with >. Up to 3 characters, mapped to gathering slots 1-3.\nConnect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao\nDaily gathering cannot use WorkerJuu; it will be ignored if entered.\nOnly recognizes the first two rows in default order. If the specified character is unavailable, that slot falls back to the existing gathering logic."
+      "help": "Connect with >. Up to 3 characters, mapped to gathering slots 1-3.\nConnect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nDaily gathering cannot use WorkerJuu; it will be ignored if entered.\nOnly recognizes the first two rows in default order. If the specified character is unavailable, that slot falls back to the existing gathering logic."
     }
   },
   "IslandRestaurant": {
@@ -3794,11 +3872,11 @@
     },
     "ChefFilter": {
       "name": "Chef Filter",
-      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
+      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
     },
     "DoubleBambooShoots": {
       "name": "Prioritize Seasonal Dish",
-      "help": "When enabled, produce the current restaurant seasonal dish before base meals. Spring uses Cold Bamboo Shoots, summer uses Amaranth Rice Ball; autumn and winter have no extra restaurant seasonal dish."
+      "help": "When enabled, produce the current restaurant seasonal dish before base meals. Spring uses Cold Bamboo Shoots, summer uses Amaranth Rice Ball, autumn uses Matsutake Chicken Soup; winter has no extra restaurant seasonal dish."
     },
     "Meal1": {
       "name": "Meal 1",
@@ -3815,7 +3893,9 @@
       "asparagus_shrimp": "Asparagus Shrimp",
       "fish_chip": "Fish & Chips",
       "fo_tiao": "Buddha Jumps Over the Wall",
-      "onion_fish": "Steamed Onion Fish"
+      "onion_fish": "Steamed Onion Fish",
+      "matsutake_chicken_soup": "Matsutake Chicken Soup",
+      "persimmon_cake": "Persimmon Cake"
     },
     "MealNumber1": {
       "name": "Produce Meal 1 to X Servings",
@@ -3836,7 +3916,9 @@
       "asparagus_shrimp": "Asparagus Shrimp",
       "fish_chip": "Fish & Chips",
       "fo_tiao": "Buddha Jumps Over the Wall",
-      "onion_fish": "Steamed Onion Fish"
+      "onion_fish": "Steamed Onion Fish",
+      "matsutake_chicken_soup": "Matsutake Chicken Soup",
+      "persimmon_cake": "Persimmon Cake"
     },
     "MealNumber2": {
       "name": "Produce Meal 2 to X Servings",
@@ -3857,7 +3939,9 @@
       "asparagus_shrimp": "Asparagus Shrimp",
       "fish_chip": "Fish & Chips",
       "fo_tiao": "Buddha Jumps Over the Wall",
-      "onion_fish": "Steamed Onion Fish"
+      "onion_fish": "Steamed Onion Fish",
+      "matsutake_chicken_soup": "Matsutake Chicken Soup",
+      "persimmon_cake": "Persimmon Cake"
     },
     "MealNumber3": {
       "name": "Produce Meal 3 to X Servings",
@@ -3878,7 +3962,9 @@
       "asparagus_shrimp": "Asparagus Shrimp",
       "fish_chip": "Fish & Chips",
       "fo_tiao": "Buddha Jumps Over the Wall",
-      "onion_fish": "Steamed Onion Fish"
+      "onion_fish": "Steamed Onion Fish",
+      "matsutake_chicken_soup": "Matsutake Chicken Soup",
+      "persimmon_cake": "Persimmon Cake"
     },
     "MealNumber4": {
       "name": "Produce Meal 4 to X Servings",
@@ -3899,7 +3985,9 @@
       "asparagus_shrimp": "Asparagus Shrimp",
       "fish_chip": "Fish & Chips",
       "fo_tiao": "Buddha Jumps Over the Wall",
-      "onion_fish": "Steamed Onion Fish"
+      "onion_fish": "Steamed Onion Fish",
+      "matsutake_chicken_soup": "Matsutake Chicken Soup",
+      "persimmon_cake": "Persimmon Cake"
     },
     "MealNumber5": {
       "name": "Produce Meal 5 to X Servings",
@@ -3920,7 +4008,9 @@
       "asparagus_shrimp": "Asparagus Shrimp",
       "fish_chip": "Fish & Chips",
       "fo_tiao": "Buddha Jumps Over the Wall",
-      "onion_fish": "Steamed Onion Fish"
+      "onion_fish": "Steamed Onion Fish",
+      "matsutake_chicken_soup": "Matsutake Chicken Soup",
+      "persimmon_cake": "Persimmon Cake"
     },
     "MealNumber6": {
       "name": "Produce Meal 6 to X Servings",
@@ -3941,7 +4031,9 @@
       "asparagus_shrimp": "Asparagus Shrimp",
       "fish_chip": "Fish & Chips",
       "fo_tiao": "Buddha Jumps Over the Wall",
-      "onion_fish": "Steamed Onion Fish"
+      "onion_fish": "Steamed Onion Fish",
+      "matsutake_chicken_soup": "Matsutake Chicken Soup",
+      "persimmon_cake": "Persimmon Cake"
     },
     "MealNumber7": {
       "name": "Produce Meal 7 to X Servings",
@@ -3962,7 +4054,9 @@
       "asparagus_shrimp": "Asparagus Shrimp",
       "fish_chip": "Fish & Chips",
       "fo_tiao": "Buddha Jumps Over the Wall",
-      "onion_fish": "Steamed Onion Fish"
+      "onion_fish": "Steamed Onion Fish",
+      "matsutake_chicken_soup": "Matsutake Chicken Soup",
+      "persimmon_cake": "Persimmon Cake"
     },
     "MealNumber8": {
       "name": "Produce Meal 8 to X Servings",
@@ -3989,7 +4083,9 @@
       "asparagus_shrimp": "Asparagus Shrimp",
       "fish_chip": "Fish & Chips",
       "fo_tiao": "Buddha Jumps Over the Wall",
-      "onion_fish": "Steamed Onion Fish"
+      "onion_fish": "Steamed Onion Fish",
+      "matsutake_chicken_soup": "Matsutake Chicken Soup",
+      "persimmon_cake": "Persimmon Cake"
     }
   },
   "IslandTeahouse": {
@@ -4005,11 +4101,11 @@
     },
     "ChefFilter": {
       "name": "Chef Filter",
-      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
+      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
     },
     "Seasonal": {
       "name": "Prioritize Seasonal Drink",
-      "help": "When enabled, produce the current Teahouse seasonal drink before base drinks. Spring uses Spring Flower Tea, summer uses Watermelon Juice; autumn and winter have no extra teahouse seasonal drink."
+      "help": "When enabled, produce the current Teahouse seasonal drink before base drinks. Spring uses Spring Flower Tea, summer uses Watermelon Juice, autumn uses Chrysanthemum Tea; winter has no extra teahouse seasonal drink."
     },
     "Meal1": {
       "name": "Meal 1",
@@ -4024,7 +4120,9 @@
       "fruit_paradise": "Fruit Paradise",
       "lavender_tea": "Lavender Tea",
       "sunny_honey": "Sunny Honey",
-      "spring_flower_tea": "Spring Flower Tea"
+      "spring_flower_tea": "Spring Flower Tea",
+      "chrysanthemum_tea": "Chrysanthemum Tea",
+      "carrot_pear_juice": "Carrot Pear Juice"
     },
     "MealNumber1": {
       "name": "Produce Meal 1 to X Servings",
@@ -4043,7 +4141,9 @@
       "fruit_paradise": "Fruit Paradise",
       "lavender_tea": "Lavender Tea",
       "sunny_honey": "Sunny Honey",
-      "spring_flower_tea": "Spring Flower Tea"
+      "spring_flower_tea": "Spring Flower Tea",
+      "chrysanthemum_tea": "Chrysanthemum Tea",
+      "carrot_pear_juice": "Carrot Pear Juice"
     },
     "MealNumber2": {
       "name": "Produce Meal 2 to X Servings",
@@ -4062,7 +4162,9 @@
       "fruit_paradise": "Fruit Paradise",
       "lavender_tea": "Lavender Tea",
       "sunny_honey": "Sunny Honey",
-      "spring_flower_tea": "Spring Flower Tea"
+      "spring_flower_tea": "Spring Flower Tea",
+      "chrysanthemum_tea": "Chrysanthemum Tea",
+      "carrot_pear_juice": "Carrot Pear Juice"
     },
     "MealNumber3": {
       "name": "Produce Meal 3 to X Servings",
@@ -4081,7 +4183,9 @@
       "fruit_paradise": "Fruit Paradise",
       "lavender_tea": "Lavender Tea",
       "sunny_honey": "Sunny Honey",
-      "spring_flower_tea": "Spring Flower Tea"
+      "spring_flower_tea": "Spring Flower Tea",
+      "chrysanthemum_tea": "Chrysanthemum Tea",
+      "carrot_pear_juice": "Carrot Pear Juice"
     },
     "MealNumber4": {
       "name": "Produce Meal 4 to X Servings",
@@ -4100,7 +4204,9 @@
       "fruit_paradise": "Fruit Paradise",
       "lavender_tea": "Lavender Tea",
       "sunny_honey": "Sunny Honey",
-      "spring_flower_tea": "Spring Flower Tea"
+      "spring_flower_tea": "Spring Flower Tea",
+      "chrysanthemum_tea": "Chrysanthemum Tea",
+      "carrot_pear_juice": "Carrot Pear Juice"
     },
     "MealNumber5": {
       "name": "Produce Meal 5 to X Servings",
@@ -4119,7 +4225,9 @@
       "fruit_paradise": "Fruit Paradise",
       "lavender_tea": "Lavender Tea",
       "sunny_honey": "Sunny Honey",
-      "spring_flower_tea": "Spring Flower Tea"
+      "spring_flower_tea": "Spring Flower Tea",
+      "chrysanthemum_tea": "Chrysanthemum Tea",
+      "carrot_pear_juice": "Carrot Pear Juice"
     },
     "MealNumber6": {
       "name": "Produce Meal 6 to X Servings",
@@ -4138,7 +4246,9 @@
       "fruit_paradise": "Fruit Paradise",
       "lavender_tea": "Lavender Tea",
       "sunny_honey": "Sunny Honey",
-      "spring_flower_tea": "Spring Flower Tea"
+      "spring_flower_tea": "Spring Flower Tea",
+      "chrysanthemum_tea": "Chrysanthemum Tea",
+      "carrot_pear_juice": "Carrot Pear Juice"
     },
     "MealNumber7": {
       "name": "Produce Meal 7 to X Servings",
@@ -4157,7 +4267,9 @@
       "fruit_paradise": "Fruit Paradise",
       "lavender_tea": "Lavender Tea",
       "sunny_honey": "Sunny Honey",
-      "spring_flower_tea": "Spring Flower Tea"
+      "spring_flower_tea": "Spring Flower Tea",
+      "chrysanthemum_tea": "Chrysanthemum Tea",
+      "carrot_pear_juice": "Carrot Pear Juice"
     },
     "MealNumber8": {
       "name": "Produce Meal 8 to X Servings",
@@ -4182,7 +4294,9 @@
       "fruit_paradise": "Fruit Paradise",
       "lavender_tea": "Lavender Tea",
       "sunny_honey": "Sunny Honey",
-      "spring_flower_tea": "Spring Flower Tea"
+      "spring_flower_tea": "Spring Flower Tea",
+      "chrysanthemum_tea": "Chrysanthemum Tea",
+      "carrot_pear_juice": "Carrot Pear Juice"
     }
   },
   "IslandGrill": {
@@ -4198,7 +4312,7 @@
     },
     "ChefFilter": {
       "name": "Chef Filter",
-      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
+      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
     },
     "Meal1": {
       "name": "Meal 1",
@@ -4369,7 +4483,7 @@
     },
     "ChefFilter": {
       "name": "Chef Filter",
-      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
+      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
     },
     "Meal1": {
       "name": "Meal 1",
@@ -4558,7 +4672,7 @@
     },
     "ChefFilter": {
       "name": "Chef Filter",
-      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
+      "help": "Connect with >, e.g. ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nOnly recognizes the first two rows in default order. If the specified character is unavailable, falls back to WorkerJuu."
     },
     "Friedrich": {
       "name": "Friedrich",
@@ -4892,13 +5006,13 @@
     },
     "SeasonalReplaceEnabled": {
       "name": "Seasonal Replace",
-      "help": "Auto-replace seasonal dishes when stock is low",
+      "help": "Auto-replace seasonal products when stock is low",
       "True": "Enabled",
       "False": "Disabled"
     },
     "SeasonalThreshold": {
       "name": "Replace Seasonal Items When Below X",
-      "help": "Replace seasonal dish when stock is below this number"
+      "help": "Replace seasonal product when stock is below this number"
     }
   },
   "IslandBusinessShop1": {
@@ -4937,7 +5051,12 @@
       "Navigator": "Navigator",
       "OceanCrosser": "Ocean Crosser",
       "FeiYun": "Fei Yun",
-      "Takao": "Takao"
+      "Takao": "Takao",
+      "Anchorage": "Anchorage",
+      "Belfast": "Belfast",
+      "ChangFeng": "Chang Feng",
+      "Mogador": "Mogador",
+      "RoyalFortune": "Royal Fortune"
     },
     "Char2": {
       "name": "Character 2",
@@ -4970,7 +5089,12 @@
       "Navigator": "Navigator",
       "OceanCrosser": "Ocean Crosser",
       "FeiYun": "Fei Yun",
-      "Takao": "Takao"
+      "Takao": "Takao",
+      "Anchorage": "Anchorage",
+      "Belfast": "Belfast",
+      "ChangFeng": "Chang Feng",
+      "Mogador": "Mogador",
+      "RoyalFortune": "Royal Fortune"
     },
     "Product1": {
       "name": "Product 1",
@@ -4981,7 +5105,9 @@
       "tofu_combo": "Classic Tofu Combo",
       "hearty_meal": "Hearty Meal Set",
       "fo_tiao": "Buddha Jumps Over the Wall",
-      "amaranth_rice_ball": "Amaranth Rice Ball"
+      "amaranth_rice_ball": "Amaranth Rice Ball",
+      "matsutake_chicken_soup": "Matsutake Chicken Soup",
+      "persimmon_cake": "Persimmon Cake"
     },
     "Product2": {
       "name": "Product 2",
@@ -4992,7 +5118,9 @@
       "tofu_combo": "Classic Tofu Combo",
       "hearty_meal": "Hearty Meal Set",
       "fo_tiao": "Buddha Jumps Over the Wall",
-      "amaranth_rice_ball": "Amaranth Rice Ball"
+      "amaranth_rice_ball": "Amaranth Rice Ball",
+      "matsutake_chicken_soup": "Matsutake Chicken Soup",
+      "persimmon_cake": "Persimmon Cake"
     },
     "Product3": {
       "name": "Product 3",
@@ -5003,7 +5131,9 @@
       "tofu_combo": "Classic Tofu Combo",
       "hearty_meal": "Hearty Meal Set",
       "fo_tiao": "Buddha Jumps Over the Wall",
-      "amaranth_rice_ball": "Amaranth Rice Ball"
+      "amaranth_rice_ball": "Amaranth Rice Ball",
+      "matsutake_chicken_soup": "Matsutake Chicken Soup",
+      "persimmon_cake": "Persimmon Cake"
     },
     "Product4": {
       "name": "Product 4",
@@ -5014,7 +5144,9 @@
       "tofu_combo": "Classic Tofu Combo",
       "hearty_meal": "Hearty Meal Set",
       "fo_tiao": "Buddha Jumps Over the Wall",
-      "amaranth_rice_ball": "Amaranth Rice Ball"
+      "amaranth_rice_ball": "Amaranth Rice Ball",
+      "matsutake_chicken_soup": "Matsutake Chicken Soup",
+      "persimmon_cake": "Persimmon Cake"
     },
     "Product5": {
       "name": "Product 5",
@@ -5025,7 +5157,9 @@
       "tofu_combo": "Classic Tofu Combo",
       "hearty_meal": "Hearty Meal Set",
       "fo_tiao": "Buddha Jumps Over the Wall",
-      "amaranth_rice_ball": "Amaranth Rice Ball"
+      "amaranth_rice_ball": "Amaranth Rice Ball",
+      "matsutake_chicken_soup": "Matsutake Chicken Soup",
+      "persimmon_cake": "Persimmon Cake"
     },
     "SeasonalFallback": {
       "name": "Seasonal Fallback",
@@ -5036,7 +5170,9 @@
       "tofu_combo": "Classic Tofu Combo",
       "hearty_meal": "Hearty Meal Set",
       "fo_tiao": "Buddha Jumps Over the Wall",
-      "amaranth_rice_ball": "Amaranth Rice Ball"
+      "amaranth_rice_ball": "Amaranth Rice Ball",
+      "matsutake_chicken_soup": "Matsutake Chicken Soup",
+      "persimmon_cake": "Persimmon Cake"
     },
     "BoostReplaceFilter": {
       "name": "Boost Replace Filter",
@@ -5079,7 +5215,12 @@
       "Navigator": "Navigator",
       "OceanCrosser": "Ocean Crosser",
       "FeiYun": "Fei Yun",
-      "Takao": "Takao"
+      "Takao": "Takao",
+      "Anchorage": "Anchorage",
+      "Belfast": "Belfast",
+      "ChangFeng": "Chang Feng",
+      "Mogador": "Mogador",
+      "RoyalFortune": "Royal Fortune"
     },
     "Char2": {
       "name": "Character 2",
@@ -5112,7 +5253,12 @@
       "Navigator": "Navigator",
       "OceanCrosser": "Ocean Crosser",
       "FeiYun": "Fei Yun",
-      "Takao": "Takao"
+      "Takao": "Takao",
+      "Anchorage": "Anchorage",
+      "Belfast": "Belfast",
+      "ChangFeng": "Chang Feng",
+      "Mogador": "Mogador",
+      "RoyalFortune": "Royal Fortune"
     },
     "Product1": {
       "name": "Product 1",
@@ -5125,7 +5271,9 @@
       "fruit_paradise": "Fruit Paradise",
       "lavender_tea": "Lavender Tea",
       "sunny_honey": "Sunny Honey",
-      "watermelon_juice": "Watermelon Juice"
+      "watermelon_juice": "Watermelon Juice",
+      "chrysanthemum_tea": "Chrysanthemum Tea",
+      "carrot_pear_juice": "Carrot Pear Juice"
     },
     "Product2": {
       "name": "Product 2",
@@ -5138,7 +5286,9 @@
       "fruit_paradise": "Fruit Paradise",
       "lavender_tea": "Lavender Tea",
       "sunny_honey": "Sunny Honey",
-      "watermelon_juice": "Watermelon Juice"
+      "watermelon_juice": "Watermelon Juice",
+      "chrysanthemum_tea": "Chrysanthemum Tea",
+      "carrot_pear_juice": "Carrot Pear Juice"
     },
     "Product3": {
       "name": "Product 3",
@@ -5151,7 +5301,9 @@
       "fruit_paradise": "Fruit Paradise",
       "lavender_tea": "Lavender Tea",
       "sunny_honey": "Sunny Honey",
-      "watermelon_juice": "Watermelon Juice"
+      "watermelon_juice": "Watermelon Juice",
+      "chrysanthemum_tea": "Chrysanthemum Tea",
+      "carrot_pear_juice": "Carrot Pear Juice"
     },
     "Product4": {
       "name": "Product 4",
@@ -5164,7 +5316,9 @@
       "fruit_paradise": "Fruit Paradise",
       "lavender_tea": "Lavender Tea",
       "sunny_honey": "Sunny Honey",
-      "watermelon_juice": "Watermelon Juice"
+      "watermelon_juice": "Watermelon Juice",
+      "chrysanthemum_tea": "Chrysanthemum Tea",
+      "carrot_pear_juice": "Carrot Pear Juice"
     },
     "Product5": {
       "name": "Product 5",
@@ -5177,7 +5331,24 @@
       "fruit_paradise": "Fruit Paradise",
       "lavender_tea": "Lavender Tea",
       "sunny_honey": "Sunny Honey",
-      "watermelon_juice": "Watermelon Juice"
+      "watermelon_juice": "Watermelon Juice",
+      "chrysanthemum_tea": "Chrysanthemum Tea",
+      "carrot_pear_juice": "Carrot Pear Juice"
+    },
+    "SeasonalFallback": {
+      "name": "Fallback Drink",
+      "help": "Fallback drink when seasonal drink stock is low",
+      "None": "None",
+      "spring_flower_tea": "Spring Flower Tea",
+      "strawberry_lemon": "Strawberry Lemonade",
+      "strawberry_honey": "Strawberry Honey Smoothie",
+      "floral_fruity": "Floral Fruity",
+      "fruit_paradise": "Fruit Paradise",
+      "lavender_tea": "Lavender Tea",
+      "sunny_honey": "Sunny Honey",
+      "watermelon_juice": "Watermelon Juice",
+      "chrysanthemum_tea": "Chrysanthemum Tea",
+      "carrot_pear_juice": "Carrot Pear Juice"
     },
     "BoostReplaceFilter": {
       "name": "Boost Replace Filter",
@@ -5220,7 +5391,12 @@
       "Navigator": "Navigator",
       "OceanCrosser": "Ocean Crosser",
       "FeiYun": "Fei Yun",
-      "Takao": "Takao"
+      "Takao": "Takao",
+      "Anchorage": "Anchorage",
+      "Belfast": "Belfast",
+      "ChangFeng": "Chang Feng",
+      "Mogador": "Mogador",
+      "RoyalFortune": "Royal Fortune"
     },
     "Char2": {
       "name": "Character 2",
@@ -5253,7 +5429,12 @@
       "Navigator": "Navigator",
       "OceanCrosser": "Ocean Crosser",
       "FeiYun": "Fei Yun",
-      "Takao": "Takao"
+      "Takao": "Takao",
+      "Anchorage": "Anchorage",
+      "Belfast": "Belfast",
+      "ChangFeng": "Chang Feng",
+      "Mogador": "Mogador",
+      "RoyalFortune": "Royal Fortune"
     },
     "Product1": {
       "name": "Product 1",
@@ -5346,7 +5527,12 @@
       "Navigator": "Navigator",
       "OceanCrosser": "Ocean Crosser",
       "FeiYun": "Fei Yun",
-      "Takao": "Takao"
+      "Takao": "Takao",
+      "Anchorage": "Anchorage",
+      "Belfast": "Belfast",
+      "ChangFeng": "Chang Feng",
+      "Mogador": "Mogador",
+      "RoyalFortune": "Royal Fortune"
     },
     "Char2": {
       "name": "Character 2",
@@ -5379,7 +5565,12 @@
       "Navigator": "Navigator",
       "OceanCrosser": "Ocean Crosser",
       "FeiYun": "Fei Yun",
-      "Takao": "Takao"
+      "Takao": "Takao",
+      "Anchorage": "Anchorage",
+      "Belfast": "Belfast",
+      "ChangFeng": "Chang Feng",
+      "Mogador": "Mogador",
+      "RoyalFortune": "Royal Fortune"
     },
     "Product1": {
       "name": "Product 1",
@@ -5477,7 +5668,12 @@
       "Navigator": "Navigator",
       "OceanCrosser": "Ocean Crosser",
       "FeiYun": "Fei Yun",
-      "Takao": "Takao"
+      "Takao": "Takao",
+      "Anchorage": "Anchorage",
+      "Belfast": "Belfast",
+      "ChangFeng": "Chang Feng",
+      "Mogador": "Mogador",
+      "RoyalFortune": "Royal Fortune"
     },
     "Char2": {
       "name": "Character 2",
@@ -5510,13 +5706,19 @@
       "Navigator": "Navigator",
       "OceanCrosser": "Ocean Crosser",
       "FeiYun": "Fei Yun",
-      "Takao": "Takao"
+      "Takao": "Takao",
+      "Anchorage": "Anchorage",
+      "Belfast": "Belfast",
+      "ChangFeng": "Chang Feng",
+      "Mogador": "Mogador",
+      "RoyalFortune": "Royal Fortune"
     },
     "Product1": {
       "name": "Product 1",
       "help": "",
       "None": "None",
       "cheese": "Cheese",
+      "citrus_coffee": "Citrus Coffee",
       "strawberry_milkshake": "Strawberry Milk Tea",
       "morning_light": "Morning Light Combo",
       "wake_up_call": "Wake-Up Call Set",
@@ -5527,6 +5729,7 @@
       "help": "",
       "None": "None",
       "cheese": "Cheese",
+      "citrus_coffee": "Citrus Coffee",
       "strawberry_milkshake": "Strawberry Milk Tea",
       "morning_light": "Morning Light Combo",
       "wake_up_call": "Wake-Up Call Set",
@@ -5537,6 +5740,7 @@
       "help": "",
       "None": "None",
       "cheese": "Cheese",
+      "citrus_coffee": "Citrus Coffee",
       "strawberry_milkshake": "Strawberry Milk Tea",
       "morning_light": "Morning Light Combo",
       "wake_up_call": "Wake-Up Call Set",
@@ -5547,6 +5751,7 @@
       "help": "",
       "None": "None",
       "cheese": "Cheese",
+      "citrus_coffee": "Citrus Coffee",
       "strawberry_milkshake": "Strawberry Milk Tea",
       "morning_light": "Morning Light Combo",
       "wake_up_call": "Wake-Up Call Set",
@@ -5557,6 +5762,7 @@
       "help": "",
       "None": "None",
       "cheese": "Cheese",
+      "citrus_coffee": "Citrus Coffee",
       "strawberry_milkshake": "Strawberry Milk Tea",
       "morning_light": "Morning Light Combo",
       "wake_up_call": "Wake-Up Call Set",
@@ -5565,6 +5771,20 @@
     "BoostReplaceFilter": {
       "name": "Boost Replace Filter",
       "help": "When multiple boosted products are detected, the first one in filter order is prioritized for replacement; the replacement slot is the last non-empty slot searched from Product5→1"
+    }
+  },
+  "FleetInfo": {
+    "_info": {
+      "name": "Fleet information",
+      "help": "Stores fleet scan results"
+    },
+    "Result": {
+      "name": "Scan result",
+      "help": "Ships grouped by category and fleet number"
+    },
+    "Record": {
+      "name": "Scan time",
+      "help": "Time when the latest fleet scan completed"
     }
   },
   "Daemon": {
@@ -5753,8 +5973,8 @@
       "help": "Username for SSH login, e.g.: root"
     },
     "RemoteSSHPublicKey": {
-      "name": "Public Key",
-      "help": "Public key content for SSH login (if needed)"
+      "name": "Private Key",
+      "help": "Private key content for SSH login (if needed)"
     },
     "RemoteStartCommand": {
       "name": "Remote Start Command",
@@ -5893,6 +6113,27 @@
     "MenuAlas": {
       "Overview": "Overview",
       "Log": "Log"
+    },
+    "TaskConfig": {
+      "SearchPlaceholder": "Search settings",
+      "SearchNoResult": "No matching settings",
+      "SearchResultCount": "{count} results"
+    },
+    "FleetManagement": {
+      "StartScan": "Start scan",
+      "Scanning": "Scanning",
+      "ScanStarted": "Fleet scan started",
+      "ScanAlreadyRunning": "This instance is already running a task and cannot start a fleet scan",
+      "ScanStartFailed": "Failed to start fleet scan",
+      "LastScan": "Latest scan",
+      "NoResult": "No fleet scan result has been saved",
+      "Main": "Main fleet",
+      "Vanguard": "Vanguard fleet",
+      "Submarine": "Submarine fleet",
+      "SurfaceFleet": "Surface Fleets",
+      "UnderwaterFleet": "Underwater Fleets",
+      "Fleet": "Fleet",
+      "Ships": "Ships"
     },
     "MenuDevelop": {
       "HomePage": "Home",
@@ -6169,6 +6410,7 @@
     "Text": {
       "InvalidFeedBack": "Format error. Example: {0}",
       "Clear": "Clear",
+      "RunNow": "Run Now",
       "EnterPassword": "Enter password",
       "ChooseFile": "Select file"
     },

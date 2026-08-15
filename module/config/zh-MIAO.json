@@ -262,8 +262,8 @@
       "help": "登录SSH的用户名喵，例如: root喵~"
     },
     "RemoteSSHPublicKey": {
-      "name": "SSH 公钥喵",
-      "help": "SSH登录所需的公钥内容喵（如果需要）~"
+      "name": "SSH 私钥喵",
+      "help": "SSH登录所需的私钥内容喵（如果需要）~"
     },
     "RemoteStartCommand": {
       "name": "远程启动指令喵",
@@ -368,38 +368,35 @@
     },
     "OcrModelVersionEnglish": {
       "name": "OCR英文模型版本喵",
-      "help": "选择英文OCR模型版本喵。auto使用英文推荐模型AlOCR v2.6喵。",
+      "help": "选择英文OCR模型档位喵。lite轻量最快喵，standard均衡喵，pro精度最高喵。auto使用standard喵。该项影响英文Azur Lane模型。",
       "auto": "自动推荐喵",
-      "alocr_en_900k": "alocr_en_900k",
-      "azur_lane_v6_6": "英文 v6.6 (Azur Lane)",
-      "azur_lane_v6_5": "英文 v6.5 (Azur Lane)",
-      "ppocr_v6": "通用 PP-OCRv6",
-      "alocr_en_v2_6": "英文 AlOCR v2.6",
-      "alocr_en_v2_0": "英文 AlOCR v2.0",
-      "alocr_en_v1_0": "英文 AlOCR v1.0"
+      "lite": "Lite 轻量喵",
+      "standard": "Standard 标准喵",
+      "pro": "Pro 高精度喵"
     },
     "OcrModelVersionChinese": {
       "name": "OCR中文模型版本喵",
-      "help": "选择简体中文OCR模型版本喵。auto使用中文推荐模型v6.1喵。",
+      "help": "选择简体中文OCR模型档位喵。lite轻量最快喵，standard均衡喵，pro精度最高喵。auto使用standard喵。该项影响cnocr/中文模型。",
       "auto": "自动推荐喵",
-      "cn_v6_1": "中文 v6.1",
-      "cn_v6": "中文 v6",
-      "ppocr_v6": "通用 PP-OCRv6",
-      "alocr_cn_v3": "中文 AlOCR v3",
-      "alocr_cn_v2_5": "中文 AlOCR v2.5"
+      "lite": "Lite 轻量喵",
+      "standard": "Standard 标准喵",
+      "pro": "Pro 高精度喵"
     },
     "OcrModelVersionJapanese": {
       "name": "OCR日文模型版本喵",
-      "help": "选择日文OCR模型版本喵。auto使用日文Azur Lane v6喵。",
+      "help": "选择日文OCR模型档位喵。lite轻量最快但不支持日语喵，standard均衡喵，pro精度最高喵。auto使用standard喵。该项影响日文模型。",
       "auto": "自动推荐喵",
-      "azur_lane_jp_v6": "日文 v6 (Azur Lane JP)",
-      "ppocr_v6": "通用 PP-OCRv6"
+      "lite": "Lite 轻量喵",
+      "standard": "Standard 标准喵",
+      "pro": "Pro 高精度喵"
     },
     "OcrModelVersionTraditionalChinese": {
       "name": "OCR繁中模型版本喵",
-      "help": "选择繁体中文OCR模型版本喵。当前仅提供通用PP-OCRv6喵~",
+      "help": "选择繁体中文OCR模型档位喵。lite轻量最快喵，standard均衡喵，pro精度最高喵。auto使用standard喵。",
       "auto": "自动推荐喵",
-      "ppocr_v6": "通用 PP-OCRv6"
+      "lite": "Lite 轻量喵",
+      "standard": "Standard 标准喵",
+      "pro": "Pro 高精度喵"
     },
     "ScreenshotInterval": {
       "name": "放慢截图速度至X秒一张喵",
@@ -1044,7 +1041,7 @@
   },
   "GemsFarming": {
     "_info": {
-      "name": "1-1刷伏击配置喵",
+      "name": "刷紧急委托喵",
       "help": "警告喵: 这个功能可以让主人获取少量的钻石，但不是一个能高效获取钻石的方法喵\n玩碧蓝航线不久的主人, 很容易迷信零破和低耗等, 而忽视了角色养成喵\n运行这个功能只会让主人自己感觉很充实, 而主人的帐号实际零提升喵\n这个功能的主要用途，是让阵容成型的主人获取额外的魔方喵，请理性地把钻石当作副产物喵\n\n这个功能将在旗舰32级之后更换旗舰喵\n关于紧急委托刷新机制, 可阅读 https://bbs.nga.cn/read.php?tid=27134956\n委托油耗比: A3 > A1 > 2-4 > 2-1, 有活动图时建议选活动图喵, 2-1会拣问号有更多物资\n一队会完成所有的战斗, 前排应当为百级零破驱逐带输出装, 后排应该为33级及以下白皮零破航母喵\n二队应提供跨队支援（跨队弹幕、跨队辅助）\n\n无法设置舰队职能时，以以下方式停止任务以免跨队队伍出击，石油被大量消耗喵：\n若设置了错误推送则推送任务停止的消息并停止该任务喵。\n若没有设置错误推送，则直接停止AzurPilot喵。"
     },
     "ChangeFlagship": {
@@ -1116,7 +1113,15 @@
     },
     "CommissionLimit": {
       "name": "防止紧急委托数量过多喵",
-      "help": "在7x24运行时防止紧急委托数量过多做不完每日委托喵，建议在委托过滤器仅选择短时长高收益委托喵"
+      "help": "启用后会按下面两项配置保留高价值委托，达到保留量时延后刷紧急委托任务喵。"
+    },
+    "HighValueCommissionFilterCount": {
+      "name": "高价值委托过滤器数量喵",
+      "help": "把当前委托过滤器最前面的 X 条普通规则当作高价值规则，tier 和 shortest 等控制标记不计数喵。"
+    },
+    "HighValueCommissionReserve": {
+      "name": "高价值委托保留量喵",
+      "help": "委托执行后，若剩余待执行的高价值委托达到此数量，就延后刷紧急委托任务喵。"
     },
     "VanguardLevelMin": {
       "name": "前排最低等级喵",
@@ -1336,10 +1341,6 @@
       "chip_24h": "钻石>心智>魔方（7x24刷委托）喵",
       "oil": "钻石>石油>魔方喵",
       "custom": "自定义喵"
-    },
-    "AddShortest": {
-      "name": "自动接取耗时最短的每日委托喵",
-      "help": "当配置的自定义委托过滤器无委托可选时，雪风大人会自动接取耗时最短的每日委托喵。该设置不会影响任何内置的委托策略。"
     },
     "CustomFilter": {
       "name": "自定义委托过滤器喵",
@@ -1951,8 +1952,8 @@
       "help": "登录 SSH 的用户名喵，例如: root"
     },
     "RemoteSSHPublicKey": {
-      "name": "访问公钥喵",
-      "help": "SSH 登录所需的公钥内容喵（如果需要）"
+      "name": "访问私钥喵",
+      "help": "SSH 登录所需的私钥内容喵（如果需要）"
     },
     "RemoteStartCommand": {
       "name": "远程启动命令喵",

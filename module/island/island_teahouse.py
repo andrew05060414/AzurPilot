@@ -23,6 +23,44 @@ FIXED_SELECT_SPRING_FLOWER_TEA = Button(
     file={'cn': '', 'en': '', 'jp': '', 'tw': ''}
 )
 
+# 秋季高优先级饮品（菊花茶，槽位2）的固定位置——固定第二格（y300 行），
+# 与槽位1（胡萝卜秋梨汁，y143 行）不在同一格
+FIXED_SELECT_CHRYSANTHEMUM_TEA = Button(
+    area=(), color=(), button=(212, 300, 292, 360),
+    file={'cn': '', 'en': '', 'jp': '', 'tw': ''}
+)
+
+
+# 季节限定饮品配置（高优先级饮品走固定坐标选择：春/夏为槽位1迎春花茶/西瓜汁，
+# 秋季为槽位2菊花茶；其余槽位走常规选品流程）
+SEASONAL_DRINK_CONFIG = {
+    'spring_flower_tea': {
+        'name': 'spring_flower_tea', 'cn_name': '迎春花茶',
+        'template': TEMPLATE_APPLE_JUICE, 'post_action': POST_APPLE_JUICE,
+        'selection': FIXED_SELECT_SPRING_FLOWER_TEA, 'selection_check': FIXED_SELECT_SPRING_FLOWER_TEA,
+    },
+    'carrot_pear_juice': {
+        'name': 'carrot_pear_juice', 'cn_name': '胡萝卜秋梨汁',
+        'template': TEMPLATE_CARROT_PEAR_JUICE, 'post_action': POST_CARROT_PEAR_JUICE,
+        'selection': SELECT_CARROT_PEAR_JUICE, 'selection_check': SELECT_CARROT_PEAR_JUICE_CHECK,
+    },
+    'chrysanthemum_tea': {
+        'name': 'chrysanthemum_tea', 'cn_name': '菊花茶',
+        'template': TEMPLATE_CHRYSANTHEMUM_TEA, 'post_action': POST_CHRYSANTHEMUM_TEA,
+        'selection': SELECT_CHRYSANTHEMUM_TEA, 'selection_check': SELECT_CHRYSANTHEMUM_TEA_CHECK,
+    },
+    'watermelon_juice': {
+        'name': 'watermelon_juice', 'cn_name': '西瓜汁',
+        'template': TEMPLATE_WATERMELON_JUICE, 'post_action': POST_WATERMELON_JUICE,
+        'selection': SELECT_WATERMELON_JUICE, 'selection_check': SELECT_WATERMELON_JUICE_CHECK,
+    },
+    'cucumber_juice': {
+        'name': 'cucumber_juice', 'cn_name': '黄瓜汁',
+        'template': TEMPLATE_CUCUMBER_JUICE, 'post_action': POST_CUCUMBER_JUICE,
+        'selection': SELECT_CUCUMBER_JUICE, 'selection_check': SELECT_CUCUMBER_JUICE_CHECK,
+    },
+}
+
 
 class IslandTeahouse(IslandShopBase):
     def __init__(self, config, device=None, task=None):
@@ -57,6 +95,13 @@ class IslandTeahouse(IslandShopBase):
                     'template': TEMPLATE_APPLE_JUICE, 'post_action': POST_APPLE_JUICE,
                     'selection': FIXED_SELECT_SPRING_FLOWER_TEA, 'selection_check': FIXED_SELECT_SPRING_FLOWER_TEA,
                 }
+            elif 'chrysanthemum_tea' in seasonal_items:
+                self.seasonal_high_priority_drink = {
+                    'name': 'chrysanthemum_tea', 'cn_name': '菊花茶',
+                    'template': TEMPLATE_CHRYSANTHEMUM_TEA, 'post_action': POST_CHRYSANTHEMUM_TEA,
+                    'selection': FIXED_SELECT_CHRYSANTHEMUM_TEA,
+                    'selection_check': FIXED_SELECT_CHRYSANTHEMUM_TEA,
+                }
 
             if self.seasonal_high_priority_drink:
                 self.special_food = self.seasonal_high_priority_drink['name']
@@ -68,9 +113,19 @@ class IslandTeahouse(IslandShopBase):
 
         # 设置商品列表
         self.shop_items = []
-        # ---- 季节饮品（固定位置） ----
-        if self.seasonal_high_priority_drink:
-            self.shop_items.append(self.seasonal_high_priority_drink)
+        # ---- 季节饮品 ----
+        if old_seasonal_enabled:
+            for item_name in seasonal_items:
+                drink = SEASONAL_DRINK_CONFIG.get(item_name)
+                if not drink:
+                    continue
+                item = drink.copy()
+                if (self.seasonal_high_priority_drink
+                        and item_name == self.seasonal_high_priority_drink['name']):
+                    # 高优先级季节饮品使用固定坐标选择（迎春花茶/西瓜汁/菊花茶）
+                    item['selection'] = self.seasonal_high_priority_drink['selection']
+                    item['selection_check'] = self.seasonal_high_priority_drink['selection_check']
+                self.shop_items.append(item)
         # ---- 常规菜品 ----
         self.shop_items.extend([
             {'name': 'apple_juice', 'template': TEMPLATE_APPLE_JUICE, 'var_name': 'apple_juice',
@@ -139,6 +194,19 @@ class IslandTeahouse(IslandShopBase):
         # 但当前季节不是 spring，则自动替换为当前季节对应槽位的餐品
         self._auto_switch_seasonal_meals()
 
+        # === 补充季节饮品注册 ===
+        # “迎春花茶优先生产”关闭（默认）时，季节饮品不会进入 shop_items，
+        # 若用户又在餐品槽位中手动配置了季节饮品（如胡萝卜秋梨汁/菊花茶），
+        # 排产时 name_to_config 缺键会抛 KeyError 并触发重启。
+        # 这里把用户实际配置、且有真实选品资源的季节饮品补注册到商品列表；
+        # 迎春花茶走“迎春花茶优先生产”的固定坐标流程，不在此补注册。
+        for meal_name, _ in self.post_products:
+            drink = SEASONAL_DRINK_CONFIG.get(meal_name)
+            if not drink or not drink['selection'].area:
+                continue
+            if not any(item['name'] == meal_name for item in self.shop_items):
+                self.shop_items.append(drink.copy())
+
         # 特殊材料：蜂蜜（仅用于库存检查和限制，不再有强制消耗任务）
         self.fresh_honey = 0
         self.initialize_shop()
@@ -146,8 +214,10 @@ class IslandTeahouse(IslandShopBase):
     def _auto_switch_seasonal_meals(self):
         """
         自动切换用户配置中的春季限定餐品到当前季节对应餐品。
-        迎春花茶(spring_flower_tea) -> 春季保持，夏季切换为西瓜汁(watermelon_juice)，秋冬移除。
-        鲜榨菠萝汁(pineapple_juice) -> 春季保持，夏季切换为黄瓜汁(cucumber_juice)，秋冬移除。
+        迎春花茶(spring_flower_tea) -> 春季保持，夏季切换为西瓜汁(watermelon_juice)，
+        秋季切换为胡萝卜秋梨汁(carrot_pear_juice)。
+        鲜榨菠萝汁(pineapple_juice) -> 春季保持，夏季切换为黄瓜汁(cucumber_juice)，
+        秋季切换为菊花茶(chrysanthemum_tea)。
         """
         SEASONAL_TEAHOUSE_SWITCH = {
             'spring_flower_tea': 0,  # 迎春花茶 -> 槽位0
@@ -254,7 +324,7 @@ class IslandTeahouse(IslandShopBase):
                     continue
                 if self.appear(ISLAND_SELECT_PRODUCT_CHECK, offset=1):
                     # 在商品列表界面，点击固定位置，不检测图标
-                    self.device.click(FIXED_SELECT_SPRING_FLOWER_TEA)
+                    self.device.click(self.seasonal_high_priority_drink['selection'])
                     self.device.sleep(0.5)
                     break
                 # 点击进入选择

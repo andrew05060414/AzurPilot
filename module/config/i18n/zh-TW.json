@@ -32,6 +32,10 @@
       "name": "島嶼計劃",
       "help": ""
     },
+    "FleetManagement": {
+      "name": "艦隊管理",
+      "help": ""
+    },
     "Tool": {
       "name": "工具Plus",
       "help": ""
@@ -362,6 +366,14 @@
       "name": "每週珍珠採購與售賣",
       "help": "僅支援minitouch。每週二 01:00 自動處理珍珠：先採購本週珍珠，再售賣已有珍珠。金幣一定要夠購買200x220個這是最低要求能一次買光本週珍珠, 否則可能會報錯."
     },
+    "FleetScan": {
+      "name": "艦隊掃描",
+      "help": "掃描目前編入艦隊的艦船資訊"
+    },
+    "FleetInfo": {
+      "name": "艦隊資訊",
+      "help": "查看最近一次艦隊掃描結果"
+    },
     "Daemon": {
       "name": "半自動點選",
       "help": ""
@@ -461,6 +473,10 @@
       "help": "重啟客戶端時，在強行停止應用後刪除 /sdcard/Android/data/<包名>/cache/ 下的外部快取檔案。",
       "True": "開啟",
       "False": "關閉"
+    },
+    "LoginWaitTimeout": {
+      "name": "登入等待寬容時間",
+      "help": "遊戲重新啟動後，等待登入／啟動完成的最大寬容時間（秒）。\n當模擬器於背景執行導致遊戲啟動較慢時，可適度調大，避免被誤判為卡死而反覆重啟。\n預設 30 秒，僅影響重啟後的登入等待階段。"
     }
   },
   "Emulator": {
@@ -555,6 +571,7 @@
       "en-3": "[EN] Washington",
       "en-4": "[EN] Amagi",
       "en-5": "[EN] Little Enterprise",
+      "en-6": "[EN] Belfast",
       "jp-0": "[JP] ブレスト",
       "jp-1": "[JP] 横須賀",
       "jp-2": "[JP] 佐世保",
@@ -572,7 +589,12 @@
       "jp-14": "[JP] キール",
       "jp-15": "[JP] 若松",
       "jp-16": "[JP] オデッサ",
-      "jp-17": "[JP] スイートバン"
+      "jp-17": "[JP] スイートバン",
+      "tw-0": "[TW] 珍珠港",
+      "tw-1": "[TW] 珊瑚海",
+      "tw-2": "[TW] 中途島",
+      "tw-3": "[TW] 瓜達康納爾",
+      "tw-4": "[TW] 雷伊泰灣"
     },
     "ScreenshotMethod": {
       "name": "選擇截圖方案",
@@ -666,8 +688,8 @@
       "help": "登入 SSH 的用戶名，例如: root"
     },
     "RemoteSSHPublicKey": {
-      "name": "SSH 公鑰",
-      "help": "SSH 登入所需的公鑰內容（如果需要）"
+      "name": "SSH 私鑰",
+      "help": "SSH 登入所需的私鑰內容（如果需要）"
     },
     "RemoteStartCommand": {
       "name": "遠端啟動指令",
@@ -772,38 +794,37 @@
     },
     "OcrModelVersionEnglish": {
       "name": "OCR 英文模型版本",
-      "help": "選擇英文 OCR 模型版本。auto 使用英文推薦模型 AlOCR v2.6。此項影響英文 Azur Lane 模型；ncnn 後端會忽略此選擇。",
+      "help": "選擇英文 OCR 模型檔位。lite 輕量最快，standard 均衡，pro 精度最高。auto 使用 standard。alocr_en_v2_6 為舊版 AlOCR 專用英文模型，僅 ONNX 後端可用。此項影響英文 Azur Lane 模型。",
       "auto": "自動推薦",
-      "alocr_en_900k": "alocr_en_900k",
-      "azur_lane_v6_6": "英文 v6.6 (Azur Lane)",
-      "azur_lane_v6_5": "英文 v6.5 (Azur Lane)",
-      "ppocr_v6": "通用 PP-OCRv6",
-      "alocr_en_v2_6": "英文 AlOCR v2.6",
-      "alocr_en_v2_0": "英文 AlOCR v2.0",
-      "alocr_en_v1_0": "英文 AlOCR v1.0"
+      "lite": "Lite 輕量",
+      "standard": "Standard 標準",
+      "pro": "Pro 高精度",
+      "alocr_en_v2_6": "AlOCR v2.6（舊版）"
     },
     "OcrModelVersionChinese": {
       "name": "OCR 簡中模型版本",
-      "help": "選擇簡體中文 OCR 模型版本。auto 使用中文推薦模型 v6.1。此項影響 cnocr/中文模型；ncnn 後端會忽略此選擇。",
+      "help": "選擇簡體中文 OCR 模型檔位。lite 輕量最快，standard 均衡，pro 精度最高。auto 使用 standard。alocr_cn_v3 為舊版 AlOCR 專用中文模型，僅 ONNX 後端可用。此項影響 cnocr/中文模型。",
       "auto": "自動推薦",
-      "cn_v6_1": "中文 v6.1",
-      "cn_v6": "中文 v6",
-      "ppocr_v6": "通用 PP-OCRv6",
-      "alocr_cn_v3": "中文 AlOCR v3",
-      "alocr_cn_v2_5": "中文 AlOCR v2.5"
+      "lite": "Lite 輕量",
+      "standard": "Standard 標準",
+      "pro": "Pro 高精度",
+      "alocr_cn_v3": "AlOCR v3（舊版）"
     },
     "OcrModelVersionJapanese": {
       "name": "OCR 日文模型版本",
-      "help": "選擇日文 OCR 模型版本。auto 使用日文 Azur Lane v6。此項影響日文模型；ncnn 後端會忽略此選擇。",
+      "help": "選擇日文 OCR 模型檔位。lite 輕量最快但不支援日語，standard 均衡，pro 精度最高。auto 使用 standard。此項影響日文模型。",
       "auto": "自動推薦",
-      "azur_lane_jp_v6": "日文 v6 (Azur Lane JP)",
-      "ppocr_v6": "通用 PP-OCRv6"
+      "lite": "Lite 輕量",
+      "standard": "Standard 標準",
+      "pro": "Pro 高精度"
     },
     "OcrModelVersionTraditionalChinese": {
       "name": "OCR 繁中模型版本",
-      "help": "選擇繁體中文 OCR 模型版本。目前僅提供通用 PP-OCRv6，保留獨立選項以便後續擴充。ncnn 後端會忽略此選擇。",
+      "help": "選擇繁體中文 OCR 模型檔位。lite 輕量最快，standard 均衡，pro 精度最高。auto 使用 standard。",
       "auto": "自動推薦",
-      "ppocr_v6": "通用 PP-OCRv6"
+      "lite": "Lite 輕量",
+      "standard": "Standard 標準",
+      "pro": "Pro 高精度"
     },
     "ScreenshotInterval": {
       "name": "放慢截圖速度至 X 秒一張",
@@ -1160,6 +1181,7 @@
       "event_20260417_cn": "假日航線閃耀海濱",
       "event_20260520_cn": "聖印前的同盟",
       "event_20260625_cn": "美夢巡演奇秒夜",
+      "event_20260813_cn": "沉溺于星光之城",
       "raid_20200624": "特別演習埃塞克斯級(復刻)",
       "raid_20210708": "復刻穿越彼方的水線",
       "raid_20220127": "演習神秘事件調查",
@@ -1705,7 +1727,15 @@
     },
     "CommissionLimit": {
       "name": "防止緊急委託數量過多",
-      "help": "在7x24執行時防止緊急委託數量過多做不完每日委託，建議在委託過濾器僅選擇短時長高收益委託"
+      "help": "啟用後，委託排程會根據以下兩項設定保留高價值委託；達到保留量時延後刷緊急委託任務。"
+    },
+    "HighValueCommissionFilterCount": {
+      "name": "高價值委託過濾器數量",
+      "help": "將目前委託過濾器由前往後的前 X 條普通規則視為高價值規則。tier 和 shortest 等控制標記不計入數量。"
+    },
+    "HighValueCommissionReserve": {
+      "name": "高價值委託保留量",
+      "help": "委託執行後，若仍待執行且符合高價值規則的委託數量達到此值，則延後刷緊急委託任務。"
     },
     "VanguardLevelMin": {
       "name": "前排最低等級",
@@ -1926,13 +1956,37 @@
       "oil": "鑽石>石油>魔方",
       "custom": "自定義"
     },
-    "AddShortest": {
-      "name": "自動接取耗時最短的每日委託",
-      "help": "當設定的自定義委託過濾器沒有可選委託時，系統會自動接取耗時最短的每日委託。此設定不會影響任何內建的委託策略。"
+    "DynamicProgramming": {
+      "name": "實驗性動態規劃",
+      "help": "關閉時使用傳統篩選器順序貪心選擇；開啟後使用帶嚴格最優性證明的多項式規劃，並啟用下方五個價值模型參數。"
+    },
+    "TierValueRatio": {
+      "name": "相鄰層級價值倍率",
+      "help": "前一 tier 相對後一 tier 的基礎價值倍率，必須大於 1。數值越大，越不願為了低層級委託推遲高層級委託；預設 2。"
+    },
+    "DelayHalfLife": {
+      "name": "基礎等待半衰期（小時）",
+      "help": "統一折現公式中 2^(-s/H) 的 H。數值越小，所有委託的基礎等待懲罰越強；必須為正數並支援一位小數。"
+    },
+    "DeadlineFutureHorizon": {
+      "name": "Deadline 折現基準時間（小時）",
+      "help": "統一折現公式中相對視窗指數 (T/d)^2 的 T。數值越大，相同等待時間和 deadline 下的懲罰越強；必須為正數並支援一位小數，預設 2.0 小時。"
+    },
+    "FilterValueFloor": {
+      "name": "層內篩選器價值下限",
+      "help": "同一 tier 內編號非常靠後的規則仍保留的最低價值比例，範圍為 0 到 1，不含 0。數值越小，層內順序影響越強；預設 0.6。"
+    },
+    "FilterValueHalfLife": {
+      "name": "層內編號半衰期",
+      "help": "同一 tier 內篩選器編號修正向價值下限衰減一半所需的規則數，必須為正數並支援一位小數。數值越小，靠前規則的優勢越集中。"
     },
     "CustomFilter": {
       "name": "自定義委託過濾器",
-      "help": "使用自定義過濾器需將 \"委託過濾器\" 設定為 \"自定義\"，並閱讀 https://github.com/LmeSzinc/AzurLaneAutoScript/wiki/filter_string_cn"
+      "help": "使用自訂篩選器需將委託篩選器設為自訂。開啟實驗性動態規劃後，可用 tier 分隔價值層級；未填寫 tier 時，每條篩選規則分別視為一個層級。規劃器按有限層級倍率、層內編號和預計啟動等待時間計算折現價值，必要時會放棄低價值委託。傳統貪心策略會忽略 tier；shortest 用於補足未匹配委託。"
+    },
+    "Blacklist": {
+      "name": "委託黑名單",
+      "help": "填寫要忽略的委託篩選規則，多個規則請使用英文半形逗號（,）分隔，例如 ExtraBook, UrgentOil-8, Major。傳統貪心策略和規劃演算法都會忽略符合項目。"
     },
     "DoMajorCommission": {
       "name": "做主要委託（1200油/1000油委託）",
@@ -3260,10 +3314,6 @@
     "StayInZone": {
       "name": "停留在指定海域",
       "help": "開啟後，將按「指定海域」設定執行。指定單個海域時一直停留在該海域；指定多個海域時按填寫順序循環。僅在指定海域不為0時生效。"
-    },
-    "APPreserveUntilReset": {
-      "name": "重置前保留行動力",
-      "help": "在大世界重置前保留足夠的行動力"
     }
   },
   "OpsiTarget": {
@@ -3460,6 +3510,26 @@
     "TaskPriority": {
       "name": "補充黃幣任務優先級",
       "help": "黃幣不足時，執行補充黃幣任務的優先級順序。使用 > 分隔。"
+    },
+    "MonthEndActionPointCleanupEnable": {
+      "name": "OpsiScheduling.MonthEndActionPointCleanupEnable.name",
+      "help": "OpsiScheduling.MonthEndActionPointCleanupEnable.help",
+      "True": "True",
+      "False": "False"
+    },
+    "MonthEndActionPointCleanupDays": {
+      "name": "OpsiScheduling.MonthEndActionPointCleanupDays.name",
+      "help": "OpsiScheduling.MonthEndActionPointCleanupDays.help"
+    },
+    "MonthEndActionPointPreserve": {
+      "name": "OpsiScheduling.MonthEndActionPointPreserve.name",
+      "help": "OpsiScheduling.MonthEndActionPointPreserve.help"
+    },
+    "MonthEndShopPurchase": {
+      "name": "OpsiScheduling.MonthEndShopPurchase.name",
+      "help": "OpsiScheduling.MonthEndShopPurchase.help",
+      "True": "True",
+      "False": "False"
     }
   },
   "OpsiPreventActionPointOverflow": {
@@ -3490,7 +3560,7 @@
     },
     "Season": {
       "name": "當前季節",
-      "help": "設定島嶼計劃當前所處的季節，不同季節會啟用對應的季節限定物品。\n春季限定：涼拌雙筍、蘆筍炒蝦仁、迎春花茶、鮮榨鳳梨汁、蘆筍、鳳梨、薺菜乾、春季花束\n夏季限定：莧菜飯糰、番茄炒蛋、西瓜汁、黃瓜汁、番茄、黃瓜、茉莉精油、夏季花束",
+      "help": "設定島嶼計劃當前所處的季節，不同季節會啟用對應的季節限定物品。\n春季限定：涼拌雙筍、蘆筍炒蝦仁、迎春花茶、鮮榨鳳梨汁、蘆筍、鳳梨、薺菜乾、春季花束\n夏季限定：莧菜飯糰、番茄炒蛋、西瓜汁、黃瓜汁、番茄、黃瓜、茉莉精油、夏季花束\n秋季限定：柿子餅、松茸雞湯、胡蘿蔔秋梨汁、菊花茶、秋月梨、柿子、花生油、秋季花束",
       "spring": "春",
       "summer": "夏",
       "autumn": "秋",
@@ -3512,7 +3582,7 @@
     },
     "WorkerFilter": {
       "name": "農田使用角色",
-      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
+      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao > 安克雷奇：Anchorage > 貝爾法斯特：Belfast > 長風：ChangFeng > 莫加多爾：Mogador > 皇家財富號：RoyalFortune\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
     },
     "MinFarm": {
       "name": "農田作物底線",
@@ -3543,7 +3613,7 @@
     },
     "WorkerFilter": {
       "name": "果園使用角色",
-      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
+      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao > 安克雷奇：Anchorage > 貝爾法斯特：Belfast > 長風：ChangFeng > 莫加多爾：Mogador > 皇家財富號：RoyalFortune\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
     },
     "MinOrchard": {
       "name": "水果底線",
@@ -3580,7 +3650,7 @@
     },
     "WorkerFilter": {
       "name": "苗圃使用角色",
-      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
+      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao > 安克雷奇：Anchorage > 貝爾法斯特：Belfast > 長風：ChangFeng > 莫加多爾：Mogador > 皇家財富號：RoyalFortune\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
     },
     "MinNursery": {
       "name": "苗圃作物底線",
@@ -3607,9 +3677,17 @@
       "name": "雞肉底線",
       "help": ""
     },
+    "ChickenFilter": {
+      "name": "養雞使用角色",
+      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao > 安克雷奇：Anchorage > 貝爾法斯特：Belfast > 長風：ChangFeng > 莫加多爾：Mogador > 皇家財富號：RoyalFortune\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
+    },
     "MinPork": {
       "name": "豬肉底線",
       "help": ""
+    },
+    "PigFilter": {
+      "name": "養豬使用角色",
+      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao > 安克雷奇：Anchorage > 貝爾法斯特：Belfast > 長風：ChangFeng > 莫加多爾：Mogador > 皇家財富號：RoyalFortune\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
     },
     "Milk": {
       "name": "養牛",
@@ -3617,7 +3695,7 @@
     },
     "RancherFilter": {
       "name": "使用角色",
-      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
+      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao > 安克雷奇：Anchorage > 貝爾法斯特：Belfast > 長風：ChangFeng > 莫加多爾：Mogador > 皇家財富號：RoyalFortune\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
     },
     "Wool": {
       "name": "養羊",
@@ -3625,7 +3703,7 @@
     },
     "WoolWorkerFilter": {
       "name": "養羊使用角色",
-      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
+      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao > 安克雷奇：Anchorage > 貝爾法斯特：Belfast > 長風：ChangFeng > 莫加多爾：Mogador > 皇家財富號：RoyalFortune\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
     }
   },
   "IslandFishery": {
@@ -3682,7 +3760,7 @@
     },
     "RancherFilter": {
       "name": "使用角色",
-      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
+      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao > 安克雷奇：Anchorage > 貝爾法斯特：Belfast > 長風：ChangFeng > 莫加多爾：Mogador > 皇家財富號：RoyalFortune\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
     }
   },
   "IslandMine": {
@@ -3709,7 +3787,7 @@
     },
     "WorkerFilter": {
       "name": "礦山使用角色",
-      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
+      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao > 安克雷奇：Anchorage > 貝爾法斯特：Belfast > 長風：ChangFeng > 莫加多爾：Mogador > 皇家財富號：RoyalFortune\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
     },
     "MinCopper": {
       "name": "銅礦最低庫存",
@@ -3756,7 +3834,7 @@
     },
     "WorkerFilter": {
       "name": "林場使用角色",
-      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
+      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao > 安克雷奇：Anchorage > 貝爾法斯特：Belfast > 長風：ChangFeng > 莫加多爾：Mogador > 皇家財富號：RoyalFortune\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
     },
     "MinElegant": {
       "name": "優雅木材最低庫存",
@@ -3778,7 +3856,7 @@
     },
     "WorkerFilter": {
       "name": "採集角色",
-      "help": "以>連接，最多填寫3個角色，分別對應第1~3個採集槽位。\n以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao\n每日採集不能選擇 WorkerJuu，填寫後會自動忽略。\n僅識別預設排序前兩排；指定角色不可用時該槽位回退現有採集邏輯。"
+      "help": "以>連接，最多填寫3個角色，分別對應第1~3個採集槽位。\n以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao > 安克雷奇：Anchorage > 貝爾法斯特：Belfast > 長風：ChangFeng > 莫加多爾：Mogador > 皇家財富號：RoyalFortune\n每日採集不能選擇 WorkerJuu，填寫後會自動忽略。\n僅識別預設排序前兩排；指定角色不可用時該槽位回退現有採集邏輯。"
     }
   },
   "IslandRestaurant": {
@@ -3794,11 +3872,11 @@
     },
     "ChefFilter": {
       "name": "廚師",
-      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
+      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao > 安克雷奇：Anchorage > 貝爾法斯特：Belfast > 長風：ChangFeng > 莫加多爾：Mogador > 皇家財富號：RoyalFortune\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
     },
     "DoubleBambooShoots": {
       "name": "季節餐優先製作",
-      "help": "開啟後按目前季節選擇餐館季節餐，並在基礎餐品之前優先製作。春季為涼拌雙筍，夏季為莧菜飯糰；秋冬無餐館季節餐時不額外製作。"
+      "help": "開啟後按目前季節選擇餐館季節餐，並在基礎餐品之前優先製作。春季為涼拌雙筍，夏季為莧菜飯糰，秋季為松茸雞湯；冬季無餐館季節餐時不額外製作。"
     },
     "Meal1": {
       "name": "餐品1",
@@ -3815,7 +3893,9 @@
       "asparagus_shrimp": "蘆筍炒蝦仁",
       "fish_chip": "炸魚薯條",
       "fo_tiao": "佛跳牆",
-      "onion_fish": "洋蔥蒸魚"
+      "onion_fish": "洋蔥蒸魚",
+      "matsutake_chicken_soup": "松茸雞湯",
+      "persimmon_cake": "柿子餅"
     },
     "MealNumber1": {
       "name": "生產餐品1至 X 份",
@@ -3836,7 +3916,9 @@
       "asparagus_shrimp": "蘆筍炒蝦仁",
       "fish_chip": "炸魚薯條",
       "fo_tiao": "佛跳牆",
-      "onion_fish": "洋蔥蒸魚"
+      "onion_fish": "洋蔥蒸魚",
+      "matsutake_chicken_soup": "松茸雞湯",
+      "persimmon_cake": "柿子餅"
     },
     "MealNumber2": {
       "name": "生產餐品2至 X 份",
@@ -3857,7 +3939,9 @@
       "asparagus_shrimp": "蘆筍炒蝦仁",
       "fish_chip": "炸魚薯條",
       "fo_tiao": "佛跳牆",
-      "onion_fish": "洋蔥蒸魚"
+      "onion_fish": "洋蔥蒸魚",
+      "matsutake_chicken_soup": "松茸雞湯",
+      "persimmon_cake": "柿子餅"
     },
     "MealNumber3": {
       "name": "生產餐品3至 X 份",
@@ -3878,7 +3962,9 @@
       "asparagus_shrimp": "蘆筍炒蝦仁",
       "fish_chip": "炸魚薯條",
       "fo_tiao": "佛跳牆",
-      "onion_fish": "洋蔥蒸魚"
+      "onion_fish": "洋蔥蒸魚",
+      "matsutake_chicken_soup": "松茸雞湯",
+      "persimmon_cake": "柿子餅"
     },
     "MealNumber4": {
       "name": "生產餐品4至 X 份",
@@ -3899,7 +3985,9 @@
       "asparagus_shrimp": "蘆筍炒蝦仁",
       "fish_chip": "炸魚薯條",
       "fo_tiao": "佛跳牆",
-      "onion_fish": "洋蔥蒸魚"
+      "onion_fish": "洋蔥蒸魚",
+      "matsutake_chicken_soup": "松茸雞湯",
+      "persimmon_cake": "柿子餅"
     },
     "MealNumber5": {
       "name": "生產餐品5至 X 份",
@@ -3920,7 +4008,9 @@
       "asparagus_shrimp": "蘆筍炒蝦仁",
       "fish_chip": "炸魚薯條",
       "fo_tiao": "佛跳牆",
-      "onion_fish": "洋蔥蒸魚"
+      "onion_fish": "洋蔥蒸魚",
+      "matsutake_chicken_soup": "松茸雞湯",
+      "persimmon_cake": "柿子餅"
     },
     "MealNumber6": {
       "name": "生產餐品6至 X 份",
@@ -3941,7 +4031,9 @@
       "asparagus_shrimp": "蘆筍炒蝦仁",
       "fish_chip": "炸魚薯條",
       "fo_tiao": "佛跳牆",
-      "onion_fish": "洋蔥蒸魚"
+      "onion_fish": "洋蔥蒸魚",
+      "matsutake_chicken_soup": "松茸雞湯",
+      "persimmon_cake": "柿子餅"
     },
     "MealNumber7": {
       "name": "生產餐品7至 X 份",
@@ -3962,7 +4054,9 @@
       "asparagus_shrimp": "蘆筍炒蝦仁",
       "fish_chip": "炸魚薯條",
       "fo_tiao": "佛跳牆",
-      "onion_fish": "洋蔥蒸魚"
+      "onion_fish": "洋蔥蒸魚",
+      "matsutake_chicken_soup": "松茸雞湯",
+      "persimmon_cake": "柿子餅"
     },
     "MealNumber8": {
       "name": "生產餐品8至 X 份",
@@ -3989,7 +4083,9 @@
       "asparagus_shrimp": "蘆筍炒蝦仁",
       "fish_chip": "炸魚薯條",
       "fo_tiao": "佛跳牆",
-      "onion_fish": "洋蔥蒸魚"
+      "onion_fish": "洋蔥蒸魚",
+      "matsutake_chicken_soup": "松茸雞湯",
+      "persimmon_cake": "柿子餅"
     }
   },
   "IslandTeahouse": {
@@ -4005,11 +4101,11 @@
     },
     "ChefFilter": {
       "name": "廚師",
-      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
+      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao > 安克雷奇：Anchorage > 貝爾法斯特：Belfast > 長風：ChangFeng > 莫加多爾：Mogador > 皇家財富號：RoyalFortune\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
     },
     "Seasonal": {
       "name": "季節飲品優先製作",
-      "help": "開啟後按目前季節選擇白熊飲品的季節飲品，並在基礎飲品之前優先製作。春季為迎春花茶，夏季為西瓜汁；秋冬無白熊飲品季節飲品時不額外製作。"
+      "help": "開啟後按目前季節選擇白熊飲品的季節飲品，並在基礎飲品之前優先製作。春季為迎春花茶，夏季為西瓜汁，秋季為菊花茶；冬季無白熊飲品季節飲品時不額外製作。"
     },
     "Meal1": {
       "name": "餐品1",
@@ -4024,7 +4120,9 @@
       "fruit_paradise": "繽紛果樂園",
       "lavender_tea": "薰衣草茶",
       "sunny_honey": "陽光蜜水",
-      "spring_flower_tea": "迎春花茶"
+      "spring_flower_tea": "迎春花茶",
+      "chrysanthemum_tea": "菊花茶",
+      "carrot_pear_juice": "胡蘿蔔秋梨汁"
     },
     "MealNumber1": {
       "name": "生產餐品1至 X 份",
@@ -4043,7 +4141,9 @@
       "fruit_paradise": "繽紛果樂園",
       "lavender_tea": "薰衣草茶",
       "sunny_honey": "陽光蜜水",
-      "spring_flower_tea": "迎春花茶"
+      "spring_flower_tea": "迎春花茶",
+      "chrysanthemum_tea": "菊花茶",
+      "carrot_pear_juice": "胡蘿蔔秋梨汁"
     },
     "MealNumber2": {
       "name": "生產餐品2至 X 份",
@@ -4062,7 +4162,9 @@
       "fruit_paradise": "繽紛果樂園",
       "lavender_tea": "薰衣草茶",
       "sunny_honey": "陽光蜜水",
-      "spring_flower_tea": "迎春花茶"
+      "spring_flower_tea": "迎春花茶",
+      "chrysanthemum_tea": "菊花茶",
+      "carrot_pear_juice": "胡蘿蔔秋梨汁"
     },
     "MealNumber3": {
       "name": "生產餐品3至 X 份",
@@ -4081,7 +4183,9 @@
       "fruit_paradise": "繽紛果樂園",
       "lavender_tea": "薰衣草茶",
       "sunny_honey": "陽光蜜水",
-      "spring_flower_tea": "迎春花茶"
+      "spring_flower_tea": "迎春花茶",
+      "chrysanthemum_tea": "菊花茶",
+      "carrot_pear_juice": "胡蘿蔔秋梨汁"
     },
     "MealNumber4": {
       "name": "生產餐品4至 X 份",
@@ -4100,7 +4204,9 @@
       "fruit_paradise": "繽紛果樂園",
       "lavender_tea": "薰衣草茶",
       "sunny_honey": "陽光蜜水",
-      "spring_flower_tea": "迎春花茶"
+      "spring_flower_tea": "迎春花茶",
+      "chrysanthemum_tea": "菊花茶",
+      "carrot_pear_juice": "胡蘿蔔秋梨汁"
     },
     "MealNumber5": {
       "name": "生產餐品5至 X 份",
@@ -4119,7 +4225,9 @@
       "fruit_paradise": "繽紛果樂園",
       "lavender_tea": "薰衣草茶",
       "sunny_honey": "陽光蜜水",
-      "spring_flower_tea": "迎春花茶"
+      "spring_flower_tea": "迎春花茶",
+      "chrysanthemum_tea": "菊花茶",
+      "carrot_pear_juice": "胡蘿蔔秋梨汁"
     },
     "MealNumber6": {
       "name": "生產餐品6至 X 份",
@@ -4138,7 +4246,9 @@
       "fruit_paradise": "繽紛果樂園",
       "lavender_tea": "薰衣草茶",
       "sunny_honey": "陽光蜜水",
-      "spring_flower_tea": "迎春花茶"
+      "spring_flower_tea": "迎春花茶",
+      "chrysanthemum_tea": "菊花茶",
+      "carrot_pear_juice": "胡蘿蔔秋梨汁"
     },
     "MealNumber7": {
       "name": "生產餐品7至 X 份",
@@ -4157,7 +4267,9 @@
       "fruit_paradise": "繽紛果樂園",
       "lavender_tea": "薰衣草茶",
       "sunny_honey": "陽光蜜水",
-      "spring_flower_tea": "迎春花茶"
+      "spring_flower_tea": "迎春花茶",
+      "chrysanthemum_tea": "菊花茶",
+      "carrot_pear_juice": "胡蘿蔔秋梨汁"
     },
     "MealNumber8": {
       "name": "生產餐品8至 X 份",
@@ -4182,7 +4294,9 @@
       "fruit_paradise": "繽紛果樂園",
       "lavender_tea": "薰衣草茶",
       "sunny_honey": "陽光蜜水",
-      "spring_flower_tea": "迎春花茶"
+      "spring_flower_tea": "迎春花茶",
+      "chrysanthemum_tea": "菊花茶",
+      "carrot_pear_juice": "胡蘿蔔秋梨汁"
     }
   },
   "IslandGrill": {
@@ -4198,7 +4312,7 @@
     },
     "ChefFilter": {
       "name": "廚師",
-      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
+      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao > 安克雷奇：Anchorage > 貝爾法斯特：Belfast > 長風：ChangFeng > 莫加多爾：Mogador > 皇家財富號：RoyalFortune\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
     },
     "Meal1": {
       "name": "餐品1",
@@ -4369,7 +4483,7 @@
     },
     "ChefFilter": {
       "name": "廚師",
-      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
+      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao > 安克雷奇：Anchorage > 貝爾法斯特：Belfast > 長風：ChangFeng > 莫加多爾：Mogador > 皇家財富號：RoyalFortune\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
     },
     "Meal1": {
       "name": "餐品1",
@@ -4558,7 +4672,7 @@
     },
     "ChefFilter": {
       "name": "廚師",
-      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
+      "help": "以>連接，例如肇和 新澤西 小天城：ChaoHo > NewJersey > Amagi_chan\n小加加：Saratoga > 明石：Akashi > 塔什干：Tashkent > 應瑞：YingSwei\n惡毒：LeMalin > 獨角獸：Unicorn > 島風：Shimakaze > 柴郡：Cheshire\n鎮海：ChenHai > 威廉D波特：WilliamDPorter\n海倫娜：Helena > 大帝：Friedrich > 愛宕：Atago\n逸仙：Yixian > 奧古斯特：August > 歐根親王：Eugen > 胡德：Hood > 標槍：Javelin > 拉菲：Laffey > 探索者：Explorer > 領航員：Navigator > 領洋者：OceanCrosser > 飛雲：FeiYun > 高雄：Takao > 安克雷奇：Anchorage > 貝爾法斯特：Belfast > 長風：ChangFeng > 莫加多爾：Mogador > 皇家財富號：RoyalFortune\n僅識別預設排序前兩排；指定艦娘不可用時回退 WorkerJuu。"
     },
     "Friedrich": {
       "name": "大帝",
@@ -4892,13 +5006,13 @@
     },
     "SeasonalReplaceEnabled": {
       "name": "啟用季節限定替換",
-      "help": "季節限定菜品庫存不足時自動替換",
+      "help": "季節限定商品庫存不足時自動替換",
       "True": "啟用",
       "False": "禁用"
     },
     "SeasonalThreshold": {
       "name": "季節限定商品數量低於 X 時替換",
-      "help": "季節限定菜品庫存低於此數量時觸發替換"
+      "help": "季節限定商品庫存低於此數量時觸發替換"
     }
   },
   "IslandBusinessShop1": {
@@ -4937,7 +5051,12 @@
       "Navigator": "領航者",
       "OceanCrosser": "領洋者",
       "FeiYun": "飛雲",
-      "Takao": "高雄"
+      "Takao": "高雄",
+      "Anchorage": "安克雷奇",
+      "Belfast": "貝爾法斯特",
+      "ChangFeng": "長風",
+      "Mogador": "莫加多爾",
+      "RoyalFortune": "皇家財富號"
     },
     "Char2": {
       "name": "角色2",
@@ -4970,7 +5089,12 @@
       "Navigator": "領航者",
       "OceanCrosser": "領洋者",
       "FeiYun": "飛雲",
-      "Takao": "高雄"
+      "Takao": "高雄",
+      "Anchorage": "安克雷奇",
+      "Belfast": "貝爾法斯特",
+      "ChangFeng": "長風",
+      "Mogador": "莫加多爾",
+      "RoyalFortune": "皇家財富號"
     },
     "Product1": {
       "name": "餐品1",
@@ -4981,7 +5105,9 @@
       "tofu_combo": "經典豆腐套餐",
       "hearty_meal": "綿玉定食",
       "fo_tiao": "佛跳牆",
-      "amaranth_rice_ball": "莧菜飯糰"
+      "amaranth_rice_ball": "莧菜飯糰",
+      "matsutake_chicken_soup": "松茸雞湯",
+      "persimmon_cake": "柿子餅"
     },
     "Product2": {
       "name": "餐品2",
@@ -4992,7 +5118,9 @@
       "tofu_combo": "經典豆腐套餐",
       "hearty_meal": "綿玉定食",
       "fo_tiao": "佛跳牆",
-      "amaranth_rice_ball": "莧菜飯糰"
+      "amaranth_rice_ball": "莧菜飯糰",
+      "matsutake_chicken_soup": "松茸雞湯",
+      "persimmon_cake": "柿子餅"
     },
     "Product3": {
       "name": "餐品3",
@@ -5003,7 +5131,9 @@
       "tofu_combo": "經典豆腐套餐",
       "hearty_meal": "綿玉定食",
       "fo_tiao": "佛跳牆",
-      "amaranth_rice_ball": "莧菜飯糰"
+      "amaranth_rice_ball": "莧菜飯糰",
+      "matsutake_chicken_soup": "松茸雞湯",
+      "persimmon_cake": "柿子餅"
     },
     "Product4": {
       "name": "餐品4",
@@ -5014,7 +5144,9 @@
       "tofu_combo": "經典豆腐套餐",
       "hearty_meal": "綿玉定食",
       "fo_tiao": "佛跳牆",
-      "amaranth_rice_ball": "莧菜飯糰"
+      "amaranth_rice_ball": "莧菜飯糰",
+      "matsutake_chicken_soup": "松茸雞湯",
+      "persimmon_cake": "柿子餅"
     },
     "Product5": {
       "name": "餐品5",
@@ -5025,7 +5157,9 @@
       "tofu_combo": "經典豆腐套餐",
       "hearty_meal": "綿玉定食",
       "fo_tiao": "佛跳牆",
-      "amaranth_rice_ball": "莧菜飯團"
+      "amaranth_rice_ball": "莧菜飯團",
+      "matsutake_chicken_soup": "松茸雞湯",
+      "persimmon_cake": "柿子餅"
     },
     "SeasonalFallback": {
       "name": "季節餐品備用餐品",
@@ -5036,11 +5170,13 @@
       "tofu_combo": "經典豆腐套餐",
       "hearty_meal": "綿玉定食",
       "fo_tiao": "佛跳牆",
-      "amaranth_rice_ball": "莧菜飯糰"
+      "amaranth_rice_ball": "莧菜飯糰",
+      "matsutake_chicken_soup": "松茸雞湯",
+      "persimmon_cake": "柿子餅"
     },
     "BoostReplaceFilter": {
       "name": "有魚餐館加成替換過濾",
-      "help": "多個加成餐品時按過濾順序優先替換第一個；替換槽位從餐品5→1倒查替換最後一個非空餐品\n可用餐品key對照：double_bamboo_shoots:涼拌雙筍, tofu_meat:肉末燒豆腐, tofu_combo:經典豆腐套餐, hearty_meal:綿玉定食, fo_tiao:佛跳牆, amaranth_rice_ball:莧菜飯糰\n示例：30 > 20 > 10"
+      "help": "多個加成餐品時按過濾順序優先替換第一個；替換槽位從餐品5→1倒查替換最後一個非空餐品\n可用餐品key對照：double_bamboo_shoots:涼拌雙筍, tofu_meat:肉末燒豆腐, tofu_combo:經典豆腐套餐, hearty_meal:綿玉定食, fo_tiao:佛跳牆, amaranth_rice_ball:莧菜飯糰, persimmon_cake:柿子餅, matsutake_chicken_soup:松茸雞湯\n示例：30 > 20 > 10"
     }
   },
   "IslandBusinessShop2": {
@@ -5079,7 +5215,12 @@
       "Navigator": "領航者",
       "OceanCrosser": "領洋者",
       "FeiYun": "飛雲",
-      "Takao": "高雄"
+      "Takao": "高雄",
+      "Anchorage": "安克雷奇",
+      "Belfast": "貝爾法斯特",
+      "ChangFeng": "長風",
+      "Mogador": "莫加多爾",
+      "RoyalFortune": "皇家財富號"
     },
     "Char2": {
       "name": "角色2",
@@ -5112,7 +5253,12 @@
       "Navigator": "領航者",
       "OceanCrosser": "領洋者",
       "FeiYun": "飛雲",
-      "Takao": "高雄"
+      "Takao": "高雄",
+      "Anchorage": "安克雷奇",
+      "Belfast": "貝爾法斯特",
+      "ChangFeng": "長風",
+      "Mogador": "莫加多爾",
+      "RoyalFortune": "皇家財富號"
     },
     "Product1": {
       "name": "餐品1",
@@ -5125,7 +5271,9 @@
       "fruit_paradise": "繽紛果樂園",
       "lavender_tea": "薰衣草茶",
       "sunny_honey": "陽光蜜水",
-      "watermelon_juice": "西瓜汁"
+      "watermelon_juice": "西瓜汁",
+      "chrysanthemum_tea": "菊花茶",
+      "carrot_pear_juice": "胡蘿蔔秋梨汁"
     },
     "Product2": {
       "name": "餐品2",
@@ -5138,7 +5286,9 @@
       "fruit_paradise": "繽紛果樂園",
       "lavender_tea": "薰衣草茶",
       "sunny_honey": "陽光蜜水",
-      "watermelon_juice": "西瓜汁"
+      "watermelon_juice": "西瓜汁",
+      "chrysanthemum_tea": "菊花茶",
+      "carrot_pear_juice": "胡蘿蔔秋梨汁"
     },
     "Product3": {
       "name": "餐品3",
@@ -5151,7 +5301,9 @@
       "fruit_paradise": "繽紛果樂園",
       "lavender_tea": "薰衣草茶",
       "sunny_honey": "陽光蜜水",
-      "watermelon_juice": "西瓜汁"
+      "watermelon_juice": "西瓜汁",
+      "chrysanthemum_tea": "菊花茶",
+      "carrot_pear_juice": "胡蘿蔔秋梨汁"
     },
     "Product4": {
       "name": "餐品4",
@@ -5164,7 +5316,9 @@
       "fruit_paradise": "繽紛果樂園",
       "lavender_tea": "薰衣草茶",
       "sunny_honey": "陽光蜜水",
-      "watermelon_juice": "西瓜汁"
+      "watermelon_juice": "西瓜汁",
+      "chrysanthemum_tea": "菊花茶",
+      "carrot_pear_juice": "胡蘿蔔秋梨汁"
     },
     "Product5": {
       "name": "餐品5",
@@ -5177,11 +5331,28 @@
       "fruit_paradise": "繽紛果樂園",
       "lavender_tea": "薰衣草茶",
       "sunny_honey": "陽光蜜水",
-      "watermelon_juice": "西瓜汁"
+      "watermelon_juice": "西瓜汁",
+      "chrysanthemum_tea": "菊花茶",
+      "carrot_pear_juice": "胡蘿蔔秋梨汁"
+    },
+    "SeasonalFallback": {
+      "name": "季節飲品備用飲品",
+      "help": "白熊飲品目前季節飲品庫存不足時替換成該飲品",
+      "None": "None",
+      "spring_flower_tea": "迎春花茶",
+      "strawberry_lemon": "草莓蜜沁",
+      "strawberry_honey": "草莓蜂蜜冰沙",
+      "floral_fruity": "花香果韻",
+      "fruit_paradise": "繽紛果樂園",
+      "lavender_tea": "薰衣草茶",
+      "sunny_honey": "陽光蜜水",
+      "watermelon_juice": "西瓜汁",
+      "chrysanthemum_tea": "菊花茶",
+      "carrot_pear_juice": "胡蘿蔔秋梨汁"
     },
     "BoostReplaceFilter": {
       "name": "白熊飲品加成替換過濾",
-      "help": "多個加成餐品時按過濾順序優先替換第一個；替換槽位從餐品5→1倒查替換最後一個非空餐品\n可用餐品key對照：spring_flower_tea:迎春花茶, strawberry_lemon:草莓蜜沁, strawberry_honey:草莓蜂蜜冰沙, floral_fruity:花香果韻, fruit_paradise:繽紛果樂園, lavender_tea:薰衣草茶, sunny_honey:陽光蜜水, watermelon_juice:西瓜汁\n示例：30 > 20 > strawberry_honey > fruit_paradise > 10"
+      "help": "多個加成餐品時按過濾順序優先替換第一個；替換槽位從餐品5→1倒查替換最後一個非空餐品\n可用餐品key對照：spring_flower_tea:迎春花茶, strawberry_lemon:草莓蜜沁, strawberry_honey:草莓蜂蜜冰沙, floral_fruity:花香果韻, fruit_paradise:繽紛果樂園, lavender_tea:薰衣草茶, sunny_honey:陽光蜜水, watermelon_juice:西瓜汁, chrysanthemum_tea:菊花茶, carrot_pear_juice:胡蘿蔔秋梨汁\n示例：30 > 20 > strawberry_honey > fruit_paradise > 10"
     }
   },
   "IslandBusinessShop3": {
@@ -5220,7 +5391,12 @@
       "Navigator": "領航者",
       "OceanCrosser": "領洋者",
       "FeiYun": "飛雲",
-      "Takao": "高雄"
+      "Takao": "高雄",
+      "Anchorage": "安克雷奇",
+      "Belfast": "貝爾法斯特",
+      "ChangFeng": "長風",
+      "Mogador": "莫加多爾",
+      "RoyalFortune": "皇家財富號"
     },
     "Char2": {
       "name": "角色2",
@@ -5253,7 +5429,12 @@
       "Navigator": "領航者",
       "OceanCrosser": "領洋者",
       "FeiYun": "飛雲",
-      "Takao": "高雄"
+      "Takao": "高雄",
+      "Anchorage": "安克雷奇",
+      "Belfast": "貝爾法斯特",
+      "ChangFeng": "長風",
+      "Mogador": "莫加多爾",
+      "RoyalFortune": "皇家財富號"
     },
     "Product1": {
       "name": "餐品1",
@@ -5346,7 +5527,12 @@
       "Navigator": "領航者",
       "OceanCrosser": "領洋者",
       "FeiYun": "飛雲",
-      "Takao": "高雄"
+      "Takao": "高雄",
+      "Anchorage": "安克雷奇",
+      "Belfast": "貝爾法斯特",
+      "ChangFeng": "長風",
+      "Mogador": "莫加多爾",
+      "RoyalFortune": "皇家財富號"
     },
     "Char2": {
       "name": "角色2",
@@ -5379,7 +5565,12 @@
       "Navigator": "領航者",
       "OceanCrosser": "領洋者",
       "FeiYun": "飛雲",
-      "Takao": "高雄"
+      "Takao": "高雄",
+      "Anchorage": "安克雷奇",
+      "Belfast": "貝爾法斯特",
+      "ChangFeng": "長風",
+      "Mogador": "莫加多爾",
+      "RoyalFortune": "皇家財富號"
     },
     "Product1": {
       "name": "餐品1",
@@ -5477,7 +5668,12 @@
       "Navigator": "領航者",
       "OceanCrosser": "領洋者",
       "FeiYun": "飛雲",
-      "Takao": "高雄"
+      "Takao": "高雄",
+      "Anchorage": "安克雷奇",
+      "Belfast": "貝爾法斯特",
+      "ChangFeng": "長風",
+      "Mogador": "莫加多爾",
+      "RoyalFortune": "皇家財富號"
     },
     "Char2": {
       "name": "角色2",
@@ -5510,13 +5706,19 @@
       "Navigator": "領航者",
       "OceanCrosser": "領洋者",
       "FeiYun": "飛雲",
-      "Takao": "高雄"
+      "Takao": "高雄",
+      "Anchorage": "安克雷奇",
+      "Belfast": "貝爾法斯特",
+      "ChangFeng": "長風",
+      "Mogador": "莫加多爾",
+      "RoyalFortune": "皇家財富號"
     },
     "Product1": {
       "name": "餐品1",
       "help": "",
       "None": "None",
       "cheese": "芝士",
+      "citrus_coffee": "柑橘咖啡",
       "strawberry_milkshake": "草莓奶綠",
       "morning_light": "晨光活力組合",
       "wake_up_call": "醒神套餐",
@@ -5527,6 +5729,7 @@
       "help": "",
       "None": "None",
       "cheese": "芝士",
+      "citrus_coffee": "柑橘咖啡",
       "strawberry_milkshake": "草莓奶綠",
       "morning_light": "晨光活力組合",
       "wake_up_call": "醒神套餐",
@@ -5537,6 +5740,7 @@
       "help": "",
       "None": "None",
       "cheese": "芝士",
+      "citrus_coffee": "柑橘咖啡",
       "strawberry_milkshake": "草莓奶綠",
       "morning_light": "晨光活力組合",
       "wake_up_call": "醒神套餐",
@@ -5547,6 +5751,7 @@
       "help": "",
       "None": "None",
       "cheese": "芝士",
+      "citrus_coffee": "柑橘咖啡",
       "strawberry_milkshake": "草莓奶綠",
       "morning_light": "晨光活力組合",
       "wake_up_call": "醒神套餐",
@@ -5557,6 +5762,7 @@
       "help": "",
       "None": "None",
       "cheese": "芝士",
+      "citrus_coffee": "柑橘咖啡",
       "strawberry_milkshake": "草莓奶綠",
       "morning_light": "晨光活力組合",
       "wake_up_call": "醒神套餐",
@@ -5565,6 +5771,20 @@
     "BoostReplaceFilter": {
       "name": "啾咖啡加成替換過濾",
       "help": "多個加成餐品時按過濾順序優先替換第一個；替換槽位從餐品5→1倒查替換最後一個非空餐品\n可用餐品key對照：cheese:芝士, strawberry_milkshake:草莓奶綠, morning_light:晨光活力組合, wake_up_call:醒神套餐, fruity_fruitier:果香雙杯樂\n示例：30 > 20 > cheese > 10"
+    }
+  },
+  "FleetInfo": {
+    "_info": {
+      "name": "艦隊資訊",
+      "help": "儲存艦隊掃描結果"
+    },
+    "Result": {
+      "name": "掃描結果",
+      "help": "依艦種與艦隊編號儲存的艦船資訊"
+    },
+    "Record": {
+      "name": "掃描時間",
+      "help": "最近一次完成艦隊掃描的時間"
     }
   },
   "Daemon": {
@@ -5894,6 +6114,27 @@
       "Overview": "總覽",
       "Log": "執行日誌"
     },
+    "TaskConfig": {
+      "SearchPlaceholder": "搜尋設定",
+      "SearchNoResult": "找不到相符的設定",
+      "SearchResultCount": "共 {count} 項結果"
+    },
+    "FleetManagement": {
+      "StartScan": "開始掃描",
+      "Scanning": "掃描中",
+      "ScanStarted": "艦隊掃描已啟動",
+      "ScanAlreadyRunning": "目前實例正在執行任務，無法啟動艦隊掃描",
+      "ScanStartFailed": "艦隊掃描啟動失敗",
+      "LastScan": "最近掃描",
+      "NoResult": "尚未儲存艦隊掃描結果",
+      "Main": "後排主力",
+      "Vanguard": "前排先鋒",
+      "Submarine": "潛艇",
+      "SurfaceFleet": "水上艦隊",
+      "UnderwaterFleet": "水下艦隊",
+      "Fleet": "艦隊",
+      "Ships": "艦船"
+    },
     "MenuDevelop": {
       "HomePage": "主頁",
       "Translate": "翻譯",
@@ -6169,6 +6410,7 @@
     "Text": {
       "InvalidFeedBack": "格式錯誤。 示例：{0}",
       "Clear": "清除",
+      "RunNow": "立即運行",
       "EnterPassword": "輸入密碼",
       "ChooseFile": "選擇檔案"
     },
