@@ -181,8 +181,9 @@ def _uv_python_env(root: Path):
     return env
 
 
-def _managed_python_executable(root: Path) -> Optional[Path]:
+def _managed_python_executables(root: Path) -> list[Path]:
     install_dir = venv_python_install_dir(root)
+    result = []
     for python_home in sorted(install_dir.glob("cpython-*-*"), reverse=True):
         candidates = [
             python_home / "python.exe",
@@ -191,8 +192,14 @@ def _managed_python_executable(root: Path) -> Optional[Path]:
         ]
         for candidate in candidates:
             if candidate.exists():
-                return candidate
-    return None
+                result.append(candidate)
+                break
+    return result
+
+
+def _managed_python_executable(root: Path) -> Optional[Path]:
+    """返回一个 managed Python，兼容性由调用方按项目约束校验。"""
+    return next(iter(_managed_python_executables(root)), None)
 
 
 def _project_python_request(root: Path) -> Optional[str]:
@@ -256,6 +263,27 @@ def _venv_python_works(root: Path) -> bool:
     except Exception:
         return False
     return True
+
+
+def _compatible_managed_python(
+    root: Path,
+    uv: Path,
+    env=None,
+    outputs: Optional[list[str]] = None,
+    deadline: float | None = None,
+) -> Optional[Path]:
+    """从所有 uv managed Python 中选择满足项目约束的解释器。"""
+    for executable in _managed_python_executables(root):
+        if _python_executable_matches_project(
+            root,
+            uv,
+            executable,
+            env=env,
+            outputs=outputs,
+            timeout=_remaining_timeout(deadline, [uv, "python", "find"]),
+        ):
+            return executable
+    return None
 
 
 def _remove_stale_venv_launcher(root: Path):
@@ -377,15 +405,8 @@ def _ensure_self_contained_python(
     deadline: float | None = None,
 ):
     env = _uv_python_env(root)
-    managed_python = _managed_python_executable(root)
-    managed_python_is_compatible = managed_python is not None and _python_executable_matches_project(
-        root,
-        uv,
-        managed_python,
-        env=env,
-        outputs=outputs,
-        timeout=_remaining_timeout(deadline, [uv, "python", "find"]),
-    )
+    managed_python = _compatible_managed_python(root, uv, env=env, outputs=outputs, deadline=deadline)
+    managed_python_is_compatible = managed_python is not None
     if (
         _venv_python_works(root)
         and managed_python_is_compatible
@@ -424,7 +445,9 @@ def _ensure_self_contained_python(
             outputs,
             _remaining_timeout(deadline, command),
         )
-        managed_python = _managed_python_executable(root)
+        managed_python = _compatible_managed_python(root, uv, env=env, outputs=outputs, deadline=deadline)
+        if managed_python is None:
+            raise RuntimeError("uv could not install a Python interpreter satisfying requires-python")
     if managed_python is None:
         command = [
             uv,

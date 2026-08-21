@@ -22,7 +22,7 @@ class TestUvPythonCompatibility(unittest.TestCase):
     def test_compatible_environment_is_reused(self):
         with (
             patch("deploy.uv._venv_python_works", return_value=True),
-            patch("deploy.uv._managed_python_executable", return_value=Path("managed")),
+            patch("deploy.uv._compatible_managed_python", return_value=Path("managed")),
             patch("deploy.uv._python_executable_matches_project", return_value=True),
             patch("deploy.uv._run_and_collect") as run,
         ):
@@ -31,18 +31,10 @@ class TestUvPythonCompatibility(unittest.TestCase):
         run.assert_not_called()
 
     def test_incompatible_environment_installs_project_python_before_rebuild(self):
-        old_python = Path("managed-3.14.3")
         new_python = Path("managed-3.14.6")
         with (
             patch("deploy.uv._venv_python_works", return_value=True),
-            patch(
-                "deploy.uv._managed_python_executable",
-                side_effect=[old_python, new_python],
-            ),
-            patch(
-                "deploy.uv._python_executable_matches_project",
-                side_effect=[False, True],
-            ),
+            patch("deploy.uv._compatible_managed_python", side_effect=[None, new_python]),
             patch("deploy.uv._project_python_request", return_value="3.14.6"),
             patch("deploy.uv._remove_stale_venv_launcher"),
             patch("deploy.uv._run_and_collect") as run,
