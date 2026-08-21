@@ -530,10 +530,10 @@ class Icon:
     存储图标的 HTML 内容。
     """
 
-    # 首屏图标使用启动器锁定的本地 ALAS 资源，避免更新后回退到未锁定的默认头像。
+    # 首屏图标使用独立静态资源，避免每个 PyWebIO 会话都发送 158KB Base64 SVG。
     ALAS = (
         '<img class="alas-icon" '
-        'src="static/assets/gui/icon/alas.svg" '
+        'src="static/assets/spa/spa-icon-192x192.png" '
         'alt="AzurPilot" width="42" height="42" decoding="async" fetchpriority="high">'
     )
     SETTING = _read(filepath_icon("setting"))
