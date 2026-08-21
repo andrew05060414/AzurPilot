@@ -179,7 +179,8 @@ class TestWebUIStaticAssets(unittest.TestCase):
         self.assertEqual("default", pywebio_theme_for("dark_advanced_material"))
 
     def test_header_icon_is_a_static_resource(self):
-        self.assertIn("static/assets/spa/spa-icon-192x192.png", Icon.ALAS)
+        self.assertIn("static/assets/gui/icon/alas.svg", Icon.ALAS)
+        self.assertNotIn("static/assets/spa/spa-icon-192x192.png", Icon.ALAS)
         self.assertNotIn("base64", Icon.ALAS)
 
     def test_initial_css_does_not_download_full_misans_font(self):
