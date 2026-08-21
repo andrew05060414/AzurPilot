@@ -178,9 +178,22 @@ class TestWebUIStaticAssets(unittest.TestCase):
         self.assertEqual("dark", pywebio_theme_for("dark"))
         self.assertEqual("default", pywebio_theme_for("dark_advanced_material"))
 
-    def test_header_icon_is_a_static_resource(self):
+    def test_header_icon_uses_local_spa_path(self):
         self.assertIn("static/assets/spa/spa-icon-192x192.png", Icon.ALAS)
         self.assertNotIn("base64", Icon.ALAS)
+
+    def test_header_keeps_personal_alas_branding(self):
+        base_source = (PROJECT_ROOT / "module/webui/base.py").read_text(
+            encoding="utf-8"
+        )
+        css_source = (PROJECT_ROOT / "assets/gui/css/alas.css").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('put_text("ALAS")', base_source)
+        self.assertNotIn('put_text("港区OA")', base_source)
+        self.assertIn("#pywebio-scope-header > #pywebio-scope-header_title", css_source)
+        self.assertIn("transform: translate(-50%, -50%);", css_source)
 
     def test_initial_css_does_not_download_full_misans_font(self):
         css = (PROJECT_ROOT / "assets/gui/css/alas.css").read_text(encoding="utf-8")

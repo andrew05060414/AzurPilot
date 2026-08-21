@@ -583,6 +583,7 @@ pre.rich-traceback-code {
 
 #pywebio-scope-header {
     z-index: 100;
+    position: relative;
     display: grid;
     grid-auto-flow: column;
     grid-template-columns: 4.4rem 4rem auto 1fr !important;
@@ -599,13 +600,19 @@ pre.rich-traceback-code {
     margin: auto !important;
 }
 
-#pywebio-scope-header_title {
-    margin: auto;
+#pywebio-scope-header > #pywebio-scope-header_title {
+    position: absolute !important;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: max-content;
+    max-width: calc(100% - 14rem);
+    margin: 0;
 }
 
 #pywebio-scope-header_title>p {
     font-size: 1.2rem;
-    margin: auto;
+    margin: 0;
     overflow: hidden;
     text-align: center;
 }

@@ -34,11 +34,13 @@
 #pywebio-scope-overview {
     grid-auto-flow: column;
     grid-template-columns: minmax(16rem, 20rem) minmax(24rem, 1fr);
+    grid-template-rows: 1fr;
 }
 
 #pywebio-scope-daemon-overview {
     grid-auto-flow: column;
     grid-template-columns: 1fr minmax(25rem, 6fr) 1fr;
+    grid-template-rows: 1fr;
 }
 
 #pywebio-scope-schedulers {
