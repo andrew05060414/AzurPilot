@@ -124,7 +124,9 @@
       "TaskHoardingDuration": 0,
       "CloseEmulatorDuringLongWait": true,
       "WhenTaskQueueEmpty": "goto_main",
-      "WhenSchedulerStopped": "stay_there"
+      "WhenSchedulerStopped": "stay_there",
+      "PauseOnUserInput": true,
+      "UserInputIdleTimeout": 30
     },
     "DropRecord": {
       "SaveFolder": "./screenshots",

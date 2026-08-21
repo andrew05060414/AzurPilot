@@ -878,6 +878,16 @@
       "goto_main": "Go to Main Menu",
       "close_game": "Close Game",
       "close_emulator": "Close Emulator"
+    },
+    "PauseOnUserInput": {
+      "name": "Pause automation during user input",
+      "help": "Pause automatic taps, swipes, and drags while the user is interacting with a foreground emulator window. Automation resumes after the window has been idle for the configured time. Windows only.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "UserInputIdleTimeout": {
+      "name": "User input idle timeout (seconds)",
+      "help": "After user input is detected, wait this long for the emulator window to become idle before resuming automation."
     }
   },
   "DropRecord": {

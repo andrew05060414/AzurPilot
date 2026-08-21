@@ -24,6 +24,7 @@ from module.config.utils import get_server_next_update
 from module.device.app_control import AppControl
 from module.device.control import Control
 from module.device.input import Input
+from module.device.human_input import wait_for_human_input_idle
 from module.device.platform import Platform
 from module.device.screenshot import Screenshot
 from module.exception import (EmulatorNotRunningError, GameNotRunningError, GameStuckError, GameTooManyClickError,
@@ -446,9 +447,14 @@ class Device(Screenshot, Control, AppControl, Input):
             raise GameNotRunningError('[设备-卡死] 游戏已退出')
 
     def handle_control_check(self, button):
+        self.wait_for_human_input_idle()
         self.stuck_record_clear()
         self.click_record_add(button)
         self.click_record_check()
+
+    def wait_for_human_input_idle(self):
+        """在用户停止操作前台模拟器前暂停自动控制。"""
+        wait_for_human_input_idle(self.config)
 
     def click_record_add(self, button):
         self.click_record.append(str(button))
@@ -511,6 +517,7 @@ class Device(Screenshot, Control, AppControl, Input):
         self.stuck_record_check = empty_function
 
     def app_start(self):
+        self.wait_for_human_input_idle()
         if not self.config.Error_HandleError:
             logger.critical('[Device] 错误 没有启动/停止应用，因为 HandleError 已禁用')
             logger.critical('[Device] 请启用 Alas.Error.HandleError 或手动登录碧蓝航线')
@@ -526,6 +533,7 @@ class Device(Screenshot, Control, AppControl, Input):
         self.click_record_clear()
 
     def app_stop(self):
+        self.wait_for_human_input_idle()
         if not self.config.Error_HandleError:
             logger.critical('[Device] 错误 没有启动/停止应用，因为 HandleError 已禁用')
             logger.critical('[Device] 请启用 Alas.Error.HandleError 或手动登录碧蓝航线')
