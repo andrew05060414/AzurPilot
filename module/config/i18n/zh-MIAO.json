@@ -880,14 +880,14 @@
       "close_emulator": "关闭模拟器喵"
     },
     "PauseOnUserInput": {
-      "name": "Optimization.PauseOnUserInput.name",
-      "help": "Optimization.PauseOnUserInput.help",
-      "True": "True",
-      "False": "False"
+      "name": "用户操作时暂停自动控制喵",
+      "help": "检测到用户正在操作前台模拟器窗口时，暂停自动点击、滑动和拖拽喵。用户停止操作并静止指定时间后自动恢复喵。仅 Windows 有效喵。",
+      "True": "启用喵",
+      "False": "禁用喵"
     },
     "UserInputIdleTimeout": {
-      "name": "Optimization.UserInputIdleTimeout.name",
-      "help": "Optimization.UserInputIdleTimeout.help"
+      "name": "用户停止操作等待时间（秒）喵",
+      "help": "检测到用户操作后，等待模拟器窗口静止这么多秒再恢复自动控制喵。"
     }
   },
   "DropRecord": {

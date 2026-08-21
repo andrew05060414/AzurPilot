@@ -880,14 +880,14 @@
       "close_emulator": "關閉模擬器"
     },
     "PauseOnUserInput": {
-      "name": "Optimization.PauseOnUserInput.name",
-      "help": "Optimization.PauseOnUserInput.help",
-      "True": "True",
-      "False": "False"
+      "name": "使用者操作時暫停自動控制",
+      "help": "偵測到使用者正在操作前景模擬器視窗時，暫停自動點擊、滑動與拖曳。使用者停止操作並靜止指定時間後自動恢復。僅 Windows 有效。",
+      "True": "啟用",
+      "False": "停用"
     },
     "UserInputIdleTimeout": {
-      "name": "Optimization.UserInputIdleTimeout.name",
-      "help": "Optimization.UserInputIdleTimeout.help"
+      "name": "使用者停止操作等待時間（秒）",
+      "help": "偵測到使用者操作後，等待模擬器視窗靜止這麼多秒再恢復自動控制。"
     }
   },
   "DropRecord": {

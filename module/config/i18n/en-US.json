@@ -880,14 +880,14 @@
       "close_emulator": "Close Emulator"
     },
     "PauseOnUserInput": {
-      "name": "Optimization.PauseOnUserInput.name",
-      "help": "Optimization.PauseOnUserInput.help",
-      "True": "True",
-      "False": "False"
+      "name": "Pause automation during user input",
+      "help": "Pause automatic taps, swipes, and drags while the user is interacting with a foreground emulator window. Automation resumes after the window has been idle for the configured time. Windows only.",
+      "True": "Enabled",
+      "False": "Disabled"
     },
     "UserInputIdleTimeout": {
-      "name": "Optimization.UserInputIdleTimeout.name",
-      "help": "Optimization.UserInputIdleTimeout.help"
+      "name": "User input idle timeout (seconds)",
+      "help": "After user input is detected, wait this long for the emulator window to become idle before resuming automation."
     }
   },
   "DropRecord": {
