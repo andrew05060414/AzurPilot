@@ -745,6 +745,26 @@
       "name": "デバイス未検出からX秒後に再起動",
       "help": "デバイスが連続して検出できなかった回数に応じて、再起動がトリガーされます。"
     },
+    "WatchdogEnable": {
+      "name": "watchdog マスタースイッチ",
+      "help": "watchdog って何？バックグラウンドでこっそり見張ってるボディガードです。オンにすると以下のチェックが有効になり、オフにすると何もしなくなります。デフォルトはオフ。"
+    },
+    "WatchdogTaskEnable": {
+      "name": "タスクが長引いたら自動再起動",
+      "help": "オンにすると、タスクが長く動きすぎた時（スキップできないストーリーに引っかかった、地図の経路探索ループなど）、エミュレータを強制再起動して中断します。\n上のマスタースイッチをオンにする必要があります。デフォルトはオフ。"
+    },
+    "WatchdogTaskTimeout": {
+      "name": "タスクが何分でスタック判定（分）",
+      "help": "何分。タスクがこの時間を超えて動いたらスタックとみなし、エミュレータを強制再起動します。\n0 = 判定しない；99999 = ほぼ永遠に判定しない。\nデフォルト 120 分（2 時間）。"
+    },
+    "RestartOperationTimeoutEnable": {
+      "name": "ゲーム再起動タイムアウト保護",
+      "help": "オンにすると、ゲーム再起動時のあるステップ（ゲーム停止/起動）が下の時間以上に引っかかった場合、エミュレータが死んだとみなしてエミュレータを再起動します。\nオフの場合このチェックをしません。\nデフォルトはオフ。"
+    },
+    "RestartOperationTimeout": {
+      "name": "ゲーム再起動が何秒でスタック判定（秒）",
+      "help": "ゲーム再起動時、ゲーム停止や起動がこの秒数以上引っかかったら、エミュレータが死んだとみなしてエミュレータを再起動します。\n上の「ゲーム再起動タイムアウト保護」をオンにする必要があります。\nデフォルト 120 秒。"
+    },
     "LlmAnalysis": {
       "name": "LLMエラー分析を有効にする",
       "help": "未処理の例外が発生した際、LLMを使用してエラー原因を分析し改善提案を提供します。"
@@ -794,7 +814,7 @@
     },
     "OcrModelVersionEnglish": {
       "name": "OCR 英語モデルバージョン",
-      "help": "英語 OCR モデルの階層を選択します。lite は最軽量で最速、standard はバランス型、pro は最高精度です。auto は standard を使用します。alocr_en_v2_6 は旧版 AlOCR 英語モデル（ONNX バックエンドのみ）です。この項目は英語 Azur Lane モデルに適用されます。",
+      "help": "英語 OCR モデルの階層を選択します。lite は最軽量で最速、standard はバランス型、pro は最高精度です。auto は旧版の alocr_en_v2_6 を使用します。alocr_en_v2_6 は ONNX バックエンドでのみ使用できます。この項目は英語 Azur Lane モデルに適用されます。",
       "auto": "自動推奨",
       "lite": "Lite（軽量）",
       "standard": "Standard（標準）",
@@ -803,7 +823,7 @@
     },
     "OcrModelVersionChinese": {
       "name": "OCR 中国語モデルバージョン",
-      "help": "簡体中国語 OCR モデルの階層を選択します。lite は最軽量で最速、standard はバランス型、pro は最高精度です。auto は standard を使用します。alocr_cn_v3 は旧版 AlOCR 中国語モデル（ONNX バックエンドのみ）です。この項目は cnocr/中国語モデルに適用されます。",
+      "help": "簡体中国語 OCR モデルの階層を選択します。lite は最軽量で最速、standard はバランス型、pro は最高精度です。auto は旧版の alocr_cn_v3 を使用します。alocr_cn_v3 は ONNX バックエンドでのみ使用できます。この項目は cnocr/中国語モデルに適用されます。",
       "auto": "自動推奨",
       "lite": "Lite（軽量）",
       "standard": "Standard（標準）",
@@ -850,6 +870,14 @@
       "stay_there": "その場で待機",
       "goto_main": "メイン画面に移動",
       "close_game": "ゲームを閉じる"
+    },
+    "WhenSchedulerStopped": {
+      "name": "スケジューラー停止後",
+      "help": "WebUI からスケジューラーを停止した後に実行する操作",
+      "stay_there": "その場で待機",
+      "goto_main": "メイン画面に移動",
+      "close_game": "ゲームを閉じる",
+      "close_emulator": "エミュレーターを閉じる"
     }
   },
   "DropRecord": {
@@ -1181,7 +1209,7 @@
       "event_20260417_cn": "バケーションレーン・きらめく砂浜",
       "event_20260520_cn": "聖印前の同盟",
       "event_20260625_cn": "幻夢のカヴァルカード",
-      "event_20260813_cn": "沉溺于星光之城",
+      "event_20260813_cn": "星の導く街",
       "raid_20200624": "特別演習超空強襲波（復刻）",
       "raid_20210708": "交錯する新たな波 (復刻)",
       "raid_20220127": "秘密事件調査",
@@ -3582,7 +3610,7 @@
     },
     "WorkerFilter": {
       "name": "農場作業員フィルター",
-      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
+      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune > DaVinci\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
     },
     "MinFarm": {
       "name": "作物在庫閾値",
@@ -3613,7 +3641,7 @@
     },
     "WorkerFilter": {
       "name": "果樹園作業員フィルター",
-      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
+      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune > DaVinci\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
     },
     "MinOrchard": {
       "name": "果物在庫閾値",
@@ -3650,7 +3678,7 @@
     },
     "WorkerFilter": {
       "name": "苗床作業員フィルター",
-      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
+      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune > DaVinci\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
     },
     "MinNursery": {
       "name": "苗床作物在庫閾値",
@@ -3679,7 +3707,7 @@
     },
     "ChickenFilter": {
       "name": "鶏作業員フィルター",
-      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
+      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune > DaVinci\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
     },
     "MinPork": {
       "name": "豚肉在庫閾値",
@@ -3687,7 +3715,7 @@
     },
     "PigFilter": {
       "name": "豚作業員フィルター",
-      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
+      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune > DaVinci\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
     },
     "Milk": {
       "name": "牛を飼育",
@@ -3695,7 +3723,7 @@
     },
     "RancherFilter": {
       "name": "キャラクターフィルター",
-      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
+      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune > DaVinci\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
     },
     "Wool": {
       "name": "羊を飼育",
@@ -3703,7 +3731,7 @@
     },
     "WoolWorkerFilter": {
       "name": "羊作業員フィルター",
-      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
+      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune > DaVinci\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
     }
   },
   "IslandFishery": {
@@ -3760,7 +3788,7 @@
     },
     "RancherFilter": {
       "name": "キャラクターフィルター",
-      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
+      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune > DaVinci\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
     }
   },
   "IslandMine": {
@@ -3787,7 +3815,7 @@
     },
     "WorkerFilter": {
       "name": "鉱山作業員フィルター",
-      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
+      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune > DaVinci\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
     },
     "MinCopper": {
       "name": "銅鉱石最低在庫",
@@ -3834,7 +3862,7 @@
     },
     "WorkerFilter": {
       "name": "林場作業員フィルター",
-      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
+      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune > DaVinci\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
     },
     "MinElegant": {
       "name": "エレガント木材最低在庫",
@@ -3856,7 +3884,7 @@
     },
     "WorkerFilter": {
       "name": "採集キャラクターフィルター",
-      "help": ">で接続。最大3人まで指定でき、採集スロット1～3に対応します。\n>で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nデイリー採集では WorkerJuu を選択できません。入力されている場合は自動で無視します。\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合、そのスロットは既存の採集ロジックにフォールバックします。"
+      "help": ">で接続。最大3人まで指定でき、採集スロット1～3に対応します。\n>で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune > DaVinci\nデイリー採集では WorkerJuu を選択できません。入力されている場合は自動で無視します。\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合、そのスロットは既存の採集ロジックにフォールバックします。"
     }
   },
   "IslandRestaurant": {
@@ -3872,7 +3900,7 @@
     },
     "ChefFilter": {
       "name": "シェフフィルター",
-      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
+      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune > DaVinci\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
     },
     "DoubleBambooShoots": {
       "name": "季節料理を優先生産",
@@ -4091,7 +4119,7 @@
   "IslandTeahouse": {
     "_info": {
       "name": "白熊ドリンク",
-      "help": "メニューは1～8の順に生産されます。生産目標はメニューX数量オプションで、前の項目が完全に満たされてから次の項目が実行されます。後続の項目は実行時にそれ以前の項目の達成に影響しません。\nハニー製品は手動で作成してください。\nメニューの春花茶とフレッシュパイナップルジュースは現在の季節に応じて対応する季節メニューに自動切替されます。"
+      "help": "メニューは1～8の順に生産されます。生産目標はメニューX数量オプションで、前の項目が完全に満たされてから次の項目が実行されます。後続の項目は実行時にそれ以前の項目の達成に影響しません。\nハニー製品は自動生産に対応しています。蜂蜜の在庫が十分であることを確認してください。\nメニューの春花茶とフレッシュパイナップルジュースは現在の季節に応じて対応する季節メニューに自動切替されます。"
     },
     "PostNumber": {
       "name": "バーテンダーをX人配置",
@@ -4101,7 +4129,7 @@
     },
     "ChefFilter": {
       "name": "シェフフィルター",
-      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
+      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune > DaVinci\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
     },
     "Seasonal": {
       "name": "季節ドリンクを優先生産",
@@ -4312,7 +4340,7 @@
     },
     "ChefFilter": {
       "name": "シェフフィルター",
-      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
+      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune > DaVinci\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
     },
     "Meal1": {
       "name": "メニュー1",
@@ -4483,7 +4511,7 @@
     },
     "ChefFilter": {
       "name": "シェフフィルター",
-      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
+      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune > DaVinci\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
     },
     "Meal1": {
       "name": "メニュー1",
@@ -4672,7 +4700,7 @@
     },
     "ChefFilter": {
       "name": "シェフフィルター",
-      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
+      "help": ">で接続。例：ChaoHo > NewJersey > Amagi_chan\nSaratoga > Akashi > Tashkent > YingSwei\nLeMalin > Unicorn > Shimakaze > Cheshire\nChenHai > WilliamDPorter\nHelena > Friedrich > Atago\nYixian > August > Eugen > Hood > Javelin > Laffey > Explorer > Navigator > OceanCrosser > FeiYun > Takao > Anchorage > Belfast > ChangFeng > Mogador > RoyalFortune > DaVinci\nデフォルト順の先頭2行のみ認識します。指定キャラクターが使用できない場合は WorkerJuu にフォールバックします。"
     },
     "Friedrich": {
       "name": "フリードリヒ",
@@ -5056,7 +5084,8 @@
       "Belfast": "Belfast",
       "ChangFeng": "ChangFeng",
       "Mogador": "Mogador",
-      "RoyalFortune": "RoyalFortune"
+      "RoyalFortune": "RoyalFortune",
+      "DaVinci": "DaVinci"
     },
     "Char2": {
       "name": "キャラクター2",
@@ -5094,7 +5123,8 @@
       "Belfast": "Belfast",
       "ChangFeng": "ChangFeng",
       "Mogador": "Mogador",
-      "RoyalFortune": "RoyalFortune"
+      "RoyalFortune": "RoyalFortune",
+      "DaVinci": "DaVinci"
     },
     "Product1": {
       "name": "メニュー1",
@@ -5220,7 +5250,8 @@
       "Belfast": "Belfast",
       "ChangFeng": "ChangFeng",
       "Mogador": "Mogador",
-      "RoyalFortune": "RoyalFortune"
+      "RoyalFortune": "RoyalFortune",
+      "DaVinci": "DaVinci"
     },
     "Char2": {
       "name": "キャラクター2",
@@ -5258,7 +5289,8 @@
       "Belfast": "Belfast",
       "ChangFeng": "ChangFeng",
       "Mogador": "Mogador",
-      "RoyalFortune": "RoyalFortune"
+      "RoyalFortune": "RoyalFortune",
+      "DaVinci": "DaVinci"
     },
     "Product1": {
       "name": "メニュー1",
@@ -5396,7 +5428,8 @@
       "Belfast": "Belfast",
       "ChangFeng": "ChangFeng",
       "Mogador": "Mogador",
-      "RoyalFortune": "RoyalFortune"
+      "RoyalFortune": "RoyalFortune",
+      "DaVinci": "DaVinci"
     },
     "Char2": {
       "name": "キャラクター2",
@@ -5434,7 +5467,8 @@
       "Belfast": "Belfast",
       "ChangFeng": "ChangFeng",
       "Mogador": "Mogador",
-      "RoyalFortune": "RoyalFortune"
+      "RoyalFortune": "RoyalFortune",
+      "DaVinci": "DaVinci"
     },
     "Product1": {
       "name": "メニュー1",
@@ -5532,7 +5566,8 @@
       "Belfast": "Belfast",
       "ChangFeng": "ChangFeng",
       "Mogador": "Mogador",
-      "RoyalFortune": "RoyalFortune"
+      "RoyalFortune": "RoyalFortune",
+      "DaVinci": "DaVinci"
     },
     "Char2": {
       "name": "キャラクター2",
@@ -5570,7 +5605,8 @@
       "Belfast": "Belfast",
       "ChangFeng": "ChangFeng",
       "Mogador": "Mogador",
-      "RoyalFortune": "RoyalFortune"
+      "RoyalFortune": "RoyalFortune",
+      "DaVinci": "DaVinci"
     },
     "Product1": {
       "name": "商品1",
@@ -5673,7 +5709,8 @@
       "Belfast": "Belfast",
       "ChangFeng": "ChangFeng",
       "Mogador": "Mogador",
-      "RoyalFortune": "RoyalFortune"
+      "RoyalFortune": "RoyalFortune",
+      "DaVinci": "DaVinci"
     },
     "Char2": {
       "name": "キャラクター2",
@@ -5711,7 +5748,8 @@
       "Belfast": "Belfast",
       "ChangFeng": "ChangFeng",
       "Mogador": "Mogador",
-      "RoyalFortune": "RoyalFortune"
+      "RoyalFortune": "RoyalFortune",
+      "DaVinci": "DaVinci"
     },
     "Product1": {
       "name": "商品1",
@@ -5942,11 +5980,15 @@
     },
     "ScheduledEmulatorRestart": {
       "name": "シミュレータを定期的に再起動する",
-      "help": "有効にすると、長時間の実行によるメモリ リークや遅延を避けるために、エミュレータは指定された間隔で自動的に再起動されます。再起動は、現在のタスクが完了するまで待ってから実行します。"
+      "help": "長時間動いて重くなったりメモリ漏れしたりするのを防ぐため、一定間隔で自動的にエミュレータを再起動します。\n注意：デフォルトでは現在のタスクが終わるまで待ってから再起動します。"
+    },
+    "ForceScheduledRestart": {
+      "name": "時間になったら即再起動（タスク待ちしない）",
+      "help": "オンにすると、時間になったらタスクが終わるのを待たずにエミュレータを再起動します。\nただし、現在敏感タスクを実行中の場合は、終わるまで待ちます。\n上の「シミュレータを定期的に再起動する」をオンにする必要があります。デフォルトはオフ。"
     },
     "RestartIntervalHours": {
-      "name": "再起動間隔 (時間)",
-      "help": "数時間ごとにシミュレーターを自動的に再起動します。"
+      "name": "どれくらいの頻度で再起動（時間）",
+      "help": "何時間おきにエミュレータを再起動するか。"
     }
   },
   "EmulatorManager": {
@@ -6418,6 +6460,7 @@
       "LoadApDataFailed": "APデータの読み込みに失敗しました: {e}",
       "NoApData": "AP変動データがありません。侵蝕1タスク実行後に自動記録されます",
       "Refresh": "更新",
+      "NewDataAvailable": "新しい統計データがあります。更新して反映します。",
       "NoValidApData": "有効なAPデータがありません",
       "ViewTitleLine": "分時チャート（詳細変動）",
       "ViewTitleDay": "日表示（{day} 時間足）",
