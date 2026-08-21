@@ -10,11 +10,13 @@
 | `D:\Andrew\Code\AzurLane\alas-launcher` | launcher 主工作树 | 个人 launcher 的长期开发区，可能有未提交的实验修改 |
 | `D:\模拟器\alas-launcher-repair` | launcher 正式构建树 | 当前个人 branding 分支的构建来源，构建后复制 exe 到生产目录 |
 | `D:\模拟器\AzurPilot` | 生产运行目录 | 只放运行时、配置、日志和构建产物，不在这里长期开发 |
-| `wess09/AzurPilot` | 云端业务上游 | 只用于同步上游业务代码，不包含个人 UI 和 launcher 修改 |
+| `wess09/AzurPilot` | 云端业务上游 | 提供主软件 upstream 基线和 PR 目标，不包含个人 UI 和 launcher 修改 |
+| `andrew05060414/AzurPilot:master` | 生产业务源 | 基于 upstream 的 Fork 生产分支，保留必要功能补丁；经典主题不进入此分支 |
+| `andrew05060414/AzurPilot:style/alas-ui` | 私人 UI 分支 | 保留经典主题和个人视觉实验，不作为生产自动更新源 |
 
 ## 当前生产链
 
-当前生产目录使用个人 fork 的 `style/alas-ui` 分支，由 launcher 启动时自动更新。启动更新会执行 Git 重置，因此生产目录中的未提交业务修改可能被覆盖。
+当前生产目录使用个人 fork 的 `master` 分支，由 launcher 启动时自动更新。该分支从 `wess09/AzurPilot:master` 同步，并只保留必要的主软件功能补丁；经典主题留在 `style/alas-ui` 分支。启动更新会执行 Git 重置，因此生产目录中的未提交业务修改可能被覆盖。
 
 launcher 本身不会从云端自动重新编译。修改 launcher 后必须在 `D:\模拟器\alas-launcher-repair` 执行：
 
