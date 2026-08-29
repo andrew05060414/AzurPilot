@@ -25,6 +25,10 @@ class _LastInputInfo(ctypes.Structure):
 class WindowsHumanInputMonitor:
     """检测用户是否正在操作 Windows 模拟器窗口。"""
 
+    # ``GetLastInputInfo`` 是整个 Windows 会话级别的时间戳。记录最近一次
+    # 观测到的模拟器进程，避免把切回模拟器前在其他窗口中的输入归因给模拟器。
+    _last_emulator_process_id = None
+
     EMULATOR_PROCESS_NAMES = frozenset({
         'bluestacks.exe',
         'bluestacksgp.exe',
@@ -61,27 +65,42 @@ class WindowsHumanInputMonitor:
         return elapsed_ms / 1000
 
     @classmethod
-    def foreground_is_emulator(cls):
-        """当前前台窗口是否属于受支持模拟器的进程。"""
+    def foreground_emulator_process_id(cls):
+        """返回当前前台受支持模拟器的进程 ID；否则返回 ``None``。"""
         hwnd = ctypes.windll.user32.GetForegroundWindow()
         if not hwnd:
-            return False
+            return None
 
         process_id = ctypes.c_ulong()
         ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(process_id))
         if not process_id.value:
-            return False
+            return None
 
         try:
             process_name = psutil.Process(process_id.value).name().lower()
         except (psutil.Error, OSError):
-            return False
-        return process_name in cls.EMULATOR_PROCESS_NAMES
+            return None
+        if process_name not in cls.EMULATOR_PROCESS_NAMES:
+            return None
+        return process_id.value
+
+    @classmethod
+    def foreground_is_emulator(cls):
+        """当前前台窗口是否属于受支持模拟器的进程。"""
+        return cls.foreground_emulator_process_id() is not None
 
     @classmethod
     def wait_until_idle(cls, idle_timeout):
         """在用户停止操作模拟器 ``idle_timeout`` 秒后返回。"""
-        if not cls.foreground_is_emulator():
+        process_id = cls.foreground_emulator_process_id()
+        if process_id is None:
+            cls._last_emulator_process_id = None
+            return
+
+        # 前台刚切回模拟器时，当前会话级输入时间可能来自其他窗口。
+        # 只建立新的观测基线，下一次检查再判断是否真的操作了模拟器。
+        if process_id != cls._last_emulator_process_id:
+            cls._last_emulator_process_id = process_id
             return
 
         elapsed = cls.recent_input_seconds()
@@ -94,7 +113,13 @@ class WindowsHumanInputMonitor:
         )
         while 1:
             time.sleep(0.5)
-            if not cls.foreground_is_emulator():
+            process_id = cls.foreground_emulator_process_id()
+            if process_id is None:
+                cls._last_emulator_process_id = None
+                break
+            if process_id != cls._last_emulator_process_id:
+                # 下次调用先为新前台进程建立基线，避免沿用旧模拟器的会话级输入。
+                cls._last_emulator_process_id = None
                 break
 
             elapsed = cls.recent_input_seconds()
