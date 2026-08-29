@@ -881,7 +881,7 @@
     },
     "PauseOnUserInput": {
       "name": "Pause automation during user input",
-      "help": "Pause automatic taps, swipes, and drags while the user is interacting with a foreground MuMu emulator window. Automation resumes after the window has been idle for the configured time. Windows MuMu emulators only; other emulators are not supported yet.",
+      "help": "Pause automatic taps, swipes, and drags while the user is interacting with a foreground MuMu, BlueStacks, Nox, or MEmu emulator window. Automation resumes after the window has been idle for the configured time. Windows only; matching is limited to the configured emulator instance.",
       "True": "Enabled",
       "False": "Disabled"
     },
