@@ -139,7 +139,7 @@ class AzurLaneAutoScript:
                     device = PlatformWindows(self.config)
 
             from module.device.human_input import wait_for_human_input_idle
-            wait_for_human_input_idle(self.config)
+            wait_for_human_input_idle(self.config, device)
             logger.info('[Alas] 正在停止模拟器...')
             self._emulator_op_with_timeout(
                 device.emulator_stop,
@@ -423,7 +423,7 @@ class AzurLaneAutoScript:
                 return False
 
             from module.device.human_input import wait_for_human_input_idle
-            wait_for_human_input_idle(self.config)
+            wait_for_human_input_idle(self.config, platform)
             if platform.emulator_start():
                 logger.info('[Alas] 长时间等待后模拟器启动完成')
                 if 'device' in self.__dict__:

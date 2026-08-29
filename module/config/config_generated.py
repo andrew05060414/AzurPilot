@@ -146,7 +146,7 @@ class GeneratedConfig:
     Optimization_CloseEmulatorDuringLongWait = True  # True, False
     Optimization_WhenTaskQueueEmpty = 'goto_main'  # stay_there, goto_main, close_game
     Optimization_WhenSchedulerStopped = 'stay_there'  # stay_there, goto_main, close_game, close_emulator
-    Optimization_PauseOnUserInput = True  # True, False
+    Optimization_PauseOnUserInput = False  # True, False
     Optimization_UserInputIdleTimeout = 30
 
     # 配置组 `DropRecord`

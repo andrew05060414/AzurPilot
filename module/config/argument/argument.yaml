@@ -249,7 +249,7 @@ Optimization:
     option: [stay_there, goto_main, close_game, close_emulator]
   PauseOnUserInput:
     type: checkbox
-    value: true
+    value: false
     option: [true, false]
   UserInputIdleTimeout:
     value: 30

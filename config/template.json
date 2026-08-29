@@ -125,7 +125,7 @@
       "CloseEmulatorDuringLongWait": true,
       "WhenTaskQueueEmpty": "goto_main",
       "WhenSchedulerStopped": "stay_there",
-      "PauseOnUserInput": true,
+      "PauseOnUserInput": false,
       "UserInputIdleTimeout": 30
     },
     "DropRecord": {

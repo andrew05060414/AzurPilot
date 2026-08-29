@@ -1,5 +1,6 @@
 import unittest
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from module.device.human_input import WindowsHumanInputMonitor
 
@@ -10,6 +11,30 @@ class TestWindowsHumanInputMonitor(unittest.TestCase):
 
     def tearDown(self):
         WindowsHumanInputMonitor._last_emulator_process_id = None
+
+    def test_process_must_match_script_target_path_and_instance_name(self):
+        process = Mock()
+        process.exe.return_value = r'C:\Emulator\player.exe'
+        process.cmdline.return_value = ['player.exe', '--instance', 'target']
+        target = SimpleNamespace(path=r'c:/emulator/player.exe', name='target')
+
+        self.assertTrue(
+            WindowsHumanInputMonitor._process_matches_instance(process, 0, target)
+        )
+
+        other_instance = SimpleNamespace(path=target.path, name='other')
+        self.assertFalse(
+            WindowsHumanInputMonitor._process_matches_instance(process, 0, other_instance)
+        )
+
+    def test_process_from_another_emulator_install_is_ignored(self):
+        process = Mock()
+        process.exe.return_value = r'C:\OtherEmulator\player.exe'
+        target = SimpleNamespace(path=r'C:\ScriptEmulator\player.exe', name='target')
+
+        self.assertFalse(
+            WindowsHumanInputMonitor._process_matches_instance(process, 0, target)
+        )
 
     def test_focus_return_ignores_input_from_previous_foreground_window(self):
         with patch.object(

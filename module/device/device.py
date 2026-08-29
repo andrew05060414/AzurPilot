@@ -454,7 +454,7 @@ class Device(Screenshot, Control, AppControl, Input):
 
     def wait_for_human_input_idle(self):
         """在用户停止操作前台模拟器前暂停自动控制。"""
-        wait_for_human_input_idle(self.config)
+        wait_for_human_input_idle(self.config, self)
 
     def click_record_add(self, button):
         self.click_record.append(str(button))
