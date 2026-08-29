@@ -16,13 +16,17 @@ class TestWindowsHumanInputMonitor(unittest.TestCase):
         process = Mock()
         process.exe.return_value = r'C:\Emulator\player.exe'
         process.cmdline.return_value = ['player.exe', '--instance', 'target']
-        target = SimpleNamespace(path=r'c:/emulator/player.exe', name='target')
+        target = SimpleNamespace(
+            path=r'c:/emulator/player.exe', name='target', type='MuMuPlayer12'
+        )
 
         self.assertTrue(
             WindowsHumanInputMonitor._process_matches_instance(process, 0, target)
         )
 
-        other_instance = SimpleNamespace(path=target.path, name='other')
+        other_instance = SimpleNamespace(
+            path=target.path, name='other', type='MuMuPlayer12'
+        )
         self.assertFalse(
             WindowsHumanInputMonitor._process_matches_instance(process, 0, other_instance)
         )
@@ -30,9 +34,51 @@ class TestWindowsHumanInputMonitor(unittest.TestCase):
     def test_process_from_another_emulator_install_is_ignored(self):
         process = Mock()
         process.exe.return_value = r'C:\OtherEmulator\player.exe'
-        target = SimpleNamespace(path=r'C:\ScriptEmulator\player.exe', name='target')
+        target = SimpleNamespace(
+            path=r'C:\ScriptEmulator\player.exe', name='target', type='MuMuPlayer12'
+        )
 
         self.assertFalse(
+            WindowsHumanInputMonitor._process_matches_instance(process, 0, target)
+        )
+
+    def test_unsupported_emulator_type_is_ignored(self):
+        process = Mock()
+        process.exe.return_value = r'C:\Emulator\player.exe'
+        process.cmdline.return_value = ['player.exe', '--instance', 'target']
+        target = SimpleNamespace(
+            path=r'C:\Emulator\player.exe', name='target', type='LDPlayer9'
+        )
+
+        self.assertFalse(
+            WindowsHumanInputMonitor._process_matches_instance(process, 0, target)
+        )
+
+    def test_mumu_homepage_process_is_ignored(self):
+        process = Mock()
+        process.exe.return_value = r'C:\MuMu\MuMuNxMain.exe'
+        process.cmdline.return_value = ['MuMuNxMain.exe']
+        target = SimpleNamespace(
+            path=r'C:\MuMu\MuMuNxMain.exe',
+            name='MuMuPlayer-12.0-0',
+            type='MuMuPlayer12',
+        )
+
+        self.assertFalse(
+            WindowsHumanInputMonitor._process_matches_instance(process, 0, target)
+        )
+
+    def test_mumu_player_process_is_matched_when_instance_path_is_mumu_homepage(self):
+        process = Mock()
+        process.exe.return_value = r'C:\MuMu\shell\MuMuPlayer.exe'
+        process.cmdline.return_value = ['MuMuPlayer.exe', 'MuMuPlayer-12.0-0']
+        target = SimpleNamespace(
+            path=r'C:\MuMu\shell\nx_main\MuMuNxMain.exe',
+            name='MuMuPlayer-12.0-0',
+            type='MuMuPlayer12',
+        )
+
+        self.assertTrue(
             WindowsHumanInputMonitor._process_matches_instance(process, 0, target)
         )
 

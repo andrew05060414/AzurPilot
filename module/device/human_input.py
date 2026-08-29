@@ -1,7 +1,7 @@
 """Windows 人工操作检测。
 
-仅在前台窗口属于脚本当前控制的模拟器实例时，才把系统最近输入视为人工接管，
-避免其他模拟器或模拟器管理进程的输入暂停调度器。
+当前仅适配 Windows 下的 MuMu 模拟器。只有前台窗口属于脚本当前控制的
+MuMu 实例时，才把系统最近输入视为人工接管，避免其他模拟器或管理进程的输入暂停调度器。
 """
 
 import ctypes
@@ -25,6 +25,12 @@ class _LastInputInfo(ctypes.Structure):
 
 class WindowsHumanInputMonitor:
     """检测用户是否正在操作 Windows 模拟器窗口。"""
+
+    SUPPORTED_EMULATOR_TYPES = frozenset({
+        'MuMuPlayer',
+        'MuMuPlayerX',
+        'MuMuPlayer12',
+    })
 
     # ``GetLastInputInfo`` 是整个 Windows 会话级别的时间戳。记录最近一次
     # 观测到的模拟器进程，避免把切回模拟器前在其他窗口中的输入归因给模拟器。
@@ -52,12 +58,32 @@ class WindowsHumanInputMonitor:
     @classmethod
     def _process_matches_instance(cls, process, hwnd, emulator_instance):
         """判断前台进程是否属于脚本当前控制的模拟器实例。"""
+        if getattr(emulator_instance, 'type', '') not in cls.SUPPORTED_EMULATOR_TYPES:
+            return False
+
         target_path = getattr(emulator_instance, 'path', '')
         if not target_path:
             return False
 
         try:
-            if cls._normalize_path(process.exe()) != cls._normalize_path(target_path):
+            process_path = cls._normalize_path(process.exe())
+            target_paths = {cls._normalize_path(target_path)}
+            if (
+                getattr(emulator_instance, 'type', '') == 'MuMuPlayer12'
+                and os.path.basename(target_path).casefold() == 'mumunxmain.exe'
+            ):
+                # MuMuNxMain.exe 是 MuMu 主页/管理器，实际播放器使用 MuMuPlayer.exe。
+                target_directory = os.path.dirname(target_path)
+                parent_directory = os.path.dirname(target_directory)
+                target_paths = {
+                    cls._normalize_path(os.path.join(directory, 'MuMuPlayer.exe'))
+                    for directory in {
+                        target_directory,
+                        parent_directory,
+                        os.path.join(parent_directory, 'EmulatorShell'),
+                    }
+                }
+            if process_path not in target_paths:
                 return False
 
             # 多实例模拟器通常共用同一个 exe，必须再匹配实例名。
