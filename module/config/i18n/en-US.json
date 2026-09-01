@@ -782,6 +782,22 @@
       "help": "Enter a model name supported by your purchased service, as shown on https://platform.deepseek.com/ or https://platform.xiaomimimo.com/."
     }
   },
+  "DailySummary": {
+    "_info": {
+      "name": "Daily Summary",
+      "help": "Generate and push a daily automation summary at the configured time. Configure OnePush and LLM settings in Debug Settings first."
+    },
+    "Enable": {
+      "name": "Enable Daily Summary",
+      "help": "When enabled, AzurPilot generates and pushes the daily automation summary at the configured time.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "TriggerTime": {
+      "name": "Generation Time",
+      "help": "Time to generate the report in the game server time zone. Use HH:MM, for example 20:00."
+    }
+  },
   "Optimization": {
     "_info": {
       "name": "Optimization Settings",
@@ -1231,6 +1247,7 @@
       "raid_20240328": "From Zero to Hero Rerun",
       "raid_20250116": "Spring Fashion Festa",
       "raid_20260212": "Spring Auction Adventure",
+      "raid_20260827": "The Big Shots Proclamation",
       "war_archives_20180607_cn": "archives Ink Stained Steel Sakura",
       "war_archives_20180726_cn": "archives Iris of Light and Dark",
       "war_archives_20181020_en": "archives Strive Wish and Strategize",
@@ -1851,19 +1868,6 @@
     "UseTicket": {
       "name": "Use Exercise Tickets",
       "help": ""
-    }
-  },
-  "RaidScuttle": {
-    "_info": {
-      "name": "Raid Scuttle",
-      "help": "Raid event scuttle settings. Select the position of ships to be sunk."
-    },
-    "Sacrifice": {
-      "name": "Sacrifice ship position",
-      "help": "",
-      "vanguard": "Vanguard",
-      "flagship": "flagship",
-      "vanguard_flagship": "Vanguard + Flagship"
     }
   },
   "RaidDaily": {

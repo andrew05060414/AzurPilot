@@ -782,6 +782,22 @@
       "help": "購入済みサービスで利用できるモデル名を入力してください。利用可能な名称は https://platform.deepseek.com/ または https://platform.xiaomimimo.com/ の表示に従ってください。"
     }
   },
+  "DailySummary": {
+    "_info": {
+      "name": "日次サマリー",
+      "help": "設定した時刻に日次の実行サマリーを生成してプッシュ通知します。先にデバッグ設定で OnePush と LLM を設定してください。"
+    },
+    "Enable": {
+      "name": "日次サマリーを有効にする",
+      "help": "有効にすると、設定した時刻に AzurPilot が当日の実行サマリーを生成してプッシュ通知します。",
+      "True": "有効",
+      "False": "無効"
+    },
+    "TriggerTime": {
+      "name": "生成時刻",
+      "help": "ゲームサーバーのタイムゾーンでレポートを生成する時刻です。20:00 のように HH:MM 形式で入力してください。"
+    }
+  },
   "Optimization": {
     "_info": {
       "name": "最適化設定",
@@ -1231,6 +1247,7 @@
       "raid_20240328": "ゼロから頑張る魔王討伐（復刻）",
       "raid_20250116": "新春華裳協奏曲",
       "raid_20260212": "新春玉逸品会",
+      "raid_20260827": "偉いやつの予告状",
       "war_archives_20180607_cn": "檔案 墨染まりし鋼の桜",
       "war_archives_20180726_cn": "檔案 光と影のアイリス",
       "war_archives_20181020_en": "檔案 努力希望と計画",
@@ -1851,19 +1868,6 @@
     "UseTicket": {
       "name": "演習チケットを使用する",
       "help": ""
-    }
-  },
-  "RaidScuttle": {
-    "_info": {
-      "name": "共闘沈船",
-      "help": ""
-    },
-    "Sacrifice": {
-      "name": "犠牲船の位置",
-      "help": "",
-      "vanguard": "前衛",
-      "flagship": "旗艦",
-      "vanguard_flagship": "前衛+旗艦"
     }
   },
   "RaidDaily": {

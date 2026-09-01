@@ -211,6 +211,14 @@ Error:
   LlmModel:
     value: "mimo-v2.5-pro"
     valuetype: str
+DailySummary:
+  Enable:
+    type: checkbox
+    value: false
+    option: [true, false]
+  TriggerTime:
+    value: "20:00"
+    valuetype: str
 Optimization:
   OcrDevice:
     value: auto
@@ -579,10 +587,6 @@ Raid:
     value: hard
     option: [easy, normal, hard, ex]
   UseTicket: false
-RaidScuttle:
-  Sacrifice:
-    value: vanguard
-    option: [ vanguard, flagship, vanguard_flagship ]
 RaidDaily:
   StageFilter: |-
     hard > normal > easy
@@ -1078,7 +1082,7 @@ OpsiShop:
       - all
       - custom
   CustomFilter: |-
-    LoggerAbyssalT6 > LoggerAbyssalT5 > LoggerObscure > LoggerAbyssalT4 > ActionPoint > PurpleCoins
+    LoggerAbyssalT6 > LoggerAbyssalT5 > LoggerAbyssalT4 > LoggerObscureT6 > LoggerObscureT5 > LoggerObscureT4 > LoggerObscureT3 > ActionPoint > PurpleCoins
     > GearDesignPlanT3 > PlateRandomT4 > DevelopmentMaterialT3 > GearDesignPlanT2 > GearPart
     > OrdnanceTestingReportT3 > OrdnanceTestingReportT2 > DevelopmentMaterialT2 > OrdnanceTestingReportT1
     > METARedBook > CrystallizedHeatResistantSteel > NanoceramicAlloy > NeuroplasticProstheticArm > SupercavitationGenerator

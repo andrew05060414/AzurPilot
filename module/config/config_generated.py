@@ -132,6 +132,10 @@ class GeneratedConfig:
     Error_LlmApiBase = 'https://api.xiaomimimo.com/v1'
     Error_LlmModel = 'mimo-v2.5-pro'
 
+    # 配置组 `DailySummary`
+    DailySummary_Enable = False  # True, False
+    DailySummary_TriggerTime = '20:00'
+
     # 配置组 `Optimization`
     Optimization_OcrDevice = 'auto'  # auto, qnn_npu, openvino_npu, openvino_gpu, gpu, openvino_cpu, cpu, ane
     Optimization_OcrBackend = 'auto'  # auto, onnxruntime, ncnn
@@ -320,9 +324,6 @@ class GeneratedConfig:
     # 配置组 `Raid`
     Raid_Mode = 'hard'  # easy, normal, hard, ex
     Raid_UseTicket = False
-
-    # 配置组 `RaidScuttle`
-    RaidScuttle_Sacrifice = 'vanguard'  # vanguard, flagship, vanguard_flagship
 
     # 配置组 `RaidDaily`
     RaidDaily_StageFilter = 'hard > normal > easy'
@@ -603,7 +604,7 @@ class GeneratedConfig:
 
     # 配置组 `OpsiShop`
     OpsiShop_PresetFilter = 'max_benefit_meta'  # max_benefit, max_benefit_meta, no_meta, all, custom
-    OpsiShop_CustomFilter = 'LoggerAbyssalT6 > LoggerAbyssalT5 > LoggerObscure > LoggerAbyssalT4 > ActionPoint > PurpleCoins\n> GearDesignPlanT3 > PlateRandomT4 > DevelopmentMaterialT3 > GearDesignPlanT2 > GearPart\n> OrdnanceTestingReportT3 > OrdnanceTestingReportT2 > DevelopmentMaterialT2 > OrdnanceTestingReportT1\n> METARedBook > CrystallizedHeatResistantSteel > NanoceramicAlloy > NeuroplasticProstheticArm > SupercavitationGenerator'
+    OpsiShop_CustomFilter = 'LoggerAbyssalT6 > LoggerAbyssalT5 > LoggerAbyssalT4 > LoggerObscureT6 > LoggerObscureT5 > LoggerObscureT4 > LoggerObscureT3 > ActionPoint > PurpleCoins\n> GearDesignPlanT3 > PlateRandomT4 > DevelopmentMaterialT3 > GearDesignPlanT2 > GearPart\n> OrdnanceTestingReportT3 > OrdnanceTestingReportT2 > DevelopmentMaterialT2 > OrdnanceTestingReportT1\n> METARedBook > CrystallizedHeatResistantSteel > NanoceramicAlloy > NeuroplasticProstheticArm > SupercavitationGenerator'
     OpsiShop_DisableBeforeDate = 0
 
     # 配置组 `OpsiVoucher`

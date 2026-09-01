@@ -5,10 +5,12 @@ import shutil
 import threading
 import time
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 
 import inflection
 from cached_property import cached_property
 
+import module.config.server as server_config
 from module.base.decorator import del_cached_property
 from module.base.api_client import ApiClient
 from module.base.ssh import clear_ssh_host_key
@@ -19,6 +21,7 @@ from module.config.utils import (
     DEFAULT_CONFIG_NAME,
     ensure_time,
     filepath_i18n,
+    filepath_config,
     get_server_last_update,
     get_server_next_update,
     read_file,
@@ -39,6 +42,7 @@ WATCHDOG_CHECK_INTERVAL = 30
 WATCHDOG_TASK_TIMEOUT_DEFAULT = 120
 # 模拟器 stop/start 单次操作的硬超时秒数
 RESTART_EMULATOR_OP_TIMEOUT = 120
+DAILY_SUMMARY_CHECK_INTERVAL = 1
 
 
 # 缓存 i18n 任务名查找
@@ -98,6 +102,225 @@ class AzurLaneAutoScript:
         self._watchdog_thread = None
         self._watchdog_task_start = 0.0  # 当前任务开始时间（monotonic）
         self._watchdog_task_name = ''    # 当前任务名
+        # 日报关闭时不创建线程同步原语、服务或数据库；所有对象均在启用后按需创建。
+        self._daily_summary_enabled = False
+        self._daily_summary_service = None
+        self._daily_summary_stop = None
+        self._daily_summary_thread = None
+        self._daily_summary_settings_mtime = None
+        self._daily_summary_settings = None
+
+    def _get_daily_summary_service(self):
+        """惰性获取实例级日报服务，避免普通运行引入额外 I/O。"""
+        if getattr(self, '_daily_summary_service', None) is None:
+            from module.statistics.daily_summary import DailySummaryService
+
+            self._daily_summary_service = DailySummaryService(self.config_name)
+        return self._daily_summary_service
+
+    @staticmethod
+    def _daily_summary_settings_from_config(config):
+        """从主线程已加载的配置创建日报专用只读快照。"""
+        return SimpleNamespace(
+            DailySummary_Enable=bool(
+                getattr(config, 'DailySummary_Enable', False)
+            ),
+            DailySummary_TriggerTime=getattr(
+                config, 'DailySummary_TriggerTime', '20:00'
+            ),
+            Emulator_PackageName=getattr(
+                config, 'Emulator_PackageName', 'auto'
+            ),
+            Emulator_ServerName=getattr(
+                config, 'Emulator_ServerName', 'disabled'
+            ),
+            Error_LlmApiKey=getattr(config, 'Error_LlmApiKey', ''),
+            Error_LlmApiBase=getattr(config, 'Error_LlmApiBase', ''),
+            Error_LlmModel=getattr(config, 'Error_LlmModel', ''),
+            Error_OnePushConfig=getattr(config, 'Error_OnePushConfig', ''),
+        )
+
+    @staticmethod
+    def _daily_summary_settings_from_data(data):
+        """仅从配置文件数据创建日报快照，不访问调度器配置对象。"""
+        alas = data.get('Alas') if isinstance(data, dict) else None
+        if not isinstance(alas, dict):
+            alas = {}
+
+        def read(group, key, default):
+            values = alas.get(group)
+            return values.get(key, default) if isinstance(values, dict) else default
+
+        return SimpleNamespace(
+            DailySummary_Enable=bool(read('DailySummary', 'Enable', False)),
+            DailySummary_TriggerTime=read('DailySummary', 'TriggerTime', '20:00'),
+            Emulator_PackageName=read('Emulator', 'PackageName', 'auto'),
+            Emulator_ServerName=read('Emulator', 'ServerName', 'disabled'),
+            Error_LlmApiKey=read('Error', 'LlmApiKey', ''),
+            Error_LlmApiBase=read('Error', 'LlmApiBase', ''),
+            Error_LlmModel=read('Error', 'LlmModel', ''),
+            Error_OnePushConfig=read('Error', 'OnePushConfig', ''),
+        )
+
+    def _check_daily_summary(self, config=None):
+        """检查日报，不连接设备，也不影响调度器主流程。"""
+        try:
+            if config is None:
+                config = self._get_daily_summary_settings()
+            if not bool(getattr(config, 'DailySummary_Enable', False)):
+                return
+            current_server = (
+                server_config.server if 'device' in self.__dict__ else None
+            )
+            self._get_daily_summary_service().check_due(
+                config,
+                current_server=current_server,
+                now=current_time(),
+            )
+        except Exception as error:
+            logger.warning(f'[日报] 调度检查失败，已忽略: {type(error).__name__}')
+
+    def _get_daily_summary_settings(self):
+        """读取最新日报设置，不重载正在执行任务的完整配置对象。"""
+        try:
+            config_path = filepath_config(self.config_name)
+            modified_at = os.stat(config_path).st_mtime_ns
+        except OSError:
+            return self._daily_summary_settings or self._daily_summary_settings_from_data({})
+
+        if (
+            self._daily_summary_settings is not None
+            and self._daily_summary_settings_mtime == modified_at
+        ):
+            return self._daily_summary_settings
+
+        try:
+            with open(config_path, encoding='utf-8') as file:
+                data = json.load(file)
+        except (OSError, json.JSONDecodeError):
+            logger.warning('[日报] 读取最新配置失败，继续使用日报配置快照')
+            return self._daily_summary_settings or self._daily_summary_settings_from_data({})
+
+        self._daily_summary_settings = self._daily_summary_settings_from_data(data)
+        self._daily_summary_settings_mtime = modified_at
+        return self._daily_summary_settings
+
+    def _daily_summary_loop(self):
+        """独立检查日报时间，避免长任务或服务器等待错过触发时刻。"""
+        stop_event = self._daily_summary_stop
+        if stop_event is None:
+            return
+        try:
+            while not stop_event.is_set():
+                config = self._get_daily_summary_settings()
+                if not bool(getattr(config, 'DailySummary_Enable', False)):
+                    self._daily_summary_enabled = False
+                    logger.info('[日报] 功能已关闭，停止独立定时检查')
+                    return
+                self._check_daily_summary(config)
+                stop_event.wait(DAILY_SUMMARY_CHECK_INTERVAL)
+        finally:
+            if self._daily_summary_thread is threading.current_thread():
+                self._daily_summary_stop = None
+                self._daily_summary_thread = None
+
+    def _start_daily_summary_scheduler(self, config=None):
+        """启动不依赖游戏任务的日报定时检查线程。"""
+        # 只使用调用方已经持有的配置；绝不通过 self.config 触发懒加载。
+        if config is None or not bool(
+            getattr(config, 'DailySummary_Enable', False)
+        ):
+            return False
+        if (
+            self._daily_summary_thread is not None
+            and self._daily_summary_thread.is_alive()
+        ):
+            return True
+        settings = self._daily_summary_settings_from_config(config)
+        try:
+            settings_mtime = os.stat(
+                filepath_config(self.config_name)
+            ).st_mtime_ns
+        except OSError:
+            settings_mtime = None
+
+        # 在线程启动前由主线程完成服务初始化，避免定时线程和任务线程同时创建服务。
+        try:
+            self._get_daily_summary_service()
+        except Exception as error:
+            logger.warning(f'[日报] 初始化失败，未启动定时检查: {type(error).__name__}')
+            return False
+
+        stop_event = threading.Event()
+        thread = threading.Thread(
+            target=self._daily_summary_loop,
+            daemon=True,
+            name=f'daily-summary-scheduler-{self.config_name}',
+        )
+        self._daily_summary_settings = settings
+        self._daily_summary_settings_mtime = settings_mtime
+        self._daily_summary_stop = stop_event
+        self._daily_summary_thread = thread
+        self._daily_summary_enabled = True
+        try:
+            thread.start()
+        except Exception as error:
+            self._daily_summary_enabled = False
+            self._daily_summary_stop = None
+            self._daily_summary_thread = None
+            logger.warning(f'[日报] 定时检查启动失败: {type(error).__name__}')
+            return False
+        logger.info('[日报] 独立定时检查已启动')
+        return True
+
+    def _stop_daily_summary_scheduler(self):
+        """停止日报定时检查线程。"""
+        stop_event = self._daily_summary_stop
+        thread = self._daily_summary_thread
+        if stop_event is None and thread is None:
+            return False
+        if stop_event is not None:
+            stop_event.set()
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=5)
+        self._daily_summary_enabled = False
+        self._daily_summary_stop = None
+        self._daily_summary_thread = None
+        logger.info('[日报] 独立定时检查已停止')
+        return True
+
+    def _record_daily_summary_task_start(self, task: str):
+        """为启用日报的实例记录任务开始，不向调度器传播存储错误。"""
+        if not self._daily_summary_enabled:
+            return None
+        try:
+            return self._get_daily_summary_service().store.record_task_start(
+                self.config_name, task, current_time()
+            )
+        except Exception as error:
+            logger.warning(f'[日报] 记录任务开始失败，已忽略: {type(error).__name__}')
+            return None
+
+    def _record_daily_summary_task_finish(
+        self, run_id, success, started_at: datetime
+    ):
+        """记录任务结果；日报存储异常不能改变既有错误恢复逻辑。"""
+        if run_id is None:
+            return
+        try:
+            if success is True:
+                status = 'success'
+            elif success == 'recoverable':
+                status = 'recoverable'
+            else:
+                status = 'failed'
+            finished_at = current_time()
+            duration = max(0.0, (finished_at - started_at).total_seconds())
+            self._get_daily_summary_service().store.record_task_finish(
+                self.config_name, run_id, finished_at, status, duration
+            )
+        except Exception as error:
+            logger.warning(f'[日报] 记录任务结果失败，已忽略: {type(error).__name__}')
 
     def _try_restart_emulator(self):
         """
@@ -110,8 +333,6 @@ class AzurLaneAutoScript:
         Returns:
             bool: 重启成功返回 True，本次重启失败返回 False（调度器会继续尝试）。
         """
-        import sys
-
         self.consecutive_adb_offline += 1
         limit = int(self.config.Error_AdbOfflineThreshold)
         logger.warning(f'[Alas] EmulatorNotRunningError: 连续次数 {self.consecutive_adb_offline}/{limit}')
@@ -130,13 +351,9 @@ class AzurLaneAutoScript:
             # 优先使用已缓存的设备对象
             device = self.__dict__.get('device', None)
             if device is None:
-                # device 缓存不存在时，按平台回退创建新实例
-                if sys.platform == 'darwin':
-                    from module.device.platform.platform_mac import PlatformMac
-                    device = PlatformMac(self.config)
-                else:
-                    from module.device.platform.platform_windows import PlatformWindows
-                    device = PlatformWindows(self.config)
+                # connect=False 避免在模拟器离线时先建立 ADB 连接。
+                from module.device.platform import Platform
+                device = Platform(self.config, connect=False)
 
             from module.device.human_input import wait_for_human_input_idle
             wait_for_human_input_idle(self.config)
@@ -1610,6 +1827,11 @@ class AzurLaneAutoScript:
 
         from module.config.utils import is_oobe_needed
 
+        # 调度器本身需要先加载配置；日报关闭时不创建任何附加线程或服务。
+        config = self.config
+        if config.DailySummary_Enable:
+            self._start_daily_summary_scheduler(config)
+
         # 启动看门狗：守护线程在任务执行期间监测日志心跳，若主线程长时间
         # 无日志输出（如卡死在 u2 HTTP 调用或 ADB shell 中），则强制杀死
         # 模拟器进程以解除阻塞，使主线程的下次 I/O 失败并触发异常恢复。
@@ -1637,6 +1859,7 @@ class AzurLaneAutoScript:
                     if self.stop_event.is_set():
                         logger.info('[Alas] 检测到更新事件')
                         logger.info(f"[Alas] [{self.config_name}] 已退出。原因: 更新 | Reason: Update")
+                        self._stop_daily_summary_scheduler()
                         break
                 # 检查游戏服务器维护
                 self.checker.wait_until_available()
@@ -1684,12 +1907,20 @@ class AzurLaneAutoScript:
                 self._watchdog_active = True
                 self._watchdog_task_start = time.monotonic()
                 self._watchdog_task_name = task
+                task_started_at = current_time()
+                daily_summary_run_id = None
+                if self._daily_summary_enabled:
+                    daily_summary_run_id = self._record_daily_summary_task_start(task)
+                success = None
                 try:
                     success = self.run(inflection.underscore(task))
                 finally:
                     self._watchdog_active = False
                     self._watchdog_task_start = 0.0
                     self._watchdog_task_name = ''
+                    self._record_daily_summary_task_finish(
+                        daily_summary_run_id, success, task_started_at
+                    )
                 logger.info(f'[Alas] 调度器: 结束任务 `{task}`')
                 self.is_first_task = False
 
@@ -1790,6 +2021,7 @@ class AzurLaneAutoScript:
                     self.checker.check_now()
                     continue
                 else:
+                    self._stop_daily_summary_scheduler()
                     break
 
             # 捕获全局异常并执行重启

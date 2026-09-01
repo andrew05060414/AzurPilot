@@ -166,8 +166,8 @@ page_campaign_menu.link(button=CAMPAIGN_MENU_GOTO_EVENT, destination=page_sp)
 page_campaign.link(button=CAMPAIGN_GOTO_EVENT, destination=page_sp)
 
 # 联动活动
-# 怪谈纪实：逃离阈值山庄
-page_coalition = Page(MYSTERY_RECORD_CHECK)
+# 恐怖故事
+page_coalition = Page(HORROR_COALITION_CHECK)
 page_coalition.link(button=GOTO_MAIN, destination=page_main)
 page_coalition.link(button=BACK_ARROW, destination=page_campaign_menu)
 page_campaign_menu.link(button=CAMPAIGN_MENU_GOTO_EVENT, destination=page_coalition)
@@ -255,8 +255,9 @@ page_main_white.link(button=MAIN_GOTO_EVENT_LIST_WHITE, destination=page_event_l
 # page_raid.link(button=GOTO_MAIN, destination=page_main)
 # page_main.link(button=MAIN_GOTO_RAID, destination=page_raid)
 # page_main_white.link(button=MAIN_GOTO_RAID_WHITE, destination=page_raid)
-# 新版（2026.02.12 后）
-page_raid = Page(RAID_CHECK)
+# after 2026.02.12
+# page_raid = Page(RAID_CHECK)
+page_raid = Page(RAID_CHECK_20260827)
 page_raid.link(button=GOTO_MAIN, destination=page_main)
 page_raid.link(button=BACK_ARROW, destination=page_campaign_menu)
 page_campaign_menu.link(button=CAMPAIGN_MENU_GOTO_EVENT, destination=page_raid)

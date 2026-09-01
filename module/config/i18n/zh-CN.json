@@ -79,7 +79,7 @@
       "help": "在1-1不打boss刷伏击获得物资等，支持按紧急委托流程自动换船。"
     },
     "EventGeneral": {
-      "name": "活动通用",
+      "name": "活动通用设置",
       "help": ""
     },
     "Event": {
@@ -782,6 +782,22 @@
       "help": "填写已购买服务支持的模型名称，请以 https://platform.deepseek.com/ 或 https://platform.xiaomimimo.com/ 平台展示为准。"
     }
   },
+  "DailySummary": {
+    "_info": {
+      "name": "每日总结",
+      "help": "每天在设定时间生成并推送运行总结。需要先在调试设置中配置 OnePush 和 LLM。"
+    },
+    "Enable": {
+      "name": "启用每日总结",
+      "help": "开启后，AzurPilot 会在设定时间生成并推送当日运行总结。",
+      "True": "开启",
+      "False": "关闭"
+    },
+    "TriggerTime": {
+      "name": "生成时间",
+      "help": "按游戏服务器时区生成日报的时间，格式为 HH:MM，例如 20:00。"
+    }
+  },
   "Optimization": {
     "_info": {
       "name": "优化设置",
@@ -1231,6 +1247,7 @@
       "raid_20240328": "复刻从零开始的魔王讨伐之旅",
       "raid_20250116": "华裳巧展喜事长",
       "raid_20260212": "春宴怀玉香满庭",
+      "raid_20260827": "大人物的预告信",
       "war_archives_20180607_cn": "档案 墨染的钢铁之花",
       "war_archives_20180726_cn": "档案 光与影的鸢尾之华",
       "war_archives_20181020_en": "档案 努力希望和计划",
@@ -1851,19 +1868,6 @@
     "UseTicket": {
       "name": "使用演习券",
       "help": ""
-    }
-  },
-  "RaidScuttle": {
-    "_info": {
-      "name": "共斗沉船",
-      "help": ""
-    },
-    "Sacrifice": {
-      "name": "牺牲船位置",
-      "help": "",
-      "vanguard": "前排",
-      "flagship": "旗舰",
-      "vanguard_flagship": "前排+旗舰"
     }
   },
   "RaidDaily": {

@@ -782,6 +782,22 @@
       "help": "填寫已購買服務支援的模型名稱，請以 https://platform.deepseek.com/ 或 https://platform.xiaomimimo.com/ 平台展示為準。"
     }
   },
+  "DailySummary": {
+    "_info": {
+      "name": "每日總結",
+      "help": "每天在設定時間產生並推送執行總結。請先在除錯設定中設定 OnePush 和 LLM。"
+    },
+    "Enable": {
+      "name": "啟用每日總結",
+      "help": "啟用後，AzurPilot 會在設定時間產生並推送當日執行總結。",
+      "True": "啟用",
+      "False": "停用"
+    },
+    "TriggerTime": {
+      "name": "產生時間",
+      "help": "依遊戲伺服器時區產生日報的時間，格式為 HH:MM，例如 20:00。"
+    }
+  },
   "Optimization": {
     "_info": {
       "name": "最佳化設定",
@@ -1219,7 +1235,7 @@
       "event_20260417_cn": "假日航線閃耀海濱",
       "event_20260520_cn": "聖印前的同盟",
       "event_20260625_cn": "美夢巡演奇秒夜",
-      "event_20260813_cn": "Depths of the Astrarium",
+      "event_20260813_cn": "沉溺於星光之城",
       "raid_20200624": "特別演習埃塞克斯級(復刻)",
       "raid_20210708": "復刻穿越彼方的水線",
       "raid_20220127": "演習神秘事件調查",
@@ -1231,6 +1247,7 @@
       "raid_20240328": "從零開始的魔王討伐之旅",
       "raid_20250116": "華裳巧展喜事長",
       "raid_20260212": "春宴懷玉香滿庭",
+      "raid_20260827": "The Big Shots Proclamation",
       "war_archives_20180607_cn": "檔案 墨染的鋼鐵之花",
       "war_archives_20180726_cn": "檔案 光與影的鳶尾之華",
       "war_archives_20181020_en": "檔案 努力希望和計劃",
@@ -1851,19 +1868,6 @@
     "UseTicket": {
       "name": "使用演習券",
       "help": ""
-    }
-  },
-  "RaidScuttle": {
-    "_info": {
-      "name": "共鬥沉船",
-      "help": ""
-    },
-    "Sacrifice": {
-      "name": "犧牲船位置",
-      "help": "",
-      "vanguard": "前排",
-      "flagship": "旗艦",
-      "vanguard_flagship": "前排+旗艦"
     }
   },
   "RaidDaily": {
