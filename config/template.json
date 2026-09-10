@@ -139,6 +139,13 @@
       "TaskCall": "auto",
       "Reserve": 2000
     },
+    "CoinRush": {
+      "Enable": false,
+      "FarmingTask": "auto",
+      "TargetCoins": 0,
+      "MinOil": 300,
+      "OpsiPolicy": "suppress"
+    },
     "DropRecord": {
       "SaveFolder": "./screenshots",
       "AzurStatsID": null,

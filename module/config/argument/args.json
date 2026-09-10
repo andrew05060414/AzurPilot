@@ -716,6 +716,43 @@
         "value": 2000
       }
     },
+    "CoinRush": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false
+      },
+      "FarmingTask": {
+        "type": "select",
+        "value": "auto",
+        "option": [
+          "auto",
+          "Main",
+          "Main2",
+          "Main3",
+          "Event",
+          "Event2",
+          "Event3",
+          "GemsFarming",
+          "ThreeOilLowCost"
+        ]
+      },
+      "TargetCoins": {
+        "type": "input",
+        "value": 0
+      },
+      "MinOil": {
+        "type": "input",
+        "value": 300
+      },
+      "OpsiPolicy": {
+        "type": "select",
+        "value": "suppress",
+        "option": [
+          "suppress",
+          "idle_only"
+        ]
+      }
+    },
     "DropRecord": {
       "SaveFolder": {
         "type": "input",

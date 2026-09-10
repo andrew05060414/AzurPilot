@@ -161,6 +161,13 @@ class GeneratedConfig:
     OilOverflow_TaskCall = 'auto'  # auto, Main, Main2, Main3, Event, Event2, Event3, GemsFarming, ThreeOilLowCost
     OilOverflow_Reserve = 2000
 
+    # 配置组 `CoinRush`
+    CoinRush_Enable = False
+    CoinRush_FarmingTask = 'auto'  # auto, Main, Main2, Main3, Event, Event2, Event3, GemsFarming, ThreeOilLowCost
+    CoinRush_TargetCoins = 0
+    CoinRush_MinOil = 300
+    CoinRush_OpsiPolicy = 'suppress'  # suppress, idle_only
+
     # 配置组 `DropRecord`
     DropRecord_SaveFolder = './screenshots'
     DropRecord_AzurStatsID = None

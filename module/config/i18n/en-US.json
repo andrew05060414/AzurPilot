@@ -947,6 +947,43 @@
       "help": "Oil dumping triggered by alert/cap will continue until oil drops to this amount below max capacity before returning to normal schedule. Must be larger than Alert"
     }
   },
+  "CoinRush": {
+    "_info": {
+      "name": "Coin Rush Mode",
+      "help": "Prioritize coin farming tasks right after light daily routines before major events. Operation Siren tasks yield priority to quickly convert oil into coins for gacha"
+    },
+    "Enable": {
+      "name": "Enable Coin Rush Mode",
+      "help": "Focus on coin farming whenever sufficient oil is available. Keeps commissions, dorm, rewards, while delaying heavy tasks like OpSi and Island"
+    },
+    "FarmingTask": {
+      "name": "Coin Farming Task",
+      "help": "Designate the combat task used for coin farming. auto will pick the first enabled task in order: Main2 -> Main -> Main3 -> Event2 -> Event",
+      "auto": "Automatic",
+      "Main": "Campaign",
+      "Main2": "Campaign 2",
+      "Main3": "Campaign 3",
+      "Event": "Event",
+      "Event2": "Event 2",
+      "Event3": "Event 3",
+      "GemsFarming": "Gems Farming",
+      "ThreeOilLowCost": "3 Oil Low Cost"
+    },
+    "TargetCoins": {
+      "name": "Target Coin Cap (Auto-stop)",
+      "help": "Target coin amount (e.g. 150000). Automatically disables Coin Rush and returns to normal schedule once reached. Set to 0 for unlimited continuous rushing"
+    },
+    "MinOil": {
+      "name": "Minimum Oil Threshold",
+      "help": "Do not rush sorties when oil is below this threshold, waiting for commissions and canteen recovery instead. Default 300"
+    },
+    "OpsiPolicy": {
+      "name": "Operation Siren Policy",
+      "help": "Handling of OpSi tasks during Coin Rush. suppress: completely skip OpSi; idle_only: only run OpSi when out of oil and idle",
+      "suppress": "Completely Skip OpSi",
+      "idle_only": "Run OpSi Only When Idle/Low Oil"
+    }
+  },
   "DropRecord": {
     "_info": {
       "name": "Drop Record",

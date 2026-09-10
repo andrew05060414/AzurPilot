@@ -336,6 +336,10 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         pending, waiting, priority = apply_oil_overflow_schedule(
             self, pending, waiting, self.SCHEDULER_PRIORITY
         )
+        from module.config.coin_rush import apply_coin_rush_schedule
+        pending, waiting, priority = apply_coin_rush_schedule(
+            self, pending, waiting, priority
+        )
         f.load(priority)
         if pending:
             pending = f.apply(pending)
