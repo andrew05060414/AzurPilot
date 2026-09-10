@@ -1086,6 +1086,9 @@ class RewardCommission(UI, InfoHandler):
                 self.ui_ensure(page_reward)
 
         logger.critical('[委托-石油] 尝试3次后仍无法处理石油溢出')
+        from module.config.oil_overflow import try_handle_oil_maxed
+        if try_handle_oil_maxed(self.config):
+            self.config.task_stop('石油溢出，改为消耗石油')
         raise RequestHumanTakeover
 
     def run(self):

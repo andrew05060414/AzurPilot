@@ -912,6 +912,41 @@
       "help": "How many minutes before the task the warm-up launch begins; used until a measured startup time exists. After each successful warm-up the actual startup time is recorded, and later warm-ups launch by 'last measured + 2 minutes', so the game is ready about 2 minutes before the task."
     }
   },
+  "OilOverflow": {
+    "_info": {
+      "name": "Dump Oil Near Cap",
+      "help": "Automatically prioritize oil-dumping tasks (like Campaign) before Operation Siren when oil exceeds threshold or nears warehouse limit, preventing OpSi from monopolizing the queue"
+    },
+    "Enable": {
+      "name": "Enable Priority Oil Dump",
+      "help": "The target combat task must be enabled. When commissions trigger an oil overflow popup, Alas will also proceed to dump oil instead of halting"
+    },
+    "Threshold": {
+      "name": "Threshold (Dump when Oil >= X)",
+      "help": "Start boosting oil-dumping task priority when current oil reaches or exceeds this value. Set 0 to disable absolute triggering and rely only on Alert"
+    },
+    "Alert": {
+      "name": "Alert (Dump when remaining capacity <= X)",
+      "help": "Treat warehouse as about to overflow when remaining headroom drops below this value, triggering immediate oil dumping. Default 300. Set 0 to trigger only when completely full"
+    },
+    "TaskCall": {
+      "name": "Preferred Task on Overflow",
+      "help": "auto will pick the first enabled task in order: Main -> Event -> GemsFarming -> ThreeOilLowCost",
+      "auto": "Automatic",
+      "Main": "Campaign",
+      "Main2": "Campaign 2",
+      "Main3": "Campaign 3",
+      "Event": "Event",
+      "Event2": "Event 2",
+      "Event3": "Event 3",
+      "GemsFarming": "Gems Farming",
+      "ThreeOilLowCost": "3 Oil Low Cost"
+    },
+    "Reserve": {
+      "name": "Dump until remaining capacity reaches X",
+      "help": "Oil dumping triggered by alert/cap will continue until oil drops to this amount below max capacity before returning to normal schedule. Must be larger than Alert"
+    }
+  },
   "DropRecord": {
     "_info": {
       "name": "Drop Record",
@@ -3065,6 +3100,10 @@
     "_info": {
       "name": "Operation Siren General Settings",
       "help": "All Operation Siren features use these settings"
+    },
+    "Enable": {
+      "name": "Enable Operation Siren (Master Switch)",
+      "help": "Global master switch for Operation Siren. When disabled, the scheduler will pause all OpSi sub-tasks while preserving their individual enable settings. Re-enabling will immediately resume scheduling according to existing configurations."
     },
     "UseLogger": {
       "name": "Use Coordinate Logger",

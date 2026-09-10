@@ -266,6 +266,14 @@ Optimization:
   WarmupMinutes:
     value: 15
     validate: [1, 1440]
+OilOverflow:
+  Enable: true
+  Threshold: 0
+  Alert: 300
+  TaskCall:
+    value: auto
+    option: [auto, Main, Main2, Main3, Event, Event2, Event3, GemsFarming, ThreeOilLowCost]
+  Reserve: 2000
 DropRecord:
   SaveFolder: ./screenshots
   AzurStatsID: null
@@ -1029,6 +1037,7 @@ Sos:
 OpsiAshAssist:
   Tier: 15
 OpsiGeneral:
+  Enable: true
   UseLogger: true
   BuyActionPointLimit:
     value: 0

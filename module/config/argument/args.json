@@ -683,6 +683,39 @@
         ]
       }
     },
+    "OilOverflow": {
+      "Enable": {
+        "type": "checkbox",
+        "value": true
+      },
+      "Threshold": {
+        "type": "input",
+        "value": 0
+      },
+      "Alert": {
+        "type": "input",
+        "value": 300
+      },
+      "TaskCall": {
+        "type": "select",
+        "value": "auto",
+        "option": [
+          "auto",
+          "Main",
+          "Main2",
+          "Main3",
+          "Event",
+          "Event2",
+          "Event3",
+          "GemsFarming",
+          "ThreeOilLowCost"
+        ]
+      },
+      "Reserve": {
+        "type": "input",
+        "value": 2000
+      }
+    },
     "DropRecord": {
       "SaveFolder": {
         "type": "input",
@@ -12595,6 +12628,10 @@
   },
   "OpsiGeneral": {
     "OpsiGeneral": {
+      "Enable": {
+        "type": "checkbox",
+        "value": true
+      },
       "UseLogger": {
         "type": "checkbox",
         "value": true

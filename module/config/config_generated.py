@@ -154,6 +154,13 @@ class GeneratedConfig:
     Optimization_WarmupEnable = True  # True, False
     Optimization_WarmupMinutes = 15
 
+    # 配置组 `OilOverflow`
+    OilOverflow_Enable = True
+    OilOverflow_Threshold = 0
+    OilOverflow_Alert = 300
+    OilOverflow_TaskCall = 'auto'  # auto, Main, Main2, Main3, Event, Event2, Event3, GemsFarming, ThreeOilLowCost
+    OilOverflow_Reserve = 2000
+
     # 配置组 `DropRecord`
     DropRecord_SaveFolder = './screenshots'
     DropRecord_AzurStatsID = None
@@ -567,6 +574,7 @@ class GeneratedConfig:
     OpsiAshAssist_Tier = 15
 
     # 配置组 `OpsiGeneral`
+    OpsiGeneral_Enable = True
     OpsiGeneral_UseLogger = True
     OpsiGeneral_BuyActionPointLimit = 0  # 0, 1, 2, 3, 4, 5
     OpsiGeneral_OilLimit = 1000

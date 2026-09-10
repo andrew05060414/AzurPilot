@@ -8,6 +8,7 @@ Alas:
       - Error
       - DailySummary
       - Optimization
+      - OilOverflow
       - DropRecord
       - EmulatorManagement
     General:

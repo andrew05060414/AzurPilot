@@ -317,9 +317,12 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         now = current_time()
         if AzurLaneConfig.is_hoarding_task:
             now -= self.hoarding
+        opsi_master_enable = self.cross_get('OpsiGeneral.OpsiGeneral.Enable', default=True)
         for func in self.data.values():
             func = Function(func)
             if not func.enable:
+                continue
+            if not opsi_master_enable and func.command.startswith('Opsi'):
                 continue
             if not isinstance(func.next_run, datetime):
                 error.append(func)
@@ -329,7 +332,11 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
                 waiting.append(func)
 
         f = Filter(regex=r"(.*)", attr=["command"])
-        f.load(self.SCHEDULER_PRIORITY)
+        from module.config.oil_overflow import apply_oil_overflow_schedule
+        pending, waiting, priority = apply_oil_overflow_schedule(
+            self, pending, waiting, self.SCHEDULER_PRIORITY
+        )
+        f.load(priority)
         if pending:
             pending = f.apply(pending)
         if waiting:

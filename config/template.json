@@ -132,6 +132,13 @@
       "WarmupEnable": true,
       "WarmupMinutes": 15
     },
+    "OilOverflow": {
+      "Enable": true,
+      "Threshold": 0,
+      "Alert": 300,
+      "TaskCall": "auto",
+      "Reserve": 2000
+    },
     "DropRecord": {
       "SaveFolder": "./screenshots",
       "AzurStatsID": null,
@@ -2408,6 +2415,7 @@
   },
   "OpsiGeneral": {
     "OpsiGeneral": {
+      "Enable": true,
       "UseLogger": true,
       "BuyActionPointLimit": 0,
       "OilLimit": 1000,
