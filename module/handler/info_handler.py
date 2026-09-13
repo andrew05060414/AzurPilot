@@ -229,6 +229,10 @@ class InfoHandler(ModuleBase):
         Raises:
             ScriptEnd: calculate 模式下出现红脸弹窗时，心情清零并延时后抛出。
         """
+        # 大世界中舰队不消耗心情，不处理红脸弹窗，避免误判其他业务弹窗
+        if self.config.is_os:
+            return False
+
         # calculate 模式保底：正常不应出现红脸弹窗
         # 若出现则可能是ALAS计算错误或用户手动操作，需异常处理
         if self.emotion.is_calculate and not self.emotion.is_ignore:
@@ -548,12 +552,13 @@ class InfoHandler(ModuleBase):
                 return options[3]
 
         elif len(options) == 3:
-            # 塞壬信息收集装置 / 探测装置产物柱子：点中间选项完成
-            logger.info('[Handler] [Story] 塞壬信息收集装置/柱子，点中间选项完成')
-            self.siren_device_mode = 'collected'
-            return options[1]
-
-        return None
+            task = self.config.task.command
+            if task in ('OpsiHazard1Leveling', 'OpsiMeowfficerFarming'):
+                # 塞壬信息收集装置 / 探测装置产物柱子：点中间选项完成
+                logger.info('[Handler] [Story] 塞壬信息收集装置/柱子，点中间选项完成')
+                self.siren_device_mode = 'collected'
+                return options[1]
+            return None
 
     def story_skip(self, drop=None):
         """

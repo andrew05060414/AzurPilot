@@ -323,7 +323,7 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
                     continue
             if self.handle_retirement():
                 continue
-            if self.handle_combat_low_emotion():
+            if emotion_reduce and self.handle_combat_low_emotion():
                 continue
             if balance_hp and self.handle_emergency_repair_use():
                 continue
@@ -595,20 +595,15 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
         """
         if self.is_combat_executing():
             return False
-        if self.appear_then_click(EXP_INFO_S):
-            self.device.sleep((0.25, 0.5))
+        if self.appear_then_click(EXP_INFO_S, interval=1):
             return True
-        if self.appear_then_click(EXP_INFO_A):
-            self.device.sleep((0.25, 0.5))
+        if self.appear_then_click(EXP_INFO_A, interval=1):
             return True
-        if self.appear_then_click(EXP_INFO_B):
-            self.device.sleep((0.25, 0.5))
+        if self.appear_then_click(EXP_INFO_B, interval=1):
             return True
-        if self.appear_then_click(EXP_INFO_C):
-            self.device.sleep((0.25, 0.5))
+        if self.appear_then_click(EXP_INFO_C, interval=1):
             return True
-        if self.appear_then_click(EXP_INFO_D):
-            self.device.sleep((0.25, 0.5))
+        if self.appear_then_click(EXP_INFO_D, interval=1):
             return True
 
         return False
@@ -626,6 +621,7 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
             是否点击了获得舰船画面。
         """
         if self.appear_then_click(GET_SHIP, interval=1):
+            self.interval_reset(EXP_INFO_S)
             if self.appear(NEW_SHIP):
                 logger.info('[战斗-舰船] 获得新舰船')
                 if drop:
@@ -699,6 +695,9 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
             if self.handle_get_ship(drop=drop):
                 continue
             if self.handle_get_items(drop=drop):
+                continue
+            if self.appear_then_click(OPTS_INFO_D, offset=(30, 30), interval=2):
+                logger.info('[战斗-结算] 战败提升实力界面 (OPTS_INFO_D)，点击关闭')
                 continue
             if self.handle_popup_confirm('COMBAT_STATUS'):
                 if battle_status and not exp_info:
