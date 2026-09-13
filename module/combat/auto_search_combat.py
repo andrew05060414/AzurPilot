@@ -217,7 +217,7 @@ class AutoSearchCombat(MapOperation, Combat, CampaignStatus):
                 break
             if self.handle_auto_search_map_option():
                 continue
-            if self.handle_combat_low_emotion():
+            if emotion_reduce and self.handle_combat_low_emotion():
                 self._auto_search_status_confirm = True
                 continue
             if self.handle_story_skip():
