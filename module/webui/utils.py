@@ -552,6 +552,24 @@ def _inject_css_watcher(fingerprint):
     run_js(js)
 
 
+THEME_STYLES = {
+    "dark": ("dark-alas",),
+    "advanced_material": ("advanced-material-alas",),
+    "dark_advanced_material": (
+        "advanced-material-alas",
+        "dark-advanced-material-overrides-alas",
+    ),
+}
+
+
+def get_all_theme_style_ids() -> list[str]:
+    """获取所有主题专有 CSS 的 style 标签 id 列表。"""
+    names = {"light-alas"}
+    for style_list in THEME_STYLES.values():
+        names.update(style_list)
+    return [f"alas-css-{name}-css" for name in sorted(names)]
+
+
 def load_webui_styles(theme=None, is_mobile=None, preloaded_styles=()):
     """加载 WebUI 各入口共用的基础、响应式与主题样式。
 
@@ -577,15 +595,7 @@ def load_webui_styles(theme=None, is_mobile=None, preloaded_styles=()):
         "alas-mobile" if is_mobile else "alas-pc",
         "entry-alas",
     ]
-    theme_styles = {
-        "dark": ("dark-alas",),
-        "advanced_material": ("advanced-material-alas",),
-        "dark_advanced_material": (
-            "advanced-material-alas",
-            "dark-advanced-material-overrides-alas",
-        ),
-    }
-    styles.extend(theme_styles.get(theme, ("light-alas",)))
+    styles.extend(THEME_STYLES.get(theme, ("light-alas",)))
 
     add_css_files(filepath_css(name) for name in styles)
     add_background_css()

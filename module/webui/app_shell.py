@@ -362,9 +362,11 @@ def _reload_theme_css(theme: str) -> None:
     仍残留在 DOM 中，其 !important 规则会覆盖新主题的 CSS。需要先
     删除所有主题 CSS 的 <link> 和 <style>，再注入当前主题的 CSS。
     """
+    import json
     from module.webui.app_dependencies import local
-    from module.webui.utils import add_css_files, filepath_css
+    from module.webui.utils import THEME_STYLES, add_css_files, filepath_css, get_all_theme_style_ids
 
+    theme_ids = get_all_theme_style_ids()
     run_js("""
     var links = document.querySelectorAll(
         'link[href*="dark-alas"],' +
@@ -375,35 +377,25 @@ def _reload_theme_css(theme: str) -> None:
     for (var i = 0; i < links.length; i++) {
         links[i].parentNode.removeChild(links[i]);
     }
-    var styles = document.querySelectorAll(
-        'style[id="alas-css-dark-alas-css"],' +
-        'style[id="alas-css-light-alas-css"],' +
-        'style[id="alas-css-advanced-material-alas-css"],' +
-        'style[id="alas-css-dark-advanced-material-overrides-alas-css"]'
-    );
-    for (var i = 0; i < styles.length; i++) {
-        styles[i].parentNode.removeChild(styles[i]);
+    var ids = %s;
+    for (var i = 0; i < ids.length; i++) {
+        var el = document.getElementById(ids[i]);
+        if (el && el.parentNode) {
+            el.parentNode.removeChild(el);
+        }
     }
-    """)
+    """ % json.dumps(theme_ids))
 
     injected_styles = getattr(local, "webui_injected_styles", None)
     if injected_styles is not None:
-        injected_styles.discard(filepath_css("light-alas"))
-        injected_styles.discard(filepath_css("dark-alas"))
-        injected_styles.discard(filepath_css("advanced-material-alas"))
-        injected_styles.discard(filepath_css("dark-advanced-material-overrides-alas"))
+        all_theme_names = {"light-alas"}
+        for names in THEME_STYLES.values():
+            all_theme_names.update(names)
+        for name in all_theme_names:
+            injected_styles.discard(filepath_css(name))
 
-    if theme == "dark":
-        add_css_files((filepath_css("dark-alas"),))
-    elif theme == "advanced_material":
-        add_css_files((filepath_css("advanced-material-alas"),))
-    elif theme == "dark_advanced_material":
-        add_css_files((
-            filepath_css("advanced-material-alas"),
-            filepath_css("dark-advanced-material-overrides-alas"),
-        ))
-    else:
-        add_css_files((filepath_css("light-alas"),))
+    theme_files = THEME_STYLES.get(theme, ("light-alas",))
+    add_css_files(filepath_css(name) for name in theme_files)
 
 
 class AppShellMixin(WebUIMixinBase):

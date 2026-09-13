@@ -260,7 +260,8 @@ class DeveloperToolsMixin(WebUIMixinBase):
             put_scope("remote_info")
 
         def u(state):
-            if state == -1:
+            # 后台 switch 任务切页后放弃写 DOM，防止残留写入
+            if state == -1 or getattr(self, "page", None) != "Remote":
                 return
             status_map = {
                 "direct_p2p": t("Gui.Remote.StatusDirect"),
