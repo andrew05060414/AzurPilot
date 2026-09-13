@@ -176,8 +176,8 @@ class Frame(Base):
         is_mobile = getattr(self, "is_mobile", None)
         if is_mobile is None:
             try:
-                is_mobile = session_info.user_agent.is_mobile
-            except Exception:
+                is_mobile = bool(getattr(getattr(info, "user_agent", None), "is_mobile", False))
+            except (AttributeError, RuntimeError):
                 is_mobile = False
         if is_mobile:
             run_js(
@@ -197,8 +197,8 @@ class Frame(Base):
         is_mobile = getattr(self, "is_mobile", None)
         if is_mobile is None:
             try:
-                is_mobile = session_info.user_agent.is_mobile
-            except Exception:
+                is_mobile = bool(getattr(getattr(info, "user_agent", None), "is_mobile", False))
+            except (AttributeError, RuntimeError):
                 is_mobile = False
         if is_mobile:
             run_js(
