@@ -309,6 +309,12 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
     def is_actual_task(self):
         return self.task.command.lower() not in ['alas', 'template']
 
+    @property
+    def is_os(self) -> bool:
+        """当前绑定的任务是否为大型作战（大世界）任务。"""
+        command = getattr(getattr(self, 'task', None), 'command', None)
+        return isinstance(command, str) and command.startswith('Opsi')
+
     def get_next_task(self):
         """计算任务队列，设置 pending_task 和 waiting_task。"""
         pending = []
