@@ -25,6 +25,18 @@ alwaysApply: true
 | `ambush_1_1.py` 定位错误 | CAMPAIGN.md | 原文档称"战役地图定义 + 战斗逻辑"，实际为 `class Ambush11`（继承 `CampaignRun, FleetEquipment, Retirement`），另有 `AmbushEmotion`/`AmbushCampaignOverride`，已修正 | ✅ 已修复 |
 | `alas.py` 的 `opsi_daily_delay()` 调用不存在的方法 | alas.py / OS-SYSTEM.md | `alas.py` 的 `opsi_daily_delay()` 调用 `OSCampaignRun.opsi_daily_delay()`，但 `OSCampaignRun` 只有 `opsi_daily()`，运行时会抛 `AttributeError`（代码问题，文档已按实际记录） | ⚠️ 代码待修 |
 
+### 1.1.1 实机运行高频异常（2026-09 日志复盘）
+
+> 基于实机 1,200+ 次错误日志与截图深度挖掘提炼，详细复盘与代码修复方案见 [RUNTIME-FAULT-ANALYSIS.md](RUNTIME-FAULT-ANALYSIS.md)。
+
+| 故障类型 | 典型报错/场景 | 根本原因 | 修复优先级 |
+|---------|-------------|---------|-----------
+| **NemuIpc 通信断开** | `[WinError 10053]` / `nemu_capture_display failed` | MuMu 模拟器未就绪或句柄失效，缺少回退降级机制 | 🔴 P0 待修 |
+| **大世界选舰队连点** | `GameTooManyClickError: FLEET_CHOOSE` | `map_fleet_selector.py` 下拉菜单开启色彩阈值失效导致死循环 | 🔴 P0 待修 |
+| **防卡死检测误触** | `GameStuckError: 等待时间过长 / 截图未变化` | 弱网重连弹窗或长过场未加入白名单，缺少唤醒兜底动作 | 🟡 P1 待修 |
+| **登录与领奖连点** | `LOGIN_CHECK` (102次) / `REWARD_1_WHITE` (49次) | 高频重试未设置退避间隔，短时间击穿 15 次点击阈值 | 🟡 P1 待修 |
+| **海域网格透视丢失** | `MapDetectionError: Image to detect is not in_map` | 边缘区域单应性矩阵拟合失真，缺乏相机归中校准机制 | 🟢 P2 待修 |
+
 ### 1.2 中等问题 (🟡)
 
 > 影响可维护性或性能的问题
