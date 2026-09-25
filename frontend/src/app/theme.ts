@@ -12,13 +12,18 @@ export type CompactRailWidth = (typeof COMPACT_RAIL_WIDTHS)[number]
 export const COMPACT_RAIL_DEFAULT_SIDE: CompactRailSide = 'right'
 export const COMPACT_RAIL_DEFAULT_WIDTH: CompactRailWidth = 244
 
+export type TaskNavMode = 'tree' | 'flyout'
+export const DEFAULT_TASK_NAV_MODE: TaskNavMode = 'tree'
+
 type Preference = {
   theme: Theme; palette: Palette; colorMode: ColorMode; customPalettes: CustomPalette[]
   compactRailSide: CompactRailSide; compactRailWidth: CompactRailWidth
+  taskNavMode: TaskNavMode
 }
 const defaults: Preference = {
   theme: 'light', palette: 'ocean', colorMode: 'auto', customPalettes: [],
   compactRailSide: COMPACT_RAIL_DEFAULT_SIDE, compactRailWidth: COMPACT_RAIL_DEFAULT_WIDTH,
+  taskNavMode: DEFAULT_TASK_NAV_MODE,
 }
 
 /** 走 Apple 玻璃/壁纸/装饰动画一档的主题；旧版浅色与深色是朴素风格，不在此列。 */
@@ -50,6 +55,7 @@ export function readThemePreference(): Preference {
     const customPalettes = readCustomPalettes(localStorage.getItem('azurpilot.custom-palettes'))
     const railSide = localStorage.getItem('azurpilot.compact-rail-side')
     const railWidth = Number(localStorage.getItem('azurpilot.compact-rail-width'))
+    const navMode = localStorage.getItem('azurpilot.task-nav-mode')
     return {
       theme: VALID_THEMES.includes(theme ?? '') ? theme as Theme : 'light',
       palette: palettes.some(item => item === palette) || customPalettes.some(item => item.id === palette) ? palette as Palette : 'ocean',
@@ -57,6 +63,7 @@ export function readThemePreference(): Preference {
       customPalettes,
       compactRailSide: railSide === 'left' || railSide === 'right' ? railSide : COMPACT_RAIL_DEFAULT_SIDE,
       compactRailWidth: COMPACT_RAIL_WIDTHS.includes(railWidth as CompactRailWidth) ? railWidth as CompactRailWidth : COMPACT_RAIL_DEFAULT_WIDTH,
+      taskNavMode: navMode === 'flyout' || navMode === 'tree' ? navMode : DEFAULT_TASK_NAV_MODE,
     }
   } catch { return {...defaults} }
 }
@@ -185,6 +192,7 @@ export async function applyTheme(next: Preference) {
     localStorage.setItem('azurpilot.custom-palettes', JSON.stringify(next.customPalettes))
     localStorage.setItem('azurpilot.compact-rail-side', next.compactRailSide)
     localStorage.setItem('azurpilot.compact-rail-width', String(next.compactRailWidth))
+    localStorage.setItem('azurpilot.task-nav-mode', next.taskNavMode)
   } catch { /* 存储不可用时仍允许切换，本次会话内生效。 */ }
   preference = {...next, resolvedMode}
   listeners.forEach(listener => listener())

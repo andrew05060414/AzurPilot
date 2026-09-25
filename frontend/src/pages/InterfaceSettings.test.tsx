@@ -48,6 +48,8 @@ function createMockContext(theme: AppContextValue['theme']): AppContextValue {
     setCompactRailSide: () => {},
     compactRailWidth: 244,
     setCompactRailWidth: () => {},
+    taskNavMode: 'tree',
+    setTaskNavMode: () => {},
     language: 'zh-CN',
     setLanguage: () => {},
   }

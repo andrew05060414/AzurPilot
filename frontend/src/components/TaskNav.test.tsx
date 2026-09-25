@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AppContext, type AppContextValue } from '../app/context'
 import { TaskNav } from './TaskNav'
 import { isDesktopDevice } from './TaskNavFlyout'
-import type { Theme } from '../app/theme'
+import type { Theme, TaskNavMode } from '../app/theme'
 import type { Schema } from '../api/types'
 import { translateUi } from '../i18n'
 
@@ -36,7 +36,7 @@ const mockTranslations: Record<string, string> = {
   'Task.ThreeOilLowCost.name': '3油低耗出击',
 }
 
-function contextWith(theme: Theme): AppContextValue {
+function contextWith(theme: Theme, taskNavMode: TaskNavMode = 'tree'): AppContextValue {
   return {
     instancesLoaded: true,
     instances: [{ name: 'default', status: 'stopped', serial: '127.0.0.1:5555', server: 'cn' }],
@@ -54,6 +54,8 @@ function contextWith(theme: Theme): AppContextValue {
     colorMode: 'auto', resolvedMode: 'light', setColorMode: () => {},
     customPalettes: [], saveCustomPalette: () => {}, deleteCustomPalette: () => {},
     compactRailSide: 'right', setCompactRailSide: () => {}, compactRailWidth: 244, setCompactRailWidth: () => {},
+    taskNavMode,
+    setTaskNavMode: () => {},
     palette: 'ocean',
     setPalette: () => {},
     language: 'zh-CN',
@@ -61,9 +63,9 @@ function contextWith(theme: Theme): AppContextValue {
   }
 }
 
-function render(path: string, props: {defaultOpenKey?: string} = {}, theme: Theme = 'legacy-light') {
+function render(path: string, props: {defaultOpenKey?: string} = {}, theme: Theme = 'legacy-light', taskNavMode: TaskNavMode = 'tree') {
   return renderToStaticMarkup(
-    <AppContext.Provider value={contextWith(theme)}>
+    <AppContext.Provider value={contextWith(theme, taskNavMode)}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/i/:instance/*" element={<TaskNav {...props} />} />
@@ -123,8 +125,18 @@ describe('TaskNav 导航组件', () => {
     expect(html).toContain('href="/i/default/task/Main"')
   })
 
-  it('其余主题继续用向右浮出的二级菜单', () => {
-    const html = render('/i/default/overview', {defaultOpenKey: 'Alas'}, 'light')
+  it('现代主题在默认模式下同样使用树状向下展开', () => {
+    const html = render('/i/default/overview', {defaultOpenKey: 'Alas'}, 'light', 'tree')
+
+    expect(html).toContain('task-group-button expanded')
+    expect(html).toContain('task-submenu-list')
+    expect(html).toContain('task-submenu-item')
+    expect(html).toContain('href="/i/default/task/Alas"')
+    expect(html).not.toContain('task-submenu-flyout')
+  })
+
+  it('显式配置为向右浮出模式时，现代主题使用向右浮出的二级菜单', () => {
+    const html = render('/i/default/overview', {defaultOpenKey: 'Alas'}, 'light', 'flyout')
 
     expect(html).toContain('aria-haspopup="menu"')
     expect(html).toContain('task-submenu-flyout')

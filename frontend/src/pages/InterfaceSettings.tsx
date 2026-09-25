@@ -8,7 +8,7 @@ import { BackgroundPreferences } from '../components/BackgroundPreferences'
 
 /** 界面设置：主题、配色、背景与语言，只影响当前浏览器，不写进实例配置。 */
 export function InterfaceSettings() {
-  const {theme, setTheme, language, setLanguage, ui} = useApp()
+  const {theme, setTheme, language, setLanguage, taskNavMode, setTaskNavMode, ui} = useApp()
   const connection = useConnection()
 
   return (
@@ -34,6 +34,17 @@ export function InterfaceSettings() {
         {theme === 'extreme' && <CompactLayoutPreference/>}
         {usesPaletteOptions(theme) && <ThemePreferences/>}
         {usesMaterial(theme) && <BackgroundPreferences/>}
+        <div className="field-row">
+          <div className="field-label">
+            <label htmlFor="ui-task-nav-mode">{ui('settings.taskNavMode')}</label>
+          </div>
+          <div className="field-control">
+            <Select id="ui-task-nav-mode" value={taskNavMode} onChange={event => setTaskNavMode(event.target.value as typeof taskNavMode)}>
+              <option value="tree">{ui('settings.taskNavModeTree')}</option>
+              <option value="flyout">{ui('settings.taskNavModeFlyout')}</option>
+            </Select>
+          </div>
+        </div>
         <div className="field-row">
           <div className="field-label">
             <label htmlFor="ui-language">{ui('settings.language')}</label>

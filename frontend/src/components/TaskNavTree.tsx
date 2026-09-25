@@ -42,7 +42,7 @@ export function TaskNavTree({ defaultOpenKey }: { defaultOpenKey?: string } = {}
     t(`Task.${task}.name`).toLowerCase().includes(keyword) || task.toLowerCase().includes(keyword)
 
   return (
-    <div className="task-nav-container">
+    <div className="task-nav-container task-nav-tree">
       <div className="sidebar-label task-nav-heading">{ui('nav.taskConfig')}<button className="icon-button" aria-label={searchOpen ? ui('nav.taskSearchCollapse') : ui('nav.taskSearchExpand')} aria-expanded={searchOpen} aria-controls="task-search" onClick={() => {setSearchOpen(!searchOpen); setSearch('')}}><Search size={15}/></button></div>
       {searchOpen && <div className="nav-search" id="task-search">
         <Search size={14} />
