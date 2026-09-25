@@ -7,6 +7,7 @@ from unittest.mock import patch
 from module.config import coin_rush
 from module.config.config import AzurLaneConfig
 from module.config.coin_rush import (
+    activate_from_task_balancer,
     LEVEL_EMERGENCY,
     LEVEL_HIGH,
     LEVEL_NONE,
@@ -56,6 +57,7 @@ class DummyConfig:
             'Alas.CoinRush.Enable': False,
             'Alas.CoinRush.FarmingTask': 'auto',
             'Alas.CoinRush.TargetCoins': 0,
+            'Alas.CoinRush.BalancerTargetCoins': 0,
             'Alas.CoinRush.MinOil': 300,
             'Alas.CoinRush.OpsiPolicy': 'suppress',
         }
@@ -266,6 +268,51 @@ class TestGetNextTaskIntegration(RushTestCase):
         self.assertEqual(task.command, 'Minigame')
         self.assertEqual(commands(config.pending_task), ['Minigame'])
         self.assertEqual(commands(config.waiting_task), ['Main', 'Restart'])
+
+
+class TestTaskBalancerActivation(RushTestCase):
+    def make_config(self, enabled=('Main', 'Event'), **settings):
+        config = DummyConfig(**settings)
+        config.called = []
+        config.is_task_enabled = lambda task: task in enabled
+        config.task_call = config.called.append
+        return config
+
+    def test_enables_rush_with_separate_exit_line_and_calls_main(self):
+        config = self.make_config(CoinRush_TargetCoins=0)
+        self.assertEqual(activate_from_task_balancer(config, 10000), 'Main')
+        self.assertTrue(config.settings['Alas.CoinRush.Enable'])
+        self.assertEqual(config.settings['Alas.CoinRush.BalancerTargetCoins'], 10000)
+        # 不改用户设置的目标物资
+        self.assertEqual(config.settings['Alas.CoinRush.TargetCoins'], 0)
+        self.assertEqual(config.called, ['Main'])
+
+    def test_manual_rush_keeps_its_own_target(self):
+        config = self.make_config(CoinRush_Enable=True, CoinRush_TargetCoins=150000)
+        activate_from_task_balancer(config, 10000)
+        self.assertEqual(config.settings['Alas.CoinRush.BalancerTargetCoins'], 0)
+
+    def test_manual_disable_clears_balancer_exit_line(self):
+        config = self.make_config()
+        activate_from_task_balancer(config, 10000)
+        config.settings['Alas.CoinRush.Enable'] = False
+        plan_coin_rush(config)
+        self.assertEqual(config.settings['Alas.CoinRush.BalancerTargetCoins'], 0)
+
+    def test_never_calls_event_back(self):
+        # 物资过低是刷活动时触发的，指定了活动图也不能呼叫回去
+        config = self.make_config(enabled=('Event', 'Event2'), CoinRush_FarmingTask='Event')
+        self.assertIsNone(activate_from_task_balancer(config, 10000))
+        self.assertEqual(config.called, [])
+        self.assertTrue(config.settings['Alas.CoinRush.Enable'])
+
+    def test_rush_turns_off_once_coins_reach_balancer_limit(self):
+        config = self.make_config(oil=5000, coin=3000)
+        activate_from_task_balancer(config, 10000)
+        self.assertIsNotNone(plan_coin_rush(config))
+        config.data['Dashboard']['Coin']['Value'] = 10000
+        self.assertIsNone(plan_coin_rush(config))
+        self.assertFalse(config.settings['Alas.CoinRush.Enable'])
 
 
 class TestMigration(unittest.TestCase):

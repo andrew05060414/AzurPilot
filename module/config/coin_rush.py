@@ -146,7 +146,14 @@ class CoinRushSettings:
     enable: bool
     farming_task: str
     target_coins: int
+    # 由活动任务平衡开启时记录的退出线（其“保持物资大于 X”），0 表示不是它开启的
+    balancer_target_coins: int
     min_oil: int
+
+    @property
+    def exit_coins(self):
+        """冲刺的退出线：任务平衡开启的按其保持线，手动开启的按目标物资。"""
+        return self.balancer_target_coins or self.target_coins
 
 
 def read_coin_rush_settings(config):
@@ -157,6 +164,7 @@ def read_coin_rush_settings(config):
         enable=bool(get('Enable', False)),
         farming_task=str(get('FarmingTask', 'auto') or 'auto'),
         target_coins=max(0, _to_int(get('TargetCoins', 0), 0)),
+        balancer_target_coins=max(0, _to_int(get('BalancerTargetCoins', 0), 0)),
         min_oil=max(0, _to_int(get('MinOil', 300), 300)),
     )
 
@@ -244,13 +252,14 @@ def oil_level(config, settings=None):
 
 
 def _coin_rush_reached(config, settings):
-    """达到目标物资时自动关闭手动物资冲刺。"""
+    """达到退出线时关闭物资冲刺（手动开启或任务平衡开启）。"""
     coin = _dashboard_coin(config)
-    target = settings.target_coins
+    target = settings.exit_coins
     if target <= 0 or coin < target:
         return False
     logger.info(f'[调度-物资冲刺] 物资已达标 ({coin}/{target})，自动关闭物资冲刺')
     config.cross_set('Alas.CoinRush.Enable', False)
+    config.cross_set('Alas.CoinRush.BalancerTargetCoins', 0)
     save = getattr(config, 'save', None)
     if callable(save):
         try:
@@ -286,6 +295,9 @@ def plan_coin_rush(config):
     level = oil_level(config, oil_settings)
 
     coin_settings = read_coin_rush_settings(config)
+    if not coin_settings.enable and coin_settings.balancer_target_coins:
+        # 用户手动关掉了任务平衡开启的冲刺，清掉退出线，避免下次手动开启时沿用
+        config.cross_set('Alas.CoinRush.BalancerTargetCoins', 0)
     coin_rush = coin_settings.enable and not _coin_rush_reached(config, coin_settings)
 
     if level == LEVEL_NONE and not coin_rush:
@@ -418,3 +430,37 @@ def record_food_purchase(config, units):
     LogRes(config).Oil = {'Value': max(0, oil - spent)}
     logger.info(f'[调度-物资冲刺] 后宅购买食物 {units} 份，约消耗石油 {spent}')
 
+
+def activate_from_task_balancer(config, coin_limit):
+    """活动任务平衡在物资过低时开启物资冲刺。
+
+    - 打开物资冲刺，并把任务平衡的保持线单独记为退出线（不改用户的目标物资）：
+      物资回到保持线后冲刺自动关闭，回去继续刷活动。已经手动开着冲刺时沿用
+      手动的目标物资。退出线存在配置里，脚本重启后仍然有效。
+    - 立即呼叫第一个已启用的非活动出击任务：冲刺只调整已到期任务的顺序，
+      不呼叫的话，等待中的主线图不会先于 5 分钟后重新到期的活动运行。
+
+    Args:
+        config: AzurLaneConfig。
+        coin_limit (int): 任务平衡的“保持物资大于 X”。
+
+    Returns:
+        str | None: 被呼叫的出击任务；没有可用任务时返回 None。
+    """
+    settings = read_coin_rush_settings(config)
+    coin_limit = max(0, _to_int(coin_limit, 0))
+    if not settings.enable:
+        logger.info(f'[调度-物资冲刺] 任务平衡开启物资冲刺，物资达到 {coin_limit} 后自动关闭')
+        config.cross_set('Alas.CoinRush.Enable', True)
+        config.cross_set('Alas.CoinRush.BalancerTargetCoins', coin_limit)
+
+    # 不含活动图：物资过低正是刷活动时触发的，回到活动会立刻再次触发
+    for task in _ordered_candidates(settings.farming_task, COIN_FARMING_TASKS):
+        if task.startswith('Event') or not config.is_task_enabled(task):
+            continue
+        logger.info(f'[调度-物资冲刺] 任务平衡开启物资冲刺，呼叫出击任务 `{task}`')
+        config.task_call(task)
+        return task
+
+    logger.warning('[调度-物资冲刺] 任务平衡开启了物资冲刺，但没有已启用的主线图等出击任务')
+    return None

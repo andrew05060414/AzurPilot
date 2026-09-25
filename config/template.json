@@ -139,6 +139,7 @@
       "AutoOnHighOil": true,
       "FarmingTask": "auto",
       "TargetCoins": 0,
+      "BalancerTargetCoins": 0,
       "MinOil": 300,
       "StartOil": 22000,
       "EmergencyOil": 23500,

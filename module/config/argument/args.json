@@ -736,6 +736,11 @@
         "type": "input",
         "value": 0
       },
+      "BalancerTargetCoins": {
+        "type": "input",
+        "value": 0,
+        "display": "hide"
+      },
       "MinOil": {
         "type": "input",
         "value": 300
@@ -4154,7 +4159,8 @@
           "Main2",
           "Main3",
           "GemsFarming",
-          "ThreeOilLowCost"
+          "ThreeOilLowCost",
+          "CoinRush"
         ]
       }
     },

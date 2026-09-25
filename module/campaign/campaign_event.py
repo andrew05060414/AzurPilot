@@ -217,8 +217,13 @@ class CampaignEvent(CampaignStatus):
         if self.config.TaskBalancer_Enable and self.triggered_task_balancer():
             self.config.task_delay(minute=5)
             next_task = self.config.TaskBalancer_TaskCall
-            logger.hr(f'任务均衡器触发，切换任务到 {next_task}')
-            self.config.task_call(next_task)
+            if next_task == 'CoinRush':
+                logger.hr('任务均衡器触发，开启物资冲刺')
+                from module.config.coin_rush import activate_from_task_balancer
+                activate_from_task_balancer(self.config, self.config.TaskBalancer_CoinLimit)
+            else:
+                logger.hr(f'任务均衡器触发，切换任务到 {next_task}')
+                self.config.task_call(next_task)
             self.config.task_stop()
 
     def is_event_entrance_available(self):

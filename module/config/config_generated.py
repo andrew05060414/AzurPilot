@@ -161,6 +161,7 @@ class GeneratedConfig:
     CoinRush_AutoOnHighOil = True
     CoinRush_FarmingTask = 'auto'  # auto, Main, Main2, Main3, Event, Event2, Event3, GemsFarming, ThreeOilLowCost
     CoinRush_TargetCoins = 0
+    CoinRush_BalancerTargetCoins = 0
     CoinRush_MinOil = 300
     CoinRush_StartOil = 22000
     CoinRush_EmergencyOil = 23500
@@ -359,7 +360,7 @@ class GeneratedConfig:
     # 配置组 `TaskBalancer`
     TaskBalancer_Enable = False
     TaskBalancer_CoinLimit = 10000
-    TaskBalancer_TaskCall = 'Main'  # Main, Main2, Main3, GemsFarming, ThreeOilLowCost
+    TaskBalancer_TaskCall = 'Main'  # Main, Main2, Main3, GemsFarming, ThreeOilLowCost, CoinRush
 
     # 配置组 `EventDaily`
     EventDaily_StageFilter = 'A1 > A2 > A3'

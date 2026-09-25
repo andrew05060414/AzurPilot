@@ -943,7 +943,7 @@
   "CoinRush": {
     "_info": {
       "name": "Coin Rush",
-      "help": "Prioritize sorties to quickly gain coins or burn oil. Enable manually, or let it start automatically when oil is high. Only reorders tasks that are already due: light dailies such as commissions, dorm and rewards stay first, and tasks that are not due are never pulled forward"
+      "help": "Prioritize sorties to quickly gain coins or burn oil. It can start in three ways: manually, automatically when oil is high, or from the event Task Balancer when coins are low. During the rush, sorties such as Main run right after light dailies (commissions, dorm, rewards) and Operation Siren is postponed per the policy below. Only tasks that are already due are reordered; tasks that are not due are never pulled forward"
     },
     "Enable": {
       "name": "Enable Coin Rush Manually",
@@ -969,6 +969,10 @@
     "TargetCoins": {
       "name": "Target Coins",
       "help": "Manual rush turns off once coins reach this value. 0 means no target"
+    },
+    "BalancerTargetCoins": {
+      "name": "Task Balancer Exit Coins",
+      "help": "Recorded when the event Task Balancer starts Coin Rush; the rush turns off at this amount. Maintained automatically"
     },
     "MinOil": {
       "name": "Minimum Sortie Oil",
@@ -2059,12 +2063,13 @@
     },
     "TaskCall": {
       "name": "Call task X when coins are low",
-      "help": "Note: Players need to set up the called task in advance, otherwise it won't work",
+      "help": "Note: Players need to set up the called task in advance, otherwise it won't work.\nWith \"Start Coin Rush\": turns on Coin Rush in Alas settings. Coin Rush runs sorties such as Main right after light dailies (commissions, dorm) and postpones Operation Siren as configured, to rebuild coins quickly; it turns off at the target amount and normal scheduling resumes. The first enabled Main-type task (not Event) is called immediately; the rush turns off once coins are back at the coin limit here, without changing the Coin Rush target",
       "Main": "Main Campaign",
       "Main2": "Main Campaign-2",
       "Main3": "Main Campaign-3",
       "GemsFarming": "Urgent Commission Farming",
-      "ThreeOilLowCost": "3-Oil Low Cost"
+      "ThreeOilLowCost": "3-Oil Low Cost",
+      "CoinRush": "Start Coin Rush"
     }
   },
   "EventDaily": {

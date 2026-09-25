@@ -282,6 +282,9 @@ CoinRush:
     value: auto
     option: [auto, Main, Main2, Main3, Event, Event2, Event3, GemsFarming, ThreeOilLowCost]
   TargetCoins: 0
+  BalancerTargetCoins:
+    value: 0
+    display: hide
   MinOil: 300
   StartOil:
     value: 22000
@@ -725,7 +728,7 @@ TaskBalancer:
   CoinLimit: 10000
   TaskCall:
     value: Main
-    option: [Main, Main2, Main3, GemsFarming, ThreeOilLowCost]
+    option: [Main, Main2, Main3, GemsFarming, ThreeOilLowCost, CoinRush]
 EventDaily:
   StageFilter: |-
     A1 > A2 > A3
