@@ -11,6 +11,7 @@ Alas:
       - OilOverflow
       - CoinRush
       - DropRecord
+      - Backup
       - EmulatorManagement
     General:
       - Log
@@ -152,6 +153,7 @@ Event:
     EventShop:
       - Scheduler
       - EventShop
+      - ShopAdvanced
     WarArchives:
       - Scheduler
       - Campaign
@@ -263,6 +265,13 @@ Reward:
     Awaken:
       - Scheduler
       - Awaken
+    Secretary:
+      - Scheduler
+      - Secretary
+    OperationHandover:
+      - Scheduler
+      - Campaign
+      - OperationHandover
 DailyMission:
   menu: collapse
   page: setting
@@ -279,12 +288,14 @@ DailyMission:
     ShopFrequent:
       - Scheduler
       - GeneralShop
+      - ShopAdvanced
     ShopOnce:
       - Scheduler
       - GuildShop
       - MedalShop2
       - MeritShop
       - CoreShop
+      - ShopAdvanced
     Shipyard:
       - Scheduler
       - ShipyardDr
@@ -303,6 +314,7 @@ DailyMission:
     PrivateQuarters:
       - Scheduler
       - PrivateQuarters
+      - ShopAdvanced
 Opsi:
   menu: collapse
   page: setting
@@ -322,9 +334,11 @@ Opsi:
     OpsiShop:
       - Scheduler
       - OpsiShop
+      - ShopAdvanced
     OpsiVoucher:
       - Scheduler
       - OpsiVoucher
+      - ShopAdvanced
     OpsiDaily:
       - Scheduler
       - OpsiDaily
@@ -452,7 +466,6 @@ FleetManagement:
   menu: collapse
   page: setting
   tasks:
-    FleetScan: []
     FleetInfo:
       - FleetInfo
 
@@ -462,6 +475,7 @@ Tool:
   menu: collapse
   page: tool
   tasks:
+    FleetScan: []
     Daemon:
       - Daemon
     OpsiDaemon:
@@ -482,6 +496,8 @@ Tool:
       - GameManager
     EmulatorManager:
       - EmulatorManager
+    MeowfficerScore:
+      - MeowfficerScore
 Dashboard:
   page: dashboard
   tasks:

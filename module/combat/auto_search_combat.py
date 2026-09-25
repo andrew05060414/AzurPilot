@@ -135,7 +135,7 @@ class AutoSearchCombat(MapOperation, Combat, CampaignStatus):
             if oil == 0:
                 logger.warning('未找到石油')
             else:
-                if oil < max(500, self.config.StopCondition_OilLimit):
+                if oil < max(self.config.StopCondition_OilLimitHardFloor, self.config.StopCondition_OilLimit):
                     logger.info('达到石油上限')
                     self.auto_search_oil_limit_triggered = True
                 else:
@@ -258,6 +258,10 @@ class AutoSearchCombat(MapOperation, Combat, CampaignStatus):
             if self.handle_story_skip():
                 continue
             if self.handle_vote_popup():
+                continue
+            # 加载期间出现的红脸（低心情）弹窗同样没有任何其他处理器会认，
+            # 不处理会一直等到 GameStuckError。ignore 模式下点「确定」继续出击
+            if self.handle_combat_low_emotion():
                 continue
             # 过图期间弹出的「船坞已满」弹窗没有任何其他处理器会认，
             # 不处理会一直等到 GameStuckError。处理完退役/强化后重新开启

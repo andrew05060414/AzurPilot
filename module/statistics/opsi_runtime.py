@@ -195,15 +195,14 @@ def record_meow_auto_search_battle(
 
 
 def start_meow_search_timer(main: Any) -> tuple[float, int | None]:
-    """记录耄耋相接开始搜索当前海域时的时间与行动力。"""
-    try:
-        refresh_action_point(main)
-        start_ap = main._action_point_total
-        logger.debug(f"[统计-大世界] 耄耋搜索开始，行动力: {start_ap}")
-    except Exception:
-        start_ap = None
-        logger.debug("[统计-大世界] 获取起始行动力失败")
+    """记录耄耋相接开始搜索当前海域时的时间与行动力。
 
+    行动力取当前缓存值，不为了统计再开一次弹窗：搜索开始时 ALAS 刚读过行动力
+    （智能调度+ 决策、短猫前置检查），多开一次弹窗就多一组 REMAIN_OS + CANCEL
+    点击，会加速触发「两个按钮交替点击次数过多」。
+    """
+    start_ap = int(getattr(main, "_action_point_total", 0) or 0) or None
+    logger.debug(f"[统计-大世界] 耄耋搜索开始，行动力: {start_ap}")
     logger.debug("[统计-大世界] 耄耋搜索开始，计时器重置")
     return time.time(), start_ap
 
@@ -223,7 +222,8 @@ def finish_meow_search_timer(
             record_ap_snapshot(
                 main.config,
                 ap_current=main._action_point_current,
-                ap_total=main._action_point_total,
+                # 统计口径使用始终含体力箱的总行动力
+                ap_total=getattr(main, '_action_point_total_with_box', main._action_point_total),
                 source="meow",
             )
         except Exception:
@@ -278,6 +278,24 @@ def record_cl1_akashi_encounter(config: Any) -> int | None:
         return encounters
     except Exception:
         logger.exception("[统计-大世界] 持久化侵蚀1明石月度次数失败")
+        return None
+
+
+def record_meow_akashi_encounter(main: Any) -> int | None:
+    """记录耄耋相接明石事件，并返回当月该侵蚀等级的累计次数。"""
+    try:
+        from module.statistics.cl1_database import db as cl1_db
+
+        instance_name = instance_name_from_config(main.config)
+        hazard_level = meow_hazard_level_from_runtime(main)
+        if hazard_level is None:
+            logger.debug("[统计-大世界] 耄耋相接侵蚀等级未知，跳过明石事件记录")
+            return None
+        cl1_db.async_increment_meow_akashi_encounter(instance_name, hazard_level)
+        logger.attr("耄耋相接明石次数", f"侵蚀{hazard_level}")
+        return None
+    except Exception:
+        logger.exception("[统计-大世界] 持久化耄耋相接明石次数失败")
         return None
 
 
