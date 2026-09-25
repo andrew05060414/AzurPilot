@@ -245,7 +245,7 @@ flowchart TD
 | `Dorm_Collect` | checkbox | true | 一键收取爱心与家具币 |
 | `Dorm_Feed` | checkbox | true | 喂食 |
 | `Dorm_FeedFilter` | textarea | `20000 > ... > 1000` | 喂食优先级（按单次喂食量） |
-| `Dorm_BuyFood` | 隐藏 | false | 已停用（`display: disabled`），仅作状态显示；购粮由委托模块在石油溢出时自动触发 |
+| `Dorm_BuyFood` | 隐藏 | false | 已停用（`display: disabled`），仅作状态显示；购粮由委托模块在石油溢出时自动触发，或在开启 `CoinRush_EmergencyFood` 且石油达到紧急线时由后宅任务先行购买（见 `module/config/coin_rush.py`） |
 | `BuyFurniture_Enable` / `BuyOption` / `LastRun` | checkbox/select/datetime | false / all / 2020-01-01 | 限时家具购买，检查间隔 6 天由代码常量 `CHECK_INTERVAL` 决定 |
 
 ### 指挥喵（任务 Meowfficer，组 Meowfficer / MeowfficerTrain；工具任务 MeowfficerScore）

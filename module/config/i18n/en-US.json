@@ -940,53 +940,22 @@
       "help": "How many minutes before the task the warm-up launch begins; used until a measured startup time exists. After each successful warm-up the actual startup time is recorded, and later warm-ups launch by 'last measured + 2 minutes', so the game is ready about 2 minutes before the task."
     }
   },
-  "OilOverflow": {
-    "_info": {
-      "name": "Dump Oil Near Cap",
-      "help": "Automatically prioritize oil-dumping tasks (like Campaign) before Operation Siren when oil exceeds threshold or nears warehouse limit, preventing OpSi from monopolizing the queue"
-    },
-    "Enable": {
-      "name": "Enable Priority Oil Dump",
-      "help": "The target combat task must be enabled. When commissions trigger an oil overflow popup, Alas will also proceed to dump oil instead of halting"
-    },
-    "Threshold": {
-      "name": "Threshold (Dump when Oil >= X)",
-      "help": "Start boosting oil-dumping task priority when current oil reaches or exceeds this value. Set 0 to disable absolute triggering and rely only on Alert"
-    },
-    "Alert": {
-      "name": "Alert (Dump when remaining capacity <= X)",
-      "help": "Treat warehouse as about to overflow when remaining headroom drops below this value, triggering immediate oil dumping. Default 300. Set 0 to trigger only when completely full"
-    },
-    "TaskCall": {
-      "name": "Preferred Task on Overflow",
-      "help": "auto will pick the first enabled task in order: Main -> Event -> GemsFarming -> ThreeOilLowCost",
-      "auto": "Automatic",
-      "Main": "Campaign",
-      "Main2": "Campaign 2",
-      "Main3": "Campaign 3",
-      "Event": "Event",
-      "Event2": "Event 2",
-      "Event3": "Event 3",
-      "GemsFarming": "Gems Farming",
-      "ThreeOilLowCost": "3 Oil Low Cost"
-    },
-    "Reserve": {
-      "name": "Dump until remaining capacity reaches X",
-      "help": "Oil dumping triggered by alert/cap will continue until oil drops to this amount below max capacity before returning to normal schedule. Must be larger than Alert"
-    }
-  },
   "CoinRush": {
     "_info": {
-      "name": "Coin Rush Mode",
-      "help": "Prioritize coin farming tasks right after light daily routines before major events. Operation Siren tasks yield priority to quickly convert oil into coins for gacha"
+      "name": "Coin Rush",
+      "help": "Prioritize sorties to quickly gain coins or burn oil. Enable manually, or let it start automatically when oil is high. Only reorders tasks that are already due: light dailies such as commissions, dorm and rewards stay first, and tasks that are not due are never pulled forward"
     },
     "Enable": {
-      "name": "Enable Coin Rush Mode",
-      "help": "Focus on coin farming whenever sufficient oil is available. Keeps commissions, dorm, rewards, while delaying heavy tasks like OpSi and Island"
+      "name": "Enable Coin Rush Manually",
+      "help": "Turn on when coins are needed; turns off automatically at the target amount"
+    },
+    "AutoOnHighOil": {
+      "name": "Start Automatically on High Oil",
+      "help": "Rush automatically when oil reaches the start line, so commission and collection oil can still be stored before the in-game hard cap. If the commission oil overflow popup persists after buying food, commissions are delayed for 20 minutes instead of stopping Alas"
     },
     "FarmingTask": {
-      "name": "Coin Farming Task",
-      "help": "Designate the combat task used for coin farming. auto will pick the first enabled task in order: Main2 -> Main -> Main3 -> Event2 -> Event",
+      "name": "Rush Sortie Task",
+      "help": "auto prioritizes enabled and due sorties: manual rush uses Main2 -> Main -> Main3 -> Event, high oil uses Main -> Event -> GemsFarming; a selected task goes first. For coins, stage 13-4 in the Campaign task is recommended (high coin-per-oil, moderate difficulty); 14-1 also drops Cognitive Chips",
       "auto": "Automatic",
       "Main": "Campaign",
       "Main2": "Campaign 2",
@@ -998,18 +967,39 @@
       "ThreeOilLowCost": "3 Oil Low Cost"
     },
     "TargetCoins": {
-      "name": "Target Coin Cap (Auto-stop)",
-      "help": "Target coin amount (e.g. 150000). Automatically disables Coin Rush and returns to normal schedule once reached. Set to 0 for unlimited continuous rushing"
+      "name": "Target Coins",
+      "help": "Manual rush turns off once coins reach this value. 0 means no target"
     },
     "MinOil": {
-      "name": "Minimum Oil Threshold",
-      "help": "Do not rush sorties when oil is below this threshold, waiting for commissions and canteen recovery instead. Default 300"
+      "name": "Minimum Sortie Oil",
+      "help": "During manual rush, stop prioritizing sorties when oil is below this value and wait for commissions and canteen recovery. Default 300"
+    },
+    "StartOil": {
+      "name": "Start Line",
+      "help": "Rush automatically when dashboard oil reaches this value; return to normal once it drops 1000 below. Default 22000"
+    },
+    "EmergencyOil": {
+      "name": "Emergency Line",
+      "help": "Dashboard oil at or above this value is an emergency; with emergency food enabled, Dorm buys food first to consume oil. Default 23500"
+    },
+    "HardLimit": {
+      "name": "Oil Hard Cap",
+      "help": "Maximum oil the game allows you to hold, default 25000. Start and emergency lines are capped to it. This is not the natural recovery cap shown in the top bar"
+    },
+    "EmergencyFood": {
+      "name": "Buy Dorm Food in Emergency",
+      "help": "When oil reaches the emergency line, the Dorm task buys food first to consume oil. Requires the Dorm task. Off by default"
+    },
+    "EmergencyFoodOil": {
+      "name": "Oil Spent on Emergency Food",
+      "help": "Approximate oil spent per emergency purchase, converted at 50 oil per food. Default 1000"
     },
     "OpsiPolicy": {
-      "name": "Operation Siren Policy",
-      "help": "Handling of OpSi tasks during Coin Rush. suppress: completely skip OpSi; idle_only: only run OpSi when out of oil and idle",
-      "suppress": "Completely Skip OpSi",
-      "idle_only": "Run OpSi Only When Idle/Low Oil"
+      "name": "Operation Siren Policy During Rush",
+      "help": "Skip: postpone all OpSi tasks except month reset; Quick tasks only: keep daily missions, shop, supply vouchers and month reset; Only when idle: keep OpSi but after sorties",
+      "suppress": "Skip",
+      "quick_only": "Quick tasks only",
+      "idle_only": "Only when idle"
     }
   },
   "DropRecord": {

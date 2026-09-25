@@ -165,3 +165,17 @@ def execute_fixed_patrol_scan_redirect(value):
         return int(value) > 0
     except (TypeError, ValueError):
         return bool(value)
+
+
+def oil_start_redirect(value):
+    """
+    Alas.OilOverflow.Threshold → Alas.OilOverflow.StartOil。
+
+    旧额度 0 表示“不按绝对数量触发”，只看离识别上限的剩余容量；识别到的是
+    自然恢复上限而不是游戏硬上限，新版改为按绝对数量判断，0 改用默认开始线。
+    """
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        return 22000
+    return value if value > 0 else 22000

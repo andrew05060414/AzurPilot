@@ -211,7 +211,7 @@ stateDiagram-v2
 
 | 异常 | 原因 | 处理 |
 | --- | --- | --- |
-| `OilMaxed` | CN 服石油溢出（`OIL_MAXED`） | `commission_receive` 捕获后调用宿舍喂食消耗石油，重试 3 次；仍失败抛 `RequestHumanTakeover` 请求人工接管 |
+| `OilMaxed` | CN 服石油溢出（`OIL_MAXED`） | `commission_receive` 捕获后标记石油溢出（物资冲刺按紧急档优先安排耗油出击）并调用宿舍喂食消耗石油，重试 3 次；仍失败时，若开启了物资冲刺的“石油偏高时自动开启”则委托延后 20 分钟并结束本次任务，否则抛 `RequestHumanTakeover` 请求人工接管 |
 | `GameStuckError` | 委托推荐后舰船列表闪烁 bug（连续 3 次校验不通过） | 主动抛出，交给调度器按卡死恢复（重启游戏） |
 | 委托校验失败 | 启动时发现所选委托与目标不一致 | 返回 False，重置列表模式后重试或放弃，不抛异常 |
 | 收入识别/持久化失败 | 模板缺失、数据库异常等 | 捕获并警告；`income_recorded` 为 False 时跳过本轮「到期未获钻石」的失败结算，避免把实际成功误记为失败 |

@@ -691,6 +691,15 @@ class RewardDorm(UI):
             in: 任意页面
             out: page_dorm
         """
+        # 石油接近硬上限且开启了紧急购买食物时，先买食物消耗石油
+        from module.config.coin_rush import emergency_food_units, record_food_purchase
+        units = emergency_food_units(self.config)
+        if units:
+            logger.hr('紧急消耗石油', level=1)
+            self.dorm_food_run(amount=units)
+            record_food_purchase(self.config, units)
+            self.config.update()
+
         if not self.config.Dorm_Feed and not self.config.Dorm_Collect \
                 and not self.config.BuyFurniture_Enable:
             self.config.Scheduler_Enable = False

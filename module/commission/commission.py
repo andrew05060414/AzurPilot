@@ -1296,18 +1296,23 @@ class RewardCommission(UI, InfoHandler):
             in: page_reward
             out: page_commission
         """
+        from module.config.coin_rush import is_oil_rush_enabled, mark_oil_maxed
         for _ in range(3):
             try:
                 return self._commission_receive()
             except OilMaxed:
                 logger.info("[委托-石油] 石油溢出，购买食物消耗石油")
+                # 仪表盘石油可能是旧值，标记后调度器按紧急档优先安排耗油出击
+                mark_oil_maxed(self.config)
                 RewardDorm(self.config, self.device).dorm_food_run(amount=10)
                 self.ui_ensure(page_reward)
 
         logger.critical('[委托-石油] 尝试3次后仍无法处理石油溢出')
-        from module.config.oil_overflow import try_handle_oil_maxed
-        if try_handle_oil_maxed(self.config):
-            self.config.task_stop('石油溢出，改为消耗石油')
+        if is_oil_rush_enabled(self.config):
+            # 委托奖励暂时领不了，但不必停止运行：先让耗油出击把石油降下来
+            logger.warning('[委托-石油] 委托延后 20 分钟，期间由物资冲刺优先消耗石油')
+            self.config.task_delay(minute=20)
+            self.config.task_stop('石油溢出，委托延后')
         raise RequestHumanTakeover
 
     def _sync_running_gem_commissions(self):

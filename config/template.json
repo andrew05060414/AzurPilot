@@ -134,18 +134,17 @@
       "WarmupEnable": true,
       "WarmupMinutes": 15
     },
-    "OilOverflow": {
-      "Enable": true,
-      "Threshold": 0,
-      "Alert": 300,
-      "TaskCall": "auto",
-      "Reserve": 2000
-    },
     "CoinRush": {
       "Enable": false,
+      "AutoOnHighOil": true,
       "FarmingTask": "auto",
       "TargetCoins": 0,
       "MinOil": 300,
+      "StartOil": 22000,
+      "EmergencyOil": 23500,
+      "HardLimit": 25000,
+      "EmergencyFood": false,
+      "EmergencyFoodOil": 1000,
       "OpsiPolicy": "suppress"
     },
     "DropRecord": {

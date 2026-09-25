@@ -338,13 +338,9 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
                 waiting.append(func)
 
         f = Filter(regex=r"(.*)", attr=["command"])
-        from module.config.oil_overflow import apply_oil_overflow_schedule
-        pending, waiting, priority = apply_oil_overflow_schedule(
-            self, pending, waiting, self.SCHEDULER_PRIORITY
-        )
         from module.config.coin_rush import apply_coin_rush_schedule
         pending, waiting, priority = apply_coin_rush_schedule(
-            self, pending, waiting, priority
+            self, pending, waiting, self.SCHEDULER_PRIORITY
         )
         f.load(priority)
         if pending:

@@ -275,24 +275,30 @@ Optimization:
   WarmupMinutes:
     value: 15
     validate: [1, 1440]
-OilOverflow:
-  Enable: true
-  Threshold: 0
-  Alert: 300
-  TaskCall:
-    value: auto
-    option: [auto, Main, Main2, Main3, Event, Event2, Event3, GemsFarming, ThreeOilLowCost]
-  Reserve: 2000
 CoinRush:
   Enable: false
+  AutoOnHighOil: true
   FarmingTask:
     value: auto
     option: [auto, Main, Main2, Main3, Event, Event2, Event3, GemsFarming, ThreeOilLowCost]
   TargetCoins: 0
   MinOil: 300
+  StartOil:
+    value: 22000
+    validate: [0, 100000]
+  EmergencyOil:
+    value: 23500
+    validate: [0, 100000]
+  HardLimit:
+    value: 25000
+    validate: [1, 100000]
+  EmergencyFood: false
+  EmergencyFoodOil:
+    value: 1000
+    validate: [0, 10000]
   OpsiPolicy:
     value: suppress
-    option: [suppress, idle_only]
+    option: [suppress, quick_only, idle_only]
 DropRecord:
   SaveFolder: ./screenshots
   RetentionDays:

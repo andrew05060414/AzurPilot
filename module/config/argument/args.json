@@ -708,43 +708,14 @@
         ]
       }
     },
-    "OilOverflow": {
-      "Enable": {
-        "type": "checkbox",
-        "value": true
-      },
-      "Threshold": {
-        "type": "input",
-        "value": 0
-      },
-      "Alert": {
-        "type": "input",
-        "value": 300
-      },
-      "TaskCall": {
-        "type": "select",
-        "value": "auto",
-        "option": [
-          "auto",
-          "Main",
-          "Main2",
-          "Main3",
-          "Event",
-          "Event2",
-          "Event3",
-          "GemsFarming",
-          "ThreeOilLowCost"
-        ]
-      },
-      "Reserve": {
-        "type": "input",
-        "value": 2000
-      }
-    },
     "CoinRush": {
       "Enable": {
         "type": "checkbox",
         "value": false
+      },
+      "AutoOnHighOil": {
+        "type": "checkbox",
+        "value": true
       },
       "FarmingTask": {
         "type": "select",
@@ -769,11 +740,48 @@
         "type": "input",
         "value": 300
       },
+      "StartOil": {
+        "type": "input",
+        "value": 22000,
+        "validate": [
+          0,
+          100000
+        ]
+      },
+      "EmergencyOil": {
+        "type": "input",
+        "value": 23500,
+        "validate": [
+          0,
+          100000
+        ]
+      },
+      "HardLimit": {
+        "type": "input",
+        "value": 25000,
+        "validate": [
+          1,
+          100000
+        ]
+      },
+      "EmergencyFood": {
+        "type": "checkbox",
+        "value": false
+      },
+      "EmergencyFoodOil": {
+        "type": "input",
+        "value": 1000,
+        "validate": [
+          0,
+          10000
+        ]
+      },
       "OpsiPolicy": {
         "type": "select",
         "value": "suppress",
         "option": [
           "suppress",
+          "quick_only",
           "idle_only"
         ]
       }

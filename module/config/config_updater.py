@@ -696,6 +696,11 @@ class ConfigUpdater:
          'OpsiHazard1Leveling.ExecuteFixedPatrolScan',
          execute_fixed_patrol_scan_redirect),
     ]
+    # 石油溢出优先消耗并入物资冲刺：开关改为“石油偏高时自动开启”，额度改为开始消耗线
+    redirection += [
+        ('Alas.OilOverflow.Enable', 'Alas.CoinRush.AutoOnHighOil'),
+        ('Alas.OilOverflow.Threshold', 'Alas.CoinRush.StartOil', oil_start_redirect),
+    ]
 
     # redirection += [
     #     (

@@ -1,284 +1,278 @@
+"""物资冲刺：手动开启或石油偏高时，只调整已到期任务的顺序。"""
+
 import unittest
+from datetime import datetime, timedelta
+from unittest.mock import patch
 
+from module.config import coin_rush
+from module.config.config import AzurLaneConfig
 from module.config.coin_rush import (
-    COIN_FARMING_TASKS,
-    FAST_ROUTINES_AHEAD,
+    LEVEL_EMERGENCY,
+    LEVEL_HIGH,
+    LEVEL_NONE,
     apply_coin_rush_schedule,
-    boost_coin_rush_priority,
-    demote_farming_task,
+    boost_rush_priority,
+    emergency_food_units,
     filter_opsi_tasks,
-    get_coin_rush_farming_task,
-    get_coin_rush_min_oil,
-    get_coin_rush_opsi_policy,
-    get_coin_rush_target_coins,
-    is_coin_rush_enabled,
-    is_oil_sufficient,
-    promote_farming_task,
-    resolve_farming_task,
-    should_exit_coin_rush,
+    mark_oil_maxed,
+    oil_level,
+    plan_coin_rush,
+    record_food_purchase,
 )
+from module.config.redirect_utils.utils import oil_start_redirect
 from module.config.task_priority import parse_task_priority
+from module.config.time_source import now as current_time
+
+PRIORITY = (
+    'Restart > OpsiCrossMonth > Commission > Tactical > Research > Dorm > Reward '
+    '> OpsiExplore > Minigame > OpsiAshBeacon > OpsiDaily > OpsiShop > OpsiScheduling '
+    '> OpsiAbyssal > Hard > Event > Main > Main2'
+)
 
 
-class DummyFunc:
-    def __init__(self, command):
+class Func:
+    def __init__(self, command, next_run=None):
         self.command = command
-
-    def __repr__(self):
-        return f'DummyFunc({self.command})'
-
-    def __eq__(self, other):
-        if not isinstance(other, DummyFunc):
-            return False
-        return self.command == other.command
+        self.enable = True
+        self.next_run = next_run
 
 
 class DummyConfig:
-    def __init__(
-        self,
-        enable=True,
-        farming_task='auto',
-        target_coins=0,
-        min_oil=300,
-        opsi_policy='suppress',
-        coin=0,
-        oil=0,
-        limit=0,
-        enabled_tasks=(),
-    ):
+    def __init__(self, oil=0, coin=0, record=None, **settings):
+        self.config_name = 'rush-test'
         self.data = {
             'Dashboard': {
-                'Coin': {'Value': coin},
-                'Oil': {'Value': oil, 'Limit': limit},
-            }
+                'Oil': {'Value': oil, 'Limit': 19100, 'Record': record or datetime(2020, 1, 1)},
+                'Coin': {'Value': coin, 'Limit': 0, 'Record': datetime(2020, 1, 1)},
+            },
         }
-        self._coin_rush = {
-            'Enable': enable,
-            'FarmingTask': farming_task,
-            'TargetCoins': target_coins,
-            'MinOil': min_oil,
-            'OpsiPolicy': opsi_policy,
+        self.settings = {
+            'Alas.CoinRush.AutoOnHighOil': True,
+            'Alas.CoinRush.StartOil': 22000,
+            'Alas.CoinRush.EmergencyOil': 23500,
+            'Alas.CoinRush.HardLimit': 25000,
+            'Alas.CoinRush.EmergencyFood': False,
+            'Alas.CoinRush.EmergencyFoodOil': 1000,
+            'Alas.CoinRush.Enable': False,
+            'Alas.CoinRush.FarmingTask': 'auto',
+            'Alas.CoinRush.TargetCoins': 0,
+            'Alas.CoinRush.MinOil': 300,
+            'Alas.CoinRush.OpsiPolicy': 'suppress',
         }
-        self._enabled_tasks = set(enabled_tasks)
+        self.settings.update({f'Alas.{k.replace("_", ".", 1)}': v for k, v in settings.items()})
         self.modified = {}
+        self.saved = False
 
     def cross_get(self, keys, default=None):
-        mapping = {
-            'Alas.CoinRush.Enable': self._coin_rush['Enable'],
-            'Alas.CoinRush.FarmingTask': self._coin_rush['FarmingTask'],
-            'Alas.CoinRush.TargetCoins': self._coin_rush['TargetCoins'],
-            'Alas.CoinRush.MinOil': self._coin_rush['MinOil'],
-            'Alas.CoinRush.OpsiPolicy': self._coin_rush['OpsiPolicy'],
-        }
-        return mapping.get(keys, default)
+        return self.settings.get(keys, default)
 
     def cross_set(self, keys, value):
-        self.modified[keys] = value
-        if keys == 'Alas.CoinRush.Enable':
-            self._coin_rush['Enable'] = value
+        self.settings[keys] = value
 
-    def is_task_enabled(self, task):
-        return task in self._enabled_tasks
+    def save(self):
+        self.saved = True
 
-
-class TestCoinRushConfig(unittest.TestCase):
-    def test_getters(self):
-        config = DummyConfig(
-            enable=True,
-            farming_task='Main2',
-            target_coins=150000,
-            min_oil=500,
-            opsi_policy='idle_only',
-        )
-        self.assertTrue(is_coin_rush_enabled(config))
-        self.assertEqual(get_coin_rush_farming_task(config), 'Main2')
-        self.assertEqual(get_coin_rush_target_coins(config), 150000)
-        self.assertEqual(get_coin_rush_min_oil(config), 500)
-        self.assertEqual(get_coin_rush_opsi_policy(config), 'idle_only')
+    def set_oil(self, oil, record=None):
+        self.data['Dashboard']['Oil']['Value'] = oil
+        if record is not None:
+            self.data['Dashboard']['Oil']['Record'] = record
 
 
-class TestCoinRushExitCondition(unittest.TestCase):
-    def test_unlimited_when_zero(self):
-        self.assertFalse(should_exit_coin_rush(target_coins=0, current_coin=999999))
-
-    def test_under_target(self):
-        self.assertFalse(should_exit_coin_rush(target_coins=150000, current_coin=149999))
-
-    def test_at_target(self):
-        self.assertTrue(should_exit_coin_rush(target_coins=150000, current_coin=150000))
-
-    def test_over_target(self):
-        self.assertTrue(should_exit_coin_rush(target_coins=150000, current_coin=160000))
+def commands(funcs):
+    return [f.command for f in funcs]
 
 
-class TestOilSufficiency(unittest.TestCase):
-    def test_uninitialized_dashboard_allows_run(self):
-        self.assertTrue(is_oil_sufficient(oil=0, limit=0, min_oil=300))
-
-    def test_below_min_oil(self):
-        self.assertFalse(is_oil_sufficient(oil=250, limit=25000, min_oil=300))
-
-    def test_at_min_oil(self):
-        self.assertTrue(is_oil_sufficient(oil=300, limit=25000, min_oil=300))
-
-    def test_above_min_oil(self):
-        self.assertTrue(is_oil_sufficient(oil=5000, limit=25000, min_oil=300))
+class RushTestCase(unittest.TestCase):
+    def setUp(self):
+        coin_rush.reset_state()
+        self.addCleanup(coin_rush.reset_state)
+        self.enterContext(patch('module.config.coin_rush.logger'))
 
 
-class TestResolveFarmingTask(unittest.TestCase):
-    def test_auto_picks_main2_first(self):
-        task = resolve_farming_task('auto', ['Main', 'Main2', 'OpsiExplore'])
-        self.assertEqual(task, 'Main2')
+class TestOilLevel(RushTestCase):
+    def test_levels_by_absolute_oil_not_natural_cap(self):
+        # 自然恢复上限 19100 不是溢出线：20000 石油不应触发
+        for oil, expected in ((20000, LEVEL_NONE), (22000, LEVEL_HIGH), (23500, LEVEL_EMERGENCY)):
+            with self.subTest(oil=oil):
+                coin_rush.reset_state()
+                self.assertEqual(oil_level(DummyConfig(oil=oil)), expected)
 
-    def test_auto_picks_main_when_main2_disabled(self):
-        task = resolve_farming_task('auto', ['Main', 'OpsiExplore'])
-        self.assertEqual(task, 'Main')
+    def test_hysteresis_keeps_consuming_until_1000_below_start(self):
+        config = DummyConfig(oil=22100)
+        self.assertEqual(oil_level(config), LEVEL_HIGH)
+        config.set_oil(21200)
+        self.assertEqual(oil_level(config), LEVEL_HIGH)
+        config.set_oil(20999)
+        self.assertEqual(oil_level(config), LEVEL_NONE)
+        config.set_oil(21500)
+        self.assertEqual(oil_level(config), LEVEL_NONE)
 
-    def test_user_preferred_task(self):
-        task = resolve_farming_task('Main3', ['Main2', 'Main3', 'Event'])
-        self.assertEqual(task, 'Main3')
+    def test_lines_are_capped_by_hard_limit(self):
+        config = DummyConfig(oil=20000, CoinRush_HardLimit=20000,
+                             CoinRush_StartOil=30000, CoinRush_EmergencyOil=30000)
+        self.assertEqual(oil_level(config), LEVEL_EMERGENCY)
 
-    def test_user_preferred_task_fallback(self):
-        task = resolve_farming_task('Event', ['Main2'])
-        self.assertEqual(task, 'Main2')
+    def test_disabled(self):
+        self.assertEqual(oil_level(DummyConfig(oil=24000, CoinRush_AutoOnHighOil=False)), LEVEL_NONE)
 
-    def test_no_task_available(self):
-        task = resolve_farming_task('auto', ['OpsiExplore', 'Dorm'])
-        self.assertIsNone(task)
-
-
-class TestBoostPriority(unittest.TestCase):
-    def test_fast_routines_stay_ahead_and_heavy_tasks_fall_behind(self):
-        priority = (
-            'Restart\n'
-            '> OpsiCrossMonth\n'
-            '> Commission > Tactical > Research\n'
-            '> Exercise\n'
-            '> Dorm > Meowfficer > Guild > Gacha\n'
-            '> Reward\n'
-            '> ShopFrequent > EventShop\n'
-            '> OpsiDaily\n'
-            '> IslandFarm\n'
-            '> Main > Main2 > Main3'
-        )
-        new_priority = boost_coin_rush_priority(priority, 'Main2')
-        tasks = parse_task_priority(new_priority)
-
-        # 验证轻量日常全部在 Main2 之前
-        for routine in ['Restart', 'OpsiCrossMonth', 'Commission', 'Tactical', 'Dorm', 'Guild', 'Reward']:
-            self.assertIn(routine, tasks)
-            self.assertLess(
-                tasks.index(routine),
-                tasks.index('Main2'),
-                f'{routine} 应该在 Main2 之前执行',
-            )
-
-        # 验证耗时较长、非物资任务排在 Main2 之后
-        for heavy in ['Research', 'Exercise', 'Meowfficer', 'Gacha', 'ShopFrequent', 'OpsiDaily', 'IslandFarm']:
-            self.assertIn(heavy, tasks)
-            self.assertGreater(
-                tasks.index(heavy),
-                tasks.index('Main2'),
-                f'{heavy} 应该在 Main2 之后执行',
-            )
+    def test_commission_oil_maxed_is_emergency_until_dashboard_refreshes(self):
+        config = DummyConfig(oil=15000, record=datetime(2020, 1, 1))
+        mark_oil_maxed(config)
+        self.assertEqual(oil_level(config), LEVEL_EMERGENCY)
+        # 出击后顶栏重新识别，按实际数值判断
+        config.set_oil(15000, record=datetime.now() + timedelta(seconds=5))
+        self.assertEqual(oil_level(config), LEVEL_NONE)
 
 
-class TestQueueManipulation(unittest.TestCase):
-    def test_promote_farming_task(self):
-        pending = [DummyFunc('Commission')]
-        waiting = [DummyFunc('Main2'), DummyFunc('Reward')]
-        p, w = promote_farming_task(pending, waiting, 'Main2')
-        self.assertEqual([f.command for f in p], ['Commission', 'Main2'])
-        self.assertEqual([f.command for f in w], ['Reward'])
+class TestPlan(RushTestCase):
+    def test_no_rush_when_oil_normal_and_coin_rush_off(self):
+        self.assertIsNone(plan_coin_rush(DummyConfig(oil=10000)))
 
-    def test_demote_farming_task(self):
-        pending = [DummyFunc('Commission'), DummyFunc('Main2')]
-        waiting = [DummyFunc('Reward')]
-        p, w = demote_farming_task(pending, waiting, 'Main2')
-        self.assertEqual([f.command for f in p], ['Commission'])
-        self.assertEqual([f.command for f in w], ['Reward', 'Main2'])
+    def test_preferred_oil_task_goes_first(self):
+        plan = plan_coin_rush(DummyConfig(oil=22500, CoinRush_FarmingTask='Event'))
+        self.assertEqual(plan.tasks[:2], ['Event', 'Main'])
 
+    def test_coin_rush_with_low_oil_keeps_opsi_policy_but_no_sortie_priority(self):
+        plan = plan_coin_rush(DummyConfig(oil=100, CoinRush_Enable=True))
+        self.assertTrue(plan.coin_rush)
+        self.assertEqual(plan.tasks, [])
 
-class TestFilterOpsiTasks(unittest.TestCase):
-    def test_suppress_removes_opsi_except_cross_month(self):
-        pending = [
-            DummyFunc('OpsiCrossMonth'),
-            DummyFunc('OpsiDaily'),
-            DummyFunc('OpsiExplore'),
-            DummyFunc('Commission'),
-        ]
-        result = filter_opsi_tasks(pending, 'suppress')
-        self.assertEqual([f.command for f in result], ['OpsiCrossMonth', 'Commission'])
+    def test_coin_rush_auto_disables_at_target(self):
+        config = DummyConfig(oil=5000, coin=150000, CoinRush_Enable=True, CoinRush_TargetCoins=150000)
+        self.assertIsNone(plan_coin_rush(config))
+        self.assertFalse(config.settings['Alas.CoinRush.Enable'])
+        self.assertTrue(config.saved)
 
-    def test_idle_only_keeps_all_opsi(self):
-        pending = [DummyFunc('OpsiDaily'), DummyFunc('Commission')]
-        result = filter_opsi_tasks(pending, 'idle_only')
-        self.assertEqual([f.command for f in result], ['OpsiDaily', 'Commission'])
+    def test_coin_rush_and_oil_high_merge_candidates(self):
+        plan = plan_coin_rush(DummyConfig(oil=22500, CoinRush_Enable=True))
+        self.assertEqual(plan.tasks[0], 'Main2')
+        self.assertEqual(len(plan.tasks), len(set(plan.tasks)))
+        self.assertIn('Raid', plan.tasks)
 
 
-class TestApplyCoinRushSchedule(unittest.TestCase):
-    def test_disabled_does_nothing(self):
-        config = DummyConfig(enable=False)
-        pending = [DummyFunc('Commission')]
-        waiting = [DummyFunc('Main2')]
-        priority = 'Commission\n> Main2'
-        p, w, pr = apply_coin_rush_schedule(config, pending, waiting, priority)
-        self.assertEqual(p, pending)
-        self.assertEqual(w, waiting)
-        self.assertEqual(pr, priority)
+class TestApplyCoinRushSchedule(RushTestCase):
+    def test_waiting_task_is_never_pulled_forward(self):
+        # 9/22 实机：Main 因作战委托占用关卡延后 30 分钟，旧逻辑把它提到队首，
+        # 调度器在队首空等，Minigame / Hard / 大世界日常被堵 166 分钟。
+        future = current_time() + timedelta(minutes=30)
+        pending = [Func('Minigame'), Func('Hard'), Func('OpsiAshBeacon'), Func('OpsiDaily')]
+        waiting = [Func('Main', future)]
+        new_pending, new_waiting, _ = apply_coin_rush_schedule(
+            DummyConfig(oil=22500), pending, waiting, PRIORITY)
 
-    def test_target_reached_auto_exits(self):
-        config = DummyConfig(
-            enable=True,
-            target_coins=150000,
-            coin=152000,
-        )
-        pending = [DummyFunc('Commission')]
-        waiting = [DummyFunc('Main2')]
-        priority = 'Commission\n> Main2'
-        p, w, pr = apply_coin_rush_schedule(config, pending, waiting, priority)
-        self.assertEqual(config.modified.get('Alas.CoinRush.Enable'), False)
-        self.assertEqual(p, pending)
-        self.assertEqual(w, waiting)
-        self.assertEqual(pr, priority)
+        self.assertNotIn('Main', commands(new_pending))
+        self.assertEqual(commands(new_waiting), ['Main'])
+        self.assertEqual(commands(new_pending), ['Minigame', 'Hard'])
 
-    def test_sufficient_oil_promotes_and_boosts_main2(self):
-        config = DummyConfig(
-            enable=True,
-            farming_task='Main2',
-            oil=2000,
-            limit=25000,
-            min_oil=300,
-            opsi_policy='suppress',
-        )
-        pending = [DummyFunc('Commission'), DummyFunc('OpsiDaily')]
-        waiting = [DummyFunc('Main2')]
-        priority = 'Restart\n> Commission\n> Tactical\n> Dorm\n> Reward\n> Guild\n> OpsiDaily\n> Main2'
+    def test_due_sortie_runs_after_light_dailies_and_before_opsi(self):
+        order = parse_task_priority(boost_rush_priority(PRIORITY, ['Main', 'Event']))
+        self.assertLess(order.index('Reward'), order.index('Main'))
+        self.assertLess(order.index('Main'), order.index('Event'))
+        self.assertLess(order.index('Event'), order.index('Research'))
+        self.assertLess(order.index('Event'), order.index('OpsiExplore'))
 
-        p, w, pr = apply_coin_rush_schedule(config, pending, waiting, priority)
-        # OpsiDaily 被 suppress 过滤，Main2 从 waiting 提升到 pending
-        self.assertEqual([f.command for f in p], ['Commission', 'Main2'])
-        self.assertEqual(w, [])
-        tasks = parse_task_priority(pr)
-        self.assertLess(tasks.index('Main2'), tasks.index('OpsiDaily'))
+    def test_only_enabled_candidates_are_boosted(self):
+        _, _, priority = apply_coin_rush_schedule(
+            DummyConfig(oil=22500), [Func('Event'), Func('Research')], [], PRIORITY)
+        order = parse_task_priority(priority)
+        self.assertLess(order.index('Event'), order.index('Research'))
+        # 未启用的 Main 保持原来的位置
+        self.assertGreater(order.index('Main'), order.index('Research'))
 
-    def test_insufficient_oil_demotes_main2(self):
-        config = DummyConfig(
-            enable=True,
-            farming_task='Main2',
-            oil=150,
-            limit=25000,
-            min_oil=300,
-            opsi_policy='suppress',
-        )
-        pending = [DummyFunc('Commission'), DummyFunc('Main2')]
-        waiting = []
-        priority = 'Commission\n> Main2'
+    def test_emergency_food_moves_dorm_first(self):
+        order = parse_task_priority(boost_rush_priority(PRIORITY, ['Main'], emergency_food=True))
+        self.assertEqual(order[:2], ['Restart', 'Dorm'])
 
-        p, w, pr = apply_coin_rush_schedule(config, pending, waiting, priority)
-        # Main2 石油不足被降级到 waiting
-        self.assertEqual([f.command for f in p], ['Commission'])
-        self.assertEqual([f.command for f in w], ['Main2'])
+    def test_normal_oil_leaves_queue_untouched(self):
+        pending = [Func('OpsiExplore'), Func('Main')]
+        result = apply_coin_rush_schedule(DummyConfig(oil=15000), pending, [], PRIORITY)
+        self.assertEqual(commands(result[0]), ['OpsiExplore', 'Main'])
+        self.assertEqual(result[2], PRIORITY)
+
+    def test_logs_only_when_state_changes(self):
+        config = DummyConfig(oil=22500)
+        with patch('module.config.coin_rush.logger') as log:
+            for _ in range(5):
+                apply_coin_rush_schedule(config, [Func('Main')], [], PRIORITY)
+            self.assertEqual(log.info.call_count, 1)
+            config.set_oil(10000)
+            apply_coin_rush_schedule(config, [Func('Main')], [], PRIORITY)
+            apply_coin_rush_schedule(config, [Func('Main')], [], PRIORITY)
+            self.assertEqual(log.info.call_count, 2)
+
+
+class TestOpsiPolicy(RushTestCase):
+    PENDING = ['OpsiCrossMonth', 'OpsiDaily', 'OpsiShop', 'OpsiVoucher',
+               'OpsiExplore', 'OpsiScheduling', 'OpsiHazard1Leveling', 'Main']
+
+    def filtered(self, policy):
+        return commands(filter_opsi_tasks([Func(c) for c in self.PENDING], policy))
+
+    def test_suppress_keeps_only_month_reset(self):
+        self.assertEqual(self.filtered('suppress'), ['OpsiCrossMonth', 'Main'])
+
+    def test_quick_only_keeps_short_tasks(self):
+        self.assertEqual(self.filtered('quick_only'),
+                         ['OpsiCrossMonth', 'OpsiDaily', 'OpsiShop', 'OpsiVoucher', 'Main'])
+
+    def test_idle_only_keeps_all(self):
+        self.assertEqual(self.filtered('idle_only'), self.PENDING)
+
+
+class TestEmergencyFood(RushTestCase):
+    def test_off_by_default(self):
+        self.assertEqual(emergency_food_units(DummyConfig(oil=24500)), 0)
+
+    def test_buys_food_worth_configured_oil_only_in_emergency(self):
+        self.assertEqual(emergency_food_units(DummyConfig(oil=24500, CoinRush_EmergencyFood=True)), 20)
+        coin_rush.reset_state()
+        self.assertEqual(emergency_food_units(DummyConfig(oil=22500, CoinRush_EmergencyFood=True)), 0)
+
+    def test_purchase_lowers_dashboard_oil(self):
+        config = DummyConfig(oil=24500)
+        with (
+            patch('module.log_res.log_res.LogRes.groups', {'Oil': {}}),
+            patch('module.log_res.log_res.LogRes._record_all_resource_snapshot'),
+        ):
+            record_food_purchase(config, 20)
+        self.assertEqual(config.modified['Dashboard.Oil.Value'], 23500)
+        self.assertIn('Dashboard.Oil.Record', config.modified)
+
+
+class TestGetNextTaskIntegration(RushTestCase):
+    """通过真实的 AzurLaneConfig.get_next_task 验证调度器不会在队首空等。"""
+
+    def make_config(self, oil):
+        now = current_time()
+        config = DummyConfig(oil=oil)
+        config.hoarding = timedelta(0)
+        config.SCHEDULER_PRIORITY = PRIORITY
+        config.pending_task = []
+        config.waiting_task = []
+        for command, next_run in (
+                ('Minigame', now - timedelta(minutes=5)),
+                ('OpsiExplore', now - timedelta(minutes=5)),
+                ('Main', now + timedelta(minutes=30)),
+                ('Restart', now + timedelta(hours=6)),
+        ):
+            config.data[command] = {'Scheduler': {'Enable': True, 'NextRun': next_run, 'Command': command}}
+        config.settings['OpsiGeneral.OpsiGeneral.Enable'] = True
+        config.get_next_task = lambda: AzurLaneConfig.get_next_task(config)
+        return config
+
+    def test_oil_high_runs_due_task_instead_of_waiting_for_sortie(self):
+        config = self.make_config(oil=22500)
+        task = AzurLaneConfig.get_next(config)
+        self.assertEqual(task.command, 'Minigame')
+        self.assertEqual(commands(config.pending_task), ['Minigame'])
+        self.assertEqual(commands(config.waiting_task), ['Main', 'Restart'])
+
+
+class TestMigration(unittest.TestCase):
+    def test_old_threshold(self):
+        self.assertEqual(oil_start_redirect(0), 22000)
+        self.assertEqual(oil_start_redirect(18000), 18000)
+        self.assertEqual(oil_start_redirect('bad'), 22000)
 
 
 if __name__ == '__main__':

@@ -156,19 +156,18 @@ class GeneratedConfig:
     Optimization_WarmupEnable = True  # True, False
     Optimization_WarmupMinutes = 15
 
-    # 配置组 `OilOverflow`
-    OilOverflow_Enable = True
-    OilOverflow_Threshold = 0
-    OilOverflow_Alert = 300
-    OilOverflow_TaskCall = 'auto'  # auto, Main, Main2, Main3, Event, Event2, Event3, GemsFarming, ThreeOilLowCost
-    OilOverflow_Reserve = 2000
-
     # 配置组 `CoinRush`
     CoinRush_Enable = False
+    CoinRush_AutoOnHighOil = True
     CoinRush_FarmingTask = 'auto'  # auto, Main, Main2, Main3, Event, Event2, Event3, GemsFarming, ThreeOilLowCost
     CoinRush_TargetCoins = 0
     CoinRush_MinOil = 300
-    CoinRush_OpsiPolicy = 'suppress'  # suppress, idle_only
+    CoinRush_StartOil = 22000
+    CoinRush_EmergencyOil = 23500
+    CoinRush_HardLimit = 25000
+    CoinRush_EmergencyFood = False
+    CoinRush_EmergencyFoodOil = 1000
+    CoinRush_OpsiPolicy = 'suppress'  # suppress, quick_only, idle_only
 
     # 配置组 `DropRecord`
     DropRecord_SaveFolder = './screenshots'
