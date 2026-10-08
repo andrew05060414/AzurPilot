@@ -45,9 +45,12 @@ def acquire_scheduler_lock(config_name, timeout=SCHEDULER_LOCK_TIMEOUT):
         持有锁的文件句柄，需保持打开直到调度器退出。
 
     Raises:
+        ValueError: 配置名含路径分隔符或路径遍历片段。
         SchedulerLockConflict: 超时后锁仍被其他进程持有。
         OSError: 锁文件无法创建或加锁时出现非冲突错误。
     """
+    if not config_name or Path(str(config_name)).name != str(config_name):
+        raise ValueError(f'配置名不能为空或包含路径分隔符: {config_name!r}')
     handle = _prepare_lock_file(SCHEDULER_LOCK_DIR / f'{config_name}.lock')
     deadline = time.monotonic() + timeout
     while True:

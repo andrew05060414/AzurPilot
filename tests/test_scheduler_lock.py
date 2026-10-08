@@ -36,6 +36,11 @@ class TestSchedulerLock(unittest.TestCase):
         release_scheduler_lock(first)
         release_scheduler_lock(acquire_scheduler_lock('alas', timeout=0.2))
 
+    def test_config_name_must_stay_inside_lock_dir(self):
+        for name in ('', '../alas', 'a/b'):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                acquire_scheduler_lock(name, timeout=0.1)
+
     def test_lock_is_released_when_holder_process_is_killed(self):
         code = textwrap.dedent(f"""
             import sys, time
