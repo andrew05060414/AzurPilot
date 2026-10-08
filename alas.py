@@ -4,7 +4,6 @@ import re
 import sys
 import threading
 import time
-import traceback
 from datetime import datetime, timedelta
 from functools import partial
 from types import SimpleNamespace
@@ -105,8 +104,6 @@ class AzurLaneAutoScript:
     负责任务调度、异常捕获与恢复、看门狗监控及设备管理。
     """
     stop_event: threading.Event = None
-    # 同一任务连续在同一位置抛出未处理异常达到此次数后，延后该任务
-    UNEXPECTED_ERROR_DELAY_THRESHOLD = 3
 
     def __init__(self, config_name=DEFAULT_CONFIG_NAME):
         """初始化调度器实例。
@@ -128,9 +125,6 @@ class AzurLaneAutoScript:
         self.consecutive_adb_offline = 0
         # 未预期异常连续计数，先重启游戏，连续多次才重启模拟器
         self.consecutive_unexpected_error = 0
-        # 按任务记录最近一次未处理异常的签名和连续次数：{任务名: (签名, 次数)}
-        # 与上面的全局计数不同，其他任务成功不会清零，只有该任务成功才清零
-        self.unexpected_error_record = {}
         # 调度器独占锁句柄，见 loop()
         self._scheduler_lock = None
         # ScriptError 连续计数，达到阈值后退出（代码 bug 重试无意义）
@@ -1066,58 +1060,6 @@ class AzurLaneAutoScript:
         )
         exit(1)
 
-    @staticmethod
-    def _unexpected_error_signature(error):
-        """用异常类型和最内层抛出位置标识同一个错误，忽略消息里的动态数值。"""
-        frames = traceback.extract_tb(error.__traceback__)
-        if frames:
-            frame = frames[-1]
-            return f'{type(error).__name__}@{os.path.basename(frame.filename)}:{frame.lineno}'
-        return type(error).__name__
-
-    def _delay_repeated_unexpected_error(self, command, error):
-        """
-        同一任务连续在同一位置抛出未处理异常时，延后该任务到下次服务器刷新。
-
-        这类异常多为代码错误（如访问不存在的属性），重启游戏或模拟器都修不好；
-        继续重试只会让该任务每轮崩溃并反复重启游戏。其他任务成功不影响此计数。
-
-        Args:
-            command (str): 任务方法名（下划线形式）。
-            error (Exception): 本次异常。
-
-        Returns:
-            bool: 是否已延后该任务。
-        """
-        task = inflection.camelize(command)
-        signature = self._unexpected_error_signature(error)
-        previous, count = self.unexpected_error_record.get(task, (None, 0))
-        count = count + 1 if previous == signature else 1
-        if count < self.UNEXPECTED_ERROR_DELAY_THRESHOLD:
-            self.unexpected_error_record[task] = (signature, count)
-            return False
-
-        self.unexpected_error_record.pop(task, None)
-        logger.error_context(
-            title=f'任务反复出现相同异常，已暂缓（{task}）',
-            reason=f'任务连续 {count} 次在同一位置抛出 {signature}，重启游戏无法修复。',
-            impact='该任务延后到下次服务器刷新，其他任务照常运行。',
-            action='查看错误现场和堆栈修复根因；修复后重启调度器或在 WebUI 调整该任务的下次运行时间。',
-            level=40,
-        )
-        self.config.task_delay(server_update=True, task=task)
-        handle_notify(
-            self.config.Error_OnePushConfig,
-            title=f"AzurPilot <{self.config_name}> 任务已暂缓",
-            content=f"<{self.config_name}> 任务 `{task}` 连续 {count} 次出现相同异常，已延后到下次服务器刷新\n{signature}",
-        )
-        notify_webui(
-            self.config_name,
-            title=f"任务 {task} 反复出错，先暂停一下喵",
-            content=f"{task} 连续 {count} 次出现相同异常，已延后到下次服务器刷新喵~\n{signature}",
-        )
-        return True
-
     def handle_channel_float(self):
         """处理渠道服（4399）启动悬浮球（每个会话仅一次）。
 
@@ -1391,7 +1333,6 @@ class AzurLaneAutoScript:
             )
             self.save_error_log()
             self._check_sensitive_exit(command, e)
-            self._delay_repeated_unexpected_error(command, e)
 
             self.consecutive_unexpected_error += 1
             limit = int(self.config.Error_GameStuckThreshold)
@@ -2688,8 +2629,6 @@ class AzurLaneAutoScript:
                         self.consecutive_adb_offline = 0
                         self.consecutive_unexpected_error = 0
                         self.script_error_count = 0
-                    if task in self.unexpected_error_record:
-                        del self.unexpected_error_record[task]
                     continue
                 elif success == 'recoverable' or self.config.Error_HandleError:
                     # 可恢复错误或启用了错误处理，刷新配置后继续循环
