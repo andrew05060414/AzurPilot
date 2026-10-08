@@ -24,7 +24,13 @@ class Control(Hermit, Minitouch, Scrcpy, MaaTouch, NemuIpc):
     提供统一的点击、长按、滑动、拖拽接口。
     """
     def handle_control_check(self, button):
-        # 将在 Device 中被重写
+        """控制前置检查。
+
+        将在 Device 类中被重写，用于记录点击历史、检测循环点击卡死等。
+
+        Args:
+            button (Button | str): 待点击的按钮实例或操作名称。
+        """
         pass
 
     @cached_property
@@ -36,6 +42,7 @@ class Control(Hermit, Minitouch, Scrcpy, MaaTouch, NemuIpc):
                 值为对应的点击方法。
         """
         return {
+            'azurpilot_android': self.click_azurpilot_android,
             'ADB': self.click_adb,
             'uiautomator2': self.click_uiautomator2,
             'minitouch': self.click_minitouch,
@@ -97,6 +104,9 @@ class Control(Hermit, Minitouch, Scrcpy, MaaTouch, NemuIpc):
             '[设备-控制] 长按 %s @ %s, %s' % (point2str(x, y), button, duration)
         )
         method = self.config.Emulator_ControlMethod
+        if method == 'azurpilot_android':
+            self.long_click_azurpilot_android(x, y, duration)
+            return
         if method == 'minitouch':
             self.long_click_minitouch(x, y, duration)
         elif method == 'uiautomator2':
@@ -127,6 +137,9 @@ class Control(Hermit, Minitouch, Scrcpy, MaaTouch, NemuIpc):
         p1, p2 = ensure_int(p1, p2)
         duration = ensure_time(duration)
         method = self.config.Emulator_ControlMethod
+        if method == 'azurpilot_android':
+            self.swipe_azurpilot_android(p1, p2, duration)
+            return
         if method == 'uiautomator2':
             logger.info('[设备-控制] 滑动 %s -> %s, %s' % (point2str(*p1), point2str(*p2), duration))
         elif method in ['minitouch', 'MaaTouch', 'scrcpy', 'nemu_ipc']:
@@ -207,7 +220,9 @@ class Control(Hermit, Minitouch, Scrcpy, MaaTouch, NemuIpc):
             '[设备-控制] 拖拽 %s -> %s' % (point2str(*p1), point2str(*p2))
         )
         method = self.config.Emulator_ControlMethod
-        if method == 'minitouch':
+        if method == 'azurpilot_android':
+            self.swipe_azurpilot_android(p1, p2, swipe_duration)
+        elif method == 'minitouch':
             self.drag_minitouch(p1, p2, point_random=point_random, hold_duration=hold_duration)
         elif method == 'uiautomator2':
             self.drag_uiautomator2(
@@ -241,5 +256,7 @@ class Control(Hermit, Minitouch, Scrcpy, MaaTouch, NemuIpc):
         p1, p2 = ensure_int(p1, p2)
         hold_time = ensure_time(hold_time)
         method = self.config.Emulator_ControlMethod
-        if method == 'minitouch':
+        if method == 'azurpilot_android':
+            self.swipe_azurpilot_android(p1, p2, hold_time)
+        elif method == 'minitouch':
             self.island_swipe_hold_minitouch(p1, p2, hold_time)

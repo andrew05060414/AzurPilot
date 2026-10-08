@@ -345,7 +345,8 @@
           "DroidCast",
           "DroidCast_raw",
           "nemu_ipc",
-          "ldopengl"
+          "ldopengl",
+          "azurpilot_android"
         ]
       },
       "ControlMethod": {
@@ -357,7 +358,8 @@
           "minitouch",
           "Hermit",
           "MaaTouch",
-          "nemu_ipc"
+          "nemu_ipc",
+          "azurpilot_android"
         ],
         "help": "nemu_ipc 需与截图方式配套使用（截图选 nemu_ipc 时启动会自动联动）。注意：nemu_ipc 触控走模拟器内部 RPC，低性能电脑上滑动易丢步、拖拽易变形，调用偶发挂死会丢失点击；滑动或拖拽异常时请改回 minitouch / MaaTouch。"
       },
@@ -457,6 +459,14 @@
         "type": "checkbox",
         "value": false
       },
+      "TaskRestartLimit": {
+        "type": "input",
+        "value": 3,
+        "validate": [
+          0,
+          999
+        ]
+      },
       "SaveErrorRetentionDays": {
         "type": "input",
         "value": 30,
@@ -488,6 +498,14 @@
         "type": "textarea",
         "value": "provider: null",
         "mode": "yaml"
+      },
+      "LowPushMode": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
       },
       "ScreenshotLength": {
         "type": "input",
@@ -871,7 +889,77 @@
           "save"
         ]
       },
-      "OpsiRecord": {
+      "OpsiHazard1Leveling": {
+        "type": "select",
+        "value": "upload",
+        "option": [
+          "do_not",
+          "save",
+          "upload",
+          "save_and_upload"
+        ]
+      },
+      "OpsiMeowfficerFarming": {
+        "type": "select",
+        "value": "upload",
+        "option": [
+          "do_not",
+          "save",
+          "upload",
+          "save_and_upload"
+        ]
+      },
+      "OpsiDaily": {
+        "type": "select",
+        "value": "upload",
+        "option": [
+          "do_not",
+          "save",
+          "upload",
+          "save_and_upload"
+        ]
+      },
+      "OpsiObscure": {
+        "type": "select",
+        "value": "upload",
+        "option": [
+          "do_not",
+          "save",
+          "upload",
+          "save_and_upload"
+        ]
+      },
+      "OpsiAbyssal": {
+        "type": "select",
+        "value": "upload",
+        "option": [
+          "do_not",
+          "save",
+          "upload",
+          "save_and_upload"
+        ]
+      },
+      "OpsiStronghold": {
+        "type": "select",
+        "value": "upload",
+        "option": [
+          "do_not",
+          "save",
+          "upload",
+          "save_and_upload"
+        ]
+      },
+      "OpsiExplore": {
+        "type": "select",
+        "value": "upload",
+        "option": [
+          "do_not",
+          "save",
+          "upload",
+          "save_and_upload"
+        ]
+      },
+      "OpsiOther": {
         "type": "select",
         "value": "upload",
         "option": [
@@ -1020,6 +1108,10 @@
       "CheckPerCategory": {
         "type": "input",
         "value": 5
+      },
+      "KeepCommonCV": {
+        "type": "checkbox",
+        "value": true
       }
     },
     "OldRetire": {
@@ -1098,7 +1190,7 @@
     "YukikazeTaskManager": {
       "TaskPriorityAdjustment": {
         "type": "task_priority",
-        "value": "Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost\n> OperationHandover"
+        "value": "Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward > StorageStatistics\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore > OpsiExploreCleanup\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost\n> OperationHandover"
       }
     },
     "Storage": {
@@ -2691,7 +2783,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -2704,10 +2795,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -3238,7 +3328,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -3251,10 +3340,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -4234,7 +4322,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -4247,10 +4334,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -4691,7 +4777,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -4704,10 +4789,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -5148,7 +5232,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -5161,10 +5244,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -8099,7 +8181,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -8112,10 +8193,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -8573,7 +8653,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -8586,10 +8665,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -9047,7 +9125,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -9060,10 +9137,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -9521,7 +9597,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -9534,10 +9609,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -9985,7 +10059,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -9998,10 +10071,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -11224,7 +11296,19 @@
       },
       "MinLevel": {
         "type": "input",
-        "value": 50
+        "value": 50,
+        "validate": [
+          0,
+          125
+        ]
+      },
+      "MaxLevel": {
+        "type": "input",
+        "value": 0,
+        "validate": [
+          0,
+          125
+        ]
       }
     },
     "Storage": {
@@ -11367,6 +11451,67 @@
       "CustomFilter": {
         "type": "textarea",
         "value": "S9-DR0.5 > S9-PRY0.5 > S9-Q0.5 > S9-H0.5 > Q0.5 > S9-DR2.5\n> S9-G1.5 > S9-Q1 > S9-DR5 > 0.5 > S9-G4 > S9-Q2 > S9-PRY2.5 > reset\n> S9-DR8 > Q1 > 1 > S9-E-315 > S9-G2.5 > G1.5 > 1.5 > S9-E-031\n> S9-Q4 > Q2 > E2 > 2 > DR2.5 > PRY2.5 > G2.5 > 2.5 > S9-PRY5\n> S9-PRY8 > Q4 > G4 > 4 > S9-C6 > DR5 > PRY5 > 5 > C6 > 6 > S9-C8\n> S9-C12 > DR8 > PRY8 > C8 > 8 > C12 > 12"
+      }
+    },
+    "Storage": {
+      "Storage": {
+        "type": "storage",
+        "value": {},
+        "valuetype": "ignore",
+        "display": "disabled"
+      }
+    }
+  },
+  "StorageStatistics": {
+    "Scheduler": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "PushNotification": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "NextRun": {
+        "type": "datetime",
+        "value": "2020-01-01 00:00:00",
+        "validate": "datetime"
+      },
+      "Command": {
+        "type": "input",
+        "value": "StorageStatistics",
+        "display": "hide"
+      },
+      "SuccessInterval": {
+        "type": "input",
+        "value": 1440,
+        "display": "hide"
+      },
+      "FailureInterval": {
+        "type": "input",
+        "value": 60,
+        "display": "hide"
+      },
+      "ServerUpdate": {
+        "type": "input",
+        "value": "04:00",
+        "display": "hide"
+      },
+      "Sensitive": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
       }
     },
     "Storage": {
@@ -13438,7 +13583,8 @@
           "new_jersey",
           "taihou",
           "aegir",
-          "nakhimov"
+          "nakhimov",
+          "implacable"
         ]
       }
     },
@@ -13545,6 +13691,10 @@
           1,
           240
         ]
+      },
+      "SkipStrategicSearchCheck": {
+        "type": "checkbox",
+        "value": false
       }
     },
     "Storage": {
@@ -13784,10 +13934,109 @@
         "type": "checkbox",
         "value": false
       },
+      "MeowfficerCleanup": {
+        "type": "checkbox",
+        "value": false,
+        "display": "hide"
+      },
+      "MeowfficerCleanupState": {
+        "type": "stored",
+        "value": null,
+        "display": "hide"
+      },
       "ExploreProgress": {
         "type": "textarea",
         "value": "",
         "display": "disabled"
+      }
+    },
+    "OpsiFleet": {
+      "Fleet": {
+        "type": "select",
+        "value": 1,
+        "option": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "Submarine": {
+        "type": "checkbox",
+        "value": false
+      }
+    },
+    "Storage": {
+      "Storage": {
+        "type": "storage",
+        "value": {},
+        "valuetype": "ignore",
+        "display": "disabled"
+      }
+    }
+  },
+  "OpsiExploreCleanup": {
+    "Scheduler": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "PushNotification": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "NextRun": {
+        "type": "datetime",
+        "value": "2020-01-01 00:00:00",
+        "validate": "datetime"
+      },
+      "Command": {
+        "type": "input",
+        "value": "OpsiExploreCleanup",
+        "display": "hide"
+      },
+      "SuccessInterval": {
+        "type": "input",
+        "value": 0,
+        "display": "hide"
+      },
+      "FailureInterval": {
+        "type": "input",
+        "value": 30,
+        "display": "hide"
+      },
+      "ServerUpdate": {
+        "type": "input",
+        "value": "00:00",
+        "display": "hide"
+      },
+      "Sensitive": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      }
+    },
+    "OpsiExploreCleanup": {
+      "Progress": {
+        "type": "textarea",
+        "value": "",
+        "display": "disabled"
+      },
+      "State": {
+        "type": "stored",
+        "value": null,
+        "display": "hide"
       }
     },
     "OpsiFleet": {
@@ -14066,6 +14315,11 @@
         "value": false
       },
       "MissionZones": {
+        "type": "stored",
+        "value": null,
+        "display": "hide"
+      },
+      "DeferredMissions": {
         "type": "stored",
         "value": null,
         "display": "hide"
@@ -14919,6 +15173,10 @@
       }
     },
     "OpsiScheduling": {
+      "BuyActionPoint": {
+        "type": "checkbox",
+        "value": false
+      },
       "UseSmartSchedulingOperationCoinsPreserve": {
         "type": "checkbox",
         "value": true,
@@ -14995,6 +15253,11 @@
         "type": "input",
         "value": 0
       },
+      "MonthEndMeowTargetZone": {
+        "type": "input",
+        "value": "0",
+        "mode": "text"
+      },
       "MonthEndShopPurchase": {
         "type": "checkbox",
         "value": true,
@@ -15002,6 +15265,25 @@
           true,
           false
         ]
+      }
+    },
+    "OpsiSmartExplore": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false
+      },
+      "EventCleanup": {
+        "type": "checkbox",
+        "value": false
+      },
+      "ForceRun": {
+        "type": "checkbox",
+        "value": false
+      },
+      "Progress": {
+        "type": "textarea",
+        "value": "",
+        "display": "disabled"
       }
     },
     "Storage": {
@@ -15192,10 +15474,10 @@
       "MeowHazardLevel": {
         "type": "select",
         "value": "level5",
-        "option": {
-          "level3": 3,
-          "level5": 5
-        }
+        "option": [
+          "level3",
+          "level5"
+        ]
       },
       "CrossWeek": {
         "type": "checkbox",

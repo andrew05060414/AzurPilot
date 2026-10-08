@@ -25,18 +25,35 @@ from datetime import datetime
 
 
 class LogRes:
-    """
-    set attr--->
-    Logres(AzurLaneConfig).<res_name>=resource_value:int
-    OR  ={'Value:int, 'Limit/Total':int}:dict
+    """资源变动记录器。
+
+    通过属性赋值语法动态更新 Dashboard 配置中的资源值和更新时间戳，
+    并同步写入统计数据库快照。
+
+    示例:
+        LogRes(config).Oil = 12000
+        LogRes(config).ActionPoint = {'Total': 200, 'Value': 150}
     """
     YellowCoin: list
 
     def __init__(self, config):
+        """初始化资源记录器。
+
+        Args:
+            config: AzurLaneConfig 配置实例。
+        """
         self.__dict__['config'] = config
 
     def __setattr__(self, key, value):
+        """设置资源属性值，并自动同步更新 Dashboard 及历史快照。
+
+        Args:
+            key (str): 资源名称。
+            value (int | dict): 资源数值，或包含 Value/Total/Limit 的字典。
+        """
         if key in self.groups:
+            if self.__dict__.get('_observation_enabled', True):
+                self._observe(key, value)
             _key_group = f'Dashboard.{key}'
             _mod = False
             original = deep_get(self.config.data, keys=_key_group)
@@ -98,8 +115,37 @@ class LogRes:
             logger.info('[日志资源] 仪表盘中无此资源')
             super().__setattr__(name=key, value=value)
 
+    def record(self, name, value, *, observed=True, source=None):
+        """缓存回退与失败读数可以保留旧记录，但不能更新成功观察时间。"""
+        self.__dict__['_observation_enabled'] = observed
+        self.__dict__['_observation_source'] = source
+        try:
+            setattr(self, name, value)
+        finally:
+            self.__dict__.pop('_observation_enabled', None)
+            self.__dict__.pop('_observation_source', None)
+
+    def _observe(self, name, value):
+        from pathlib import Path
+        from module.config.utils import filepath_config
+        instance = getattr(self.config, 'config_name', None)
+        if not isinstance(instance, str) or not Path(filepath_config(instance)).exists():
+            return
+        current = value.get('Value') if isinstance(value, dict) else value
+        if type(current) not in (int, float) or current < 0 or (current == 0 and '_observation_enabled' not in self.__dict__):
+            return
+        from module.scheduler.store import ProgramStore
+        from module.config.time_source import now
+        task = getattr(getattr(self.config, 'task', None), 'command', None)
+        source = self.__dict__.get('_observation_source') or task or 'task_observation'
+        ProgramStore().observe(instance, name, value, now().isoformat(sep=' '), source)
+
     def _record_all_resource_snapshot(self, overrides=None):
-        """读取当前所有 Dashboard 资源值并记录快照"""
+        """读取当前所有 Dashboard 资源值并记录快照。
+
+        Args:
+            overrides (dict, optional): 需要覆盖的资源键值对。
+        """
         try:
             from module.statistics.resource_stats import record_resource_snapshot
             instance_name = getattr(self.config, 'config_name', 'default')
@@ -125,9 +171,23 @@ class LogRes:
             logger.exception('[日志资源] 记录资源快照失败')
 
     def group(self, name):
+        """获取指定资源的 Dashboard 数据。
+
+        Args:
+            name (str): 资源名称。
+
+        Returns:
+            dict: 包含 Value、Record 等字段的数据字典。
+        """
         return deep_get(self.config.data, f'Dashboard.{name}')
+
     @cached_property
     def groups(self) -> dict:
+        """获取仪表盘中定义的所有资源组字典。
+
+        Returns:
+            dict: 仪表盘资源配置字典。
+        """
         from module.config.utils import read_file, filepath_argument
         return deep_get(d=read_file(filepath_argument("dashboard")), keys='Dashboard')
 

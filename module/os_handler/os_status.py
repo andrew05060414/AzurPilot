@@ -41,7 +41,7 @@ class OSStatus(UI):
 
     @property
     def is_in_task_explore(self) -> bool:
-        return self.config.task.command == 'OpsiExplore'
+        return self.config.task.command in ('OpsiExplore', 'OpsiExploreCleanup')
 
     @property
     def is_in_task_cl1_leveling(self) -> bool:
@@ -66,7 +66,7 @@ class OSStatus(UI):
 
     @property
     def is_cl1_mode_enabled(self) -> bool:
-        """判断侵蚀1相关策略是否启用，包括智能调度+代理模式。"""
+        """判断侵蚀1相关策略是否启用，包括智能调度代理模式。"""
         is_smart_scheduling_enabled = getattr(self, 'is_smart_scheduling_enabled', None)
         return self.is_cl1_enabled or (
             is_smart_scheduling_enabled is not None
@@ -122,12 +122,20 @@ class OSStatus(UI):
             return 35000
 
     def get_yellow_coins(self) -> int:
+        """
+        通过 OCR 获取当前拥有的作战补给凭证（黄币）数量。
+
+        采用连续两次稳定比对校验，若超时未能获取则降级使用缓存的最近有效值。
+
+        Returns:
+            int: 黄币数量。
+        """
         yellow_coins = 0
         timeout = Timer(5, count=10).start()  # 增加超时时间和重试次数
         last_valid_value = None
         
         for _ in self.loop():
-            # End
+            # 结束
             if self.appear_then_click(GET_ITEMS_1, offset=True, interval=1):
                 timeout.reset()
                 continue
@@ -145,8 +153,7 @@ class OSStatus(UI):
                 break
 
             if current_value == 0:
-                # OCR may get 0 when amount is not immediately loaded
-                # Or when popups are obscuring the top bar
+                # 界面未完全渲染或弹窗遮挡顶部栏时 OCR 可能识别为 0
                 logger.info('[大世界处理-状态] 黄币为 0，可能是 OCR 错误或界面未加载')
                 continue
             else:
@@ -162,6 +169,7 @@ class OSStatus(UI):
                     self.device.sleep(0.2)
         
         # 如果最终仍未获取到有效数值，使用上次缓存的值（线程安全）
+        observed = yellow_coins > 0
         with self._cache_lock:
             if yellow_coins == 0:
                 logger.info(f'[大世界处理-状态] 使用缓存的黄币值: {self._last_yellow_coins}')
@@ -170,20 +178,30 @@ class OSStatus(UI):
             # 缓存当前值用于降级
             self._last_yellow_coins = yellow_coins
         
-        LogRes(self.config).YellowCoin = yellow_coins
+        LogRes(self.config).record('YellowCoin', yellow_coins, observed=observed)
         logger.info(f'[大世界处理-状态] 黄币: {yellow_coins}')
 
         return yellow_coins
 
     def get_purple_coins(self) -> int:
+        """
+        通过 OCR 获取当前拥有的特别兑换凭证（紫币）数量。
+
+        Returns:
+            int: 紫币数量。
+        """
         if self.appear(OS_SHOP_CHECK):
-            purple_coins = OCR_OS_SHOP_PURPLE_COINS.ocr(self.device.image)
+            ocr = OCR_OS_SHOP_PURPLE_COINS
         else:
-            purple_coins = OCR_SHOP_PURPLE_COINS.ocr(self.device.image)
-        LogRes(self.config).PurpleCoin = purple_coins
+            ocr = OCR_SHOP_PURPLE_COINS
+        purple_coins = ocr.ocr(self.device.image)
+        LogRes(self.config).record('PurpleCoin', purple_coins, observed=bool(getattr(ocr, 'last_valid', False)))
         return purple_coins
 
     def os_shop_get_coins(self):
+        """
+        同时获取大世界黄币与紫币数量，并保存历史快照数据。
+        """
         self._shop_yellow_coins = self.get_yellow_coins()
         self._shop_purple_coins = self.get_purple_coins()
         logger.info(f'[大世界处理-状态] 黄币: {self._shop_yellow_coins}, 紫币: {self._shop_purple_coins}')

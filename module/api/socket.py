@@ -21,14 +21,41 @@ TICK = min(TOPIC_INTERVAL.values())
 
 
 class Gateway:
+    """WebSocket 接入网关。
+
+    负责全站 WebSocket 连接限流、跨域校验、密码认证速率限制及会话生命周期管理。
+
+    Attributes:
+        router: API 路由分发器。
+        password: 访问密码字符串。
+        connections: 当前活跃连接计数。
+        workers: 限制并发执行业务任务的工作协程信号量。
+        failures: 记录客户端 IP 失败认证次数及锁定时长的有序字典。
+    """
+
     def __init__(self, router, password):
+        """初始化接入网关。
+
+        Args:
+            router: API 路由分发器。
+            password: 访问密码。
+        """
         self.router = router
         self.password = str(password or '')
+        if self.router is not None:
+            self.router.access_password = self.password
         self.connections = 0
         self.workers = asyncio.Semaphore(8)
         self.failures = OrderedDict()
 
     async def endpoint(self, ws: WebSocket):
+        """WebSocket 连接端点入口。
+
+        处理跨域预检、并发连接数限制及会话运行。
+
+        Args:
+            ws: Starlette WebSocket 连接对象。
+        """
         origin = ws.headers.get('origin')
         # WebSocket 不受浏览器 CORS 保护，必须在升级前验证来源。
         if origin:
@@ -46,8 +73,17 @@ class Gateway:
             self.connections -= 1
 
     @staticmethod
-    def is_local(ws: WebSocket):
-        """本机直连判定：启动器内嵌窗口与本机浏览器免密，其余仍需密码。"""
+    def is_local(ws: WebSocket) -> bool:
+        """判定客户端是否为本机直连。
+
+        启动器内嵌窗口与本机浏览器免密访问，其余远程客户端仍需密码。
+
+        Args:
+            ws: Starlette WebSocket 连接对象。
+
+        Returns:
+            bool: 属于本机直连返回 True，否则返回 False。
+        """
         client = ws.client.host if ws.client else ''
         return is_local_client(
             client,
@@ -56,7 +92,16 @@ class Gateway:
             ws.headers.get(REMOTE_ACCESS_HEADER),
         )
 
-    def authenticate(self, peer, password):
+    def authenticate(self, peer: str, password: str):
+        """校验客户端密码并执行防爆破速率限制。
+
+        Args:
+            peer: 客户端主机或 IP 地址。
+            password: 提交的访问密码。
+
+        Raises:
+            ApiError: 尝试过于频繁被限流 (RATE_LIMITED) 或密码不正确 (UNAUTHORIZED)。
+        """
         now = time.monotonic()
         count, until = self.failures.get(peer, (0, 0))
         if until > now:
@@ -71,8 +116,37 @@ class Gateway:
 
 
 class Session:
-    def __init__(self, gateway, ws, local=False):
-        """local 为 True 表示本机直连：无需密码即可使用全部方法。"""
+    """单个 WebSocket 连接会话。
+
+    管理连接的双向数据收发、请求处理、事件发布订阅与背压控制。
+
+    Attributes:
+        gateway: 所属的网关实例。
+        ws: 底层 WebSocket 连接对象。
+        authorized: 当前连接是否已通过认证或处于免密模式。
+        queue: 发送消息缓冲队列。
+        subscription: 当前客户端的事件订阅参数。
+        sequence: 推送事件单调自增序号。
+        cache: 各主题最后一次推送数据的指纹缓存。
+        responses: 已处理请求 ID 缓存（防止重复执行）。
+        log_cursor: 日志游标序号。
+        logs_initialized: 日志订阅是否已完成初次加载。
+        window: 速率统计时间窗口起点。
+        requests: 窗口内请求计数。
+        topic_seen: 各主题最后采样时间戳。
+        logs_changed: 日志更新通知事件。
+        preview_changed: 预览帧更新通知事件。
+        preview_pending: 待发送的最新的预览帧数据。
+    """
+
+    def __init__(self, gateway: Gateway, ws: WebSocket, local: bool = False):
+        """初始化 WebSocket 会话。
+
+        Args:
+            gateway: 网关实例。
+            ws: Starlette WebSocket 连接对象。
+            local: 是否为本机免密直连。
+        """
         self.gateway, self.ws = gateway, ws
         self.authorized = local or not bool(gateway.password)
         self.queue = asyncio.Queue(maxsize=32)
@@ -88,15 +162,31 @@ class Session:
         self.logs_changed = asyncio.Event()
         self.preview_changed = asyncio.Event()
         self.preview_pending = None
+        self.stock_changed = asyncio.Event()
+        self.stock_update = {}
 
-    async def enqueue(self, message):
+    async def enqueue(self, message: dict):
+        """将消息放入发送队列，遇到慢客户端时主动断开连接以实现背压保护。
+
+        Args:
+            message: 待发送的消息字典。
+
+        Raises:
+            WebSocketDisconnect: 发送队列已满触发慢客户端断开。
+        """
         try:
             self.queue.put_nowait(message)
         except asyncio.QueueFull:
             await self.ws.close(code=1013, reason='客户端读取过慢，请重新连接')
             raise WebSocketDisconnect(1013)
 
-    async def event(self, topic, data):
+    async def event(self, topic: str, data: dict):
+        """构造并入队事件通知消息。
+
+        Args:
+            topic: 消息主题。
+            data: 事件载荷数据。
+        """
         message = {'v': 1, 'type': 'event', 'topic': topic, 'data': data}
         if topic == 'preview':
             if self.preview_pending is None:
@@ -106,6 +196,7 @@ class Session:
             await self.enqueue(message)
 
     async def writer(self):
+        """消息发送循环任务，持续从队列读取并向客户端发送 JSON 数据。"""
         while True:
             message = await self.queue.get()
             if message.get('previewSlot'):
@@ -119,14 +210,16 @@ class Session:
             await asyncio.wait_for(self.ws.send_json(message), timeout=10)
 
     async def run(self):
+        """启动会话主生命周期，协调读写协程与数据生产者的并发运行。"""
         await self.ws.accept()
         writer = asyncio.create_task(self.writer())
         producer = asyncio.create_task(self.producer())
         reader = asyncio.create_task(self.reader())
         logs = asyncio.create_task(self.log_producer())
         preview = asyncio.create_task(self.preview_producer())
+        stock = asyncio.create_task(self.stock_producer())
         await self.event('session', {'authRequired': not self.authorized, 'protocolVersion': 1})
-        tasks = [writer, producer, reader, logs, preview]
+        tasks = [writer, producer, reader, logs, preview, stock]
         try:
             done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             for task in done:
@@ -144,9 +237,11 @@ class Session:
                     await self.ws.close()
 
     async def reader(self):
+        """消息读取与分发协程，持续解析客户端请求并入队响应。"""
         while True:
             raw = await asyncio.wait_for(self.ws.receive_text(), timeout=60 if self.authorized else 30)
             request_id = None
+            decoded = None
             try:
                 if len(raw.encode()) > 1024 * 1024:
                     raise ApiError('INVALID_REQUEST', '请求超过 1 MiB 限制')
@@ -154,13 +249,17 @@ class Session:
                 if now - self.window > 1:
                     self.window, self.requests = now, 0
                 self.requests += 1
-                if self.requests > 30:
-                    raise ApiError('RATE_LIMITED', '请求过于频繁')
                 decoded = json.loads(raw)
                 if isinstance(decoded, dict) and isinstance(decoded.get('id'), str):
                     request_id = decoded['id'][:100]
                 request = Request.model_validate(decoded)
+                if request.method in ('stock.request', 'stock.status'):
+                    self.requests -= 1
+                if self.requests > 30 and request.method not in ('stock.request', 'stock.status'):
+                    raise ApiError('RATE_LIMITED', '请求过于频繁')
                 request_id = request.id
+                if request.method == 'accounts.manage' and not self.gateway.is_local(self.ws) and self.ws.url.scheme != 'wss':
+                    raise ApiError('TLS_REQUIRED', '远程账号操作必须通过 HTTPS/WSS 连接')
                 if request_id in self.responses:
                     raise ApiError('DUPLICATE_REQUEST', '请求 ID 已使用，请检查状态后使用新 ID')
                 if request.method == 'auth.login':
@@ -182,6 +281,7 @@ class Session:
                     self.topic_seen.clear()
                     self.logs_changed.set()
                     self.preview_changed.set()
+                    self.stock_changed.set()
                     result = {'topics': subscription.topics, 'instance': subscription.instance}
                 else:
                     async with self.gateway.workers:
@@ -196,7 +296,10 @@ class Session:
             except (ValueError, PermissionError) as exc:
                 reply = failure(request_id, ApiError('INVALID_PARAMS', str(exc)))
             except Exception:
-                logger.exception('WebSocket API 执行失败')
+                if isinstance(decoded, dict) and decoded.get('method') == 'accounts.manage':
+                    logger.error('账号 API 执行失败，敏感上下文已隐藏')
+                else:
+                    logger.exception('WebSocket API 执行失败')
                 reply = failure(request_id, ApiError('INTERNAL_ERROR', '服务暂时无法完成请求，请检查服务日志'))
             if request_id:
                 self.responses[request_id] = True
@@ -205,6 +308,7 @@ class Session:
             await self.enqueue(reply)
 
     async def producer(self):
+        """定期采样订阅的主题（实例列表、总览与统计）并推送差异。"""
         while True:
             await asyncio.sleep(TICK)
             if not self.authorized:
@@ -213,7 +317,7 @@ class Session:
             runtime = self.gateway.router.runtime
             for topic in subscription.topics:
                 try:
-                    if topic in ('logs', 'preview'):
+                    if topic in ('logs', 'preview', 'stock'):
                         continue
                     if (now := time.monotonic()) - self.topic_seen.get(topic, 0) < TOPIC_INTERVAL.get(topic, 2):
                         continue
@@ -262,8 +366,47 @@ class Session:
                 except Exception:
                     pass
 
+    async def stock_producer(self):
+        """交易所提交事件直接唤醒 WebSocket，不占用请求处理线程。"""
+        loop = asyncio.get_running_loop()
+        unsubscribe = None
+
+        def changed(data):
+            if data.get('instance') not in (None, self.subscription.instance):
+                return
+            if not loop.is_closed():
+                def wake():
+                    self.stock_update.update(data)
+                    self.stock_changed.set()
+                with contextlib.suppress(RuntimeError):
+                    loop.call_soon_threadsafe(wake)
+
+        try:
+            while True:
+                await self.stock_changed.wait()
+                self.stock_changed.clear()
+                subscription = self.subscription
+                if not self.authorized or 'stock' not in subscription.topics:
+                    if unsubscribe:
+                        unsubscribe()
+                        unsubscribe = None
+                    self.stock_update = {}
+                    continue
+                if unsubscribe is None:
+                    service = await asyncio.to_thread(lambda: self.gateway.router.stock_exchange)
+                    unsubscribe = service.subscribe(changed)
+                update, self.stock_update = self.stock_update, {}
+                if subscription is self.subscription:
+                    await self.event('stock', {**update, 'instance': subscription.instance})
+        finally:
+            if unsubscribe:
+                unsubscribe()
+
     async def log_producer(self):
-        """日志到达后立即读取增量；初始化/重置成批发送，实时新增逐条发送。"""
+        """日志生产者协程。
+
+        日志到达后立即读取增量；初始化或重置成批发送，实时新增逐条发送。
+        """
         from module.runtime.log_hub import hub
         loop = asyncio.get_running_loop()
 
@@ -325,7 +468,10 @@ class Session:
             hub.unsubscribe(changed)
 
     async def preview_producer(self):
-        """收到新帧即推送；慢浏览器合并为最新帧，不产生截图请求。"""
+        """预览帧生产者协程。
+
+        收到新帧即推送；慢浏览器合并为最新帧，不产生多余的截图请求。
+        """
         from module.runtime.preview import hub
         loop = asyncio.get_running_loop()
 

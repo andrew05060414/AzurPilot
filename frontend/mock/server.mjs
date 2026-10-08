@@ -1,13 +1,59 @@
 import { createServer } from 'node:http'
-import { pathToFileURL } from 'node:url'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
+import { pathToFileURL, fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { WebSocketServer, WebSocket } from 'ws'
 import { createMockState, fail } from './state.mjs'
 
+// 物品图标与真实后端 module/api/app.py 一致：优先专用图标，缺失时使用同名领奖模板。
+// mock 也照挂，否则统计页的图标列全是裂图，看不出图标布局对不对。
+const ICON_DIRS = {
+  '/research-items/': ['../../assets/stats/research_items/', '../../assets/stats_basic/'].map(relative => fileURLToPath(new URL(relative, import.meta.url))),
+  '/opsi-items/': ['../../assets/stats/opsi_reward_items/', '../../assets/stats/opsi_items/'].map(relative => fileURLToPath(new URL(relative, import.meta.url))),
+  '/storage-items/': [fileURLToPath(new URL('../../assets/stats/', import.meta.url))],
+}
+
+async function readIcon(directories, name) {
+  for (const directory of directories) {
+    const target = path.resolve(directory, name)
+    if (!target.startsWith(path.resolve(directory) + path.sep)) continue
+    try { return await readFile(target) } catch (error) {
+      if (error.code !== 'ENOENT') throw error
+    }
+  }
+  throw new Error('物品模板不存在')
+}
+
 export function createMockServer({password = '', empty = false} = {}) {
   const state = createMockState({empty})
   const server = createServer((request, response) => {
+    const iconPrefix = Object.keys(ICON_DIRS).find(prefix => request.url?.startsWith(prefix))
+    if (iconPrefix) {
+      // 仓库图标允许模板子目录，由 readIcon 检查目录边界。
+      const relative = decodeURIComponent(request.url).slice(iconPrefix.length)
+      const name = iconPrefix === '/storage-items/' ? relative : path.basename(relative)
+      if (name.endsWith('.png')) {
+        readIcon(ICON_DIRS[iconPrefix], name).then(buffer => {
+          response.setHeader('Content-Type', 'image/png')
+          response.writeHead(200)
+          response.end(buffer)
+        }).catch(() => {
+          response.writeHead(404)
+          response.end()
+        })
+        return
+      }
+    }
     response.setHeader('Content-Type', 'application/json; charset=utf-8')
+    // 端到端场景开关：仅服务本地测试，例如 /__mock/updater?mode=diverged 切到 SHA 不匹配状态。
+    if (request.url?.startsWith('/__mock/updater')) {
+      const mode = new URL(request.url, 'http://localhost').searchParams.get('mode') ?? 'default'
+      state.setUpdateScenario(mode)
+      response.writeHead(200)
+      response.end(JSON.stringify({ok: true, mode}))
+      return
+    }
     response.writeHead(request.url === '/healthz' ? 200 : 404)
     response.end(JSON.stringify(request.url === '/healthz' ? {status: 'ok', protocolVersion: 1, mock: true} : {message: '请通过 Vite 打开前端'}))
   })
@@ -29,7 +75,7 @@ export function createMockServer({password = '', empty = false} = {}) {
     }
     session.event = (topic, data) => send({v: 1, type: 'event', topic, seq: ++session.seq, data})
     session.event('session', {authRequired: !!password, protocolVersion: 1})
-    socket.on('message', raw => {
+    socket.on('message', async raw => {
       let request
       try {
         request = JSON.parse(raw.toString())
@@ -43,8 +89,12 @@ export function createMockServer({password = '', empty = false} = {}) {
           session.authenticated = true; result = {authenticated: true}
         } else {
           if (!session.authenticated) fail('UNAUTHORIZED', '请先登录')
-          result = state.dispatch(request.method, request.params)
-          if (request.method === 'events.subscribe') {session.topics = result.topics; session.instance = result.instance; session.last.clear()}
+          result = await state.dispatch(request.method, request.params)
+          if (request.method === 'events.subscribe') {
+            session.unsubscribeStock?.();session.unsubscribeStock=undefined
+            session.topics = result.topics; session.instance = result.instance; session.last.clear()
+            if(session.topics.includes('stock'))session.unsubscribeStock=state.subscribeStock(data=>session.event('stock',{...data,instance:session.instance}))
+          }
         }
         send({v: 1, type: 'response', id: request.id, ok: true, result})
         publish()
@@ -52,12 +102,13 @@ export function createMockServer({password = '', empty = false} = {}) {
         send({v: 1, type: 'response', id: request?.id ?? '', ok: false, error: {code: error.code ?? 'INVALID_REQUEST', message: error.code ? error.message : '请求格式无效', details: error.details ?? null}})
       }
     })
-    socket.on('close', () => sessions.delete(session))
+    socket.on('close', () => {session.unsubscribeStock?.();sessions.delete(session)})
   })
   function publish() {
     for (const session of sessions) {
       if (!session.authenticated) continue
       for (const topic of session.topics) {
+        if(topic==='stock')continue
         try {
           if (topic === 'preview' && session.last.has(topic) && Date.now() - (session.previewAt ?? 0) < 3000) continue
           if (topic === 'preview') session.previewAt = Date.now()
@@ -77,6 +128,7 @@ export function createMockServer({password = '', empty = false} = {}) {
   interval.unref()
   const close = () => new Promise(resolve => {
     clearInterval(interval)
+    state.close()
     for (const socket of sockets.clients) socket.terminate()
     sockets.close(() => server.close(resolve))
   })

@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { aggregatePoints, mergeMultiSeriesRows } from './statisticsData'
+import {aggregatePoints, isActionPointSeries, mergeMultiSeriesRows, normalizeReport, riseFallDeltas, riseFallSegments} from './statisticsData'
+
+describe('仓库趋势传输', () => {
+  it('逐点和共用时间轴都保留物品模板图标与真实数量', () => {
+    const base = {instance: 'test', category: 'storage', month: '2026-10', metrics: [], tables: [], notes: []}
+    const icon = 'storage:storage_items/CognitiveChipsII'
+    for (const wire of [
+      {...base, series: [{key: 'chips', label: '心智单元II', icon, points: [{t: 1790985600000000, v: 1204, s: '仓库统计'}]}]},
+      {...base, axis: [1790985600000000], series: [{key: 'chips', label: '心智单元II', icon, values: [1204], sources: ['仓库统计']}]},
+    ]) {
+      expect(normalizeReport(wire).series[0]).toEqual({key: 'chips', label: '心智单元II', icon,
+        points: [{time: '2026-10-03 00:00:00', value: 1204, source: '仓库统计'}]})
+    }
+  })
+})
 
 describe('统计时间聚合', () => {
   it('K 线保留开高低收以及零值，不用平均值代替收盘', () => {
@@ -38,3 +52,22 @@ describe('多数据源行合并', () => {
   })
 })
 
+describe('riseFallDeltas', () => {
+  it('首点记 0，其后按相邻两点做差', () => {
+    expect(riseFallDeltas([10, 12, 9, 9, null, 15])).toEqual([0, 2, -3, 0, 0, 0])
+  })
+})
+
+describe('riseFallSegments 与行动力识别', () => {
+  it('按方向分段，涨与持平同组，段间用 "-" 断开', () => {
+    const {rise, fall} = riseFallSegments([1, 2, 3, 4], [10, 12, 9, 9])
+    expect(rise).toEqual([[1, 10], [2, 12], '-', [3, 9], [4, 9], '-'])
+    expect(fall).toEqual([[2, 12], [3, 9], '-'])
+  })
+
+  it('行动力按固定键识别，标签可兜底', () => {
+    expect(isActionPointSeries({key: 'ap', label: '别的名字'}, '行动力')).toBe(true)
+    expect(isActionPointSeries({key: 'mileage', label: '行动力'}, '行动力')).toBe(true)
+    expect(isActionPointSeries({key: 'mileage', label: '海里数'}, '行动力')).toBe(false)
+  })
+})

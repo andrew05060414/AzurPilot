@@ -1,3 +1,8 @@
+/**
+ * @fileoverview 预设与自定义配色方案计算、对比度判定与 CSS 变量生成。
+ */
+import type { Family } from './theme'
+
 export const palettes = ['ocean', 'forest', 'violet', 'sand', 'slate'] as const
 export type PresetPalette = typeof palettes[number]
 export type Palette = PresetPalette | `custom:${string}`
@@ -162,21 +167,48 @@ function readableColor(color: string, background: string, mode: ResolvedMode) {
   return target
 }
 
-export function paletteTokens(colors: BrandColors, mode: ResolvedMode): Record<string, string> {
+/** 品牌色一族从哪几个中性色算起；两份 token 共用这一套取值。 */
+const brandBases = (mode: ResolvedMode) => ({
+  dark: mode === 'dark',
+  surface: mode === 'dark' ? '#20252d' : '#ffffff',
+  mutedSurface: mode === 'dark' ? '#282f39' : '#edf2f7',
+})
+
+/** 只写强调色这一族：强调色、悬停、浅底与前景字色。 */
+function accentTokensOn(colors: BrandColors, surface: string, mutedSurface: string, mode: ResolvedMode): Record<string, string> {
   const dark = mode === 'dark'
-  const surface = dark ? '#20252d' : '#ffffff'
-  const mutedSurface = dark ? '#282f39' : '#edf2f7'
   const primary = readableColor(colors.primary, mutedSurface, mode)
   const secondary = readableColor(colors.secondary, mutedSurface, mode)
-  const onAccent = contrastRatio(primary, '#ffffff') >= contrastRatio(primary, '#17202b') ? '#ffffff' : '#17202b'
   return {
+    '--accent': primary, '--accent-hover': mixColor(primary, dark ? '#ffffff' : '#000000', .85),
+    '--accent-soft': mixColor(primary, surface, dark ? .12 : .07),
+    '--secondary': secondary, '--secondary-soft': mixColor(secondary, surface, dark ? .12 : .07),
+    '--theme-on-accent': contrastRatio(primary, '#ffffff') >= contrastRatio(primary, '#17202b') ? '#ffffff' : '#17202b',
+  }
+}
+
+/** 各大类的原版强调色：色板列表的第一项就是它，选了等于跟随主题。 */
+export const stockBrands: Record<Family, Record<ResolvedMode, BrandColors>> = {
+  new: {light: {primary: '#0071e3', secondary: '#64aaff'}, dark: {primary: '#64aaff', secondary: '#0071e3'}},
+  legacy: {light: {primary: '#4e4c97', secondary: '#7a77bb'}, dark: {primary: '#b4b1e5', secondary: '#928fcf'}},
+  minimal: {light: {primary: '#245dbe', secondary: '#147d83'}, dark: {primary: '#245dbe', secondary: '#147d83'}},
+  extreme: {light: {primary: '#245dbe', secondary: '#147d83'}, dark: {primary: '#245dbe', secondary: '#147d83'}},
+}
+
+/** 只改强调色一族，不碰中性色（表面/文字/边框归主题自己管）——材质与旧版要的就是这一份。 */
+export function accentTokens(colors: BrandColors, mode: ResolvedMode): Record<string, string> {
+  const {surface, mutedSurface} = brandBases(mode)
+  return accentTokensOn(colors, surface, mutedSurface, mode)
+}
+
+/** 整块换色：中性色也一起换，简约与紧凑走这一份。 */
+export function paletteTokens(colors: BrandColors, mode: ResolvedMode): Record<string, string> {
+  const {dark, surface, mutedSurface} = brandBases(mode)
+  return {
+    ...accentTokensOn(colors, surface, mutedSurface, mode),
     '--bg': mixColor(colors.primary, dark ? '#14181e' : '#f5f7fa', .025),
     '--surface': surface, '--surface-muted': mutedSurface,
     '--text': dark ? '#e5ebf3' : '#243447', '--muted': dark ? '#a5b2c3' : '#5b6d80',
     '--border': dark ? '#424d5d' : '#d5dee8',
-    '--accent': primary, '--accent-hover': mixColor(primary, dark ? '#ffffff' : '#000000', .85),
-    '--accent-soft': mixColor(primary, surface, dark ? .12 : .07),
-    '--secondary': secondary, '--secondary-soft': mixColor(secondary, surface, dark ? .12 : .07),
-    '--theme-on-accent': onAccent,
   }
 }

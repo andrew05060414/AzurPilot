@@ -10,7 +10,13 @@ config/*.ini
 config/*.yaml
 !config/deploy.*.yaml
 config/*.json
+config/scheduler/
+config/stock-exchange/
+# 统计运行环境：keyring、wipe 记录与 transition 令牌，设备绑定，不入库
+config/opsi_secure/
 config/*.db
+config/*/config.db*
+config/*/account.destroyed
 config/tmp*
 !config/template*.json
 *.pyw
@@ -38,6 +44,7 @@ docs/*
 !docs/modules/
 .claude
 .dsh
+.agents
 # Created by .ignore support plugin (hsz.mobi)
 
 ### JetBrains template

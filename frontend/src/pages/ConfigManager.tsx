@@ -1,3 +1,7 @@
+/**
+ * @fileoverview 配置实例管理页面，提供实例列表概览、导出、导入与删除。
+ */
+
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Download, FileJson, Plus, Trash2 } from 'lucide-react'
@@ -32,8 +36,8 @@ export function ConfigManager() {
   async function exportConfig(name: string) {
     setBusy(name); setError('')
     try {
-      const config = await api.request('config.get', {instance: name})
-      downloadJson(`${name}.json`, config.values)
+      const config = await api.request('config.export', {instance: name})
+      downloadJson(`${name}.json`, config)
       notify(ui('config.exported', {name}))
     } catch (error) { setError((error as Error).message) } finally { setBusy('') }
   }

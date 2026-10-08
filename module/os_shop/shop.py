@@ -50,8 +50,8 @@ class OSShop(PortShop, AkashiShop):
         处理购买确认、数量选择、弹窗确认等交互流程。
 
         Args:
-            button: 待购买的物品按钮。
-            skip_first_screenshot: 是否跳过首次截图。
+            button (Button): 待购买的物品按钮。
+            skip_first_screenshot (bool): 是否跳过首次截图。默认 True。
 
         Returns:
             bool: 购买成功返回 True，失败返回 False。
@@ -131,7 +131,7 @@ class OSShop(PortShop, AkashiShop):
         循环调用选择函数获取待购买物品，执行购买直到无物品或达到上限。
 
         Args:
-            select_func: 物品选择函数，返回待购买物品或 None。
+            select_func (callable): 物品选择函数，返回待购买物品或 None。
 
         Returns:
             int: 成功购买的物品数量。
@@ -205,7 +205,7 @@ class OSShop(PortShop, AkashiShop):
         通过点击安全区域关闭数量选择弹窗。
 
         Args:
-            skip_first_screenshot: 是否跳过首次截图。
+            skip_first_screenshot (bool): 是否跳过首次截图。默认 True。
 
         Pages:
             in: SHOP_BUY_CONFIRM_AMOUNT
@@ -231,8 +231,8 @@ class OSShop(PortShop, AkashiShop):
         通过加减按钮调整到目标数量。
 
         Args:
-            item: 待购买的物品。
-            skip_first_screenshot: 是否跳过首次截图。
+            item (OSShopItem): 待购买的物品。
+            skip_first_screenshot (bool): 是否跳过首次截图。默认 True。
 
         Returns:
             bool: 数量设置成功返回 True，失败返回 False。
@@ -277,9 +277,8 @@ class OSShop(PortShop, AkashiShop):
         if count == 1:
             return True
 
-        if self._opsi_shop_strategy_enabled():
-            # 高级策略的数量已经由预算、保留额和 max_spend 共同校验，不能再让
-            # 旧的“接近最大值”启发式改写成更大的游戏数量。
+        if self._opsi_shop_strategy_enabled() or getattr(self, '_opsi_action_point_purchase', False):
+            # 高级策略和行动力专购都要按核算数量购买，避免旧的批量启发式改写数量。
             self.ui_ensure_index(
                 count,
                 letter=OCR_SHOP_AMOUNT,
@@ -342,7 +341,11 @@ class OSShop(PortShop, AkashiShop):
         return True
 
     def handle_port_supply_buy(self) -> bool:
-        """在港口商店作用域内执行购买，避免策略泄漏到明石地图事件。"""
+        """在港口商店作用域内执行购买，避免策略泄漏到明石地图事件。
+
+        Returns:
+            bool: 成功购买或无可购买物品返回 True，金币不足返回 False。
+        """
         with self.opsi_shop_strategy_scope():
             return self._handle_port_supply_buy()
 
@@ -365,7 +368,8 @@ class OSShop(PortShop, AkashiShop):
         items = self.scan_all()
         if not len(items):
             logger.warning('大世界商店+为空')
-            self.config.cross_set("OpsiShop.Storage.Storage.BoughtAllYellowCoinItems", True)
+            if not getattr(self, '_opsi_action_point_purchase', False):
+                self.config.cross_set("OpsiShop.Storage.Storage.BoughtAllYellowCoinItems", True)
             return False
         items = self.items_filter_in_os_shop(items)
         if not len(items):
@@ -373,9 +377,12 @@ class OSShop(PortShop, AkashiShop):
                 logger.warning('[高级商店策略] 港口商店策略失败，保留任务状态等待配置修复')
                 return True
             logger.warning('大世界商店+没有可购买物品')
-            self.config.cross_set("OpsiShop.Storage.Storage.BoughtAllYellowCoinItems", True)
+            if not getattr(self, '_opsi_action_point_purchase', False):
+                self.config.cross_set("OpsiShop.Storage.Storage.BoughtAllYellowCoinItems", True)
             return False
-        if all(item.cost == 'PurpleCoins' for item in items):
+        if getattr(self, '_opsi_action_point_purchase', False):
+            pass  # 行动力专购不代表普通黄币商品已买完。
+        elif all(item.cost == 'PurpleCoins' for item in items):
             logger.info('港口商店黄币商品已全部购买')
             self.config.cross_set("OpsiShop.Storage.Storage.BoughtAllYellowCoinItems", True)
         else:
@@ -428,7 +435,7 @@ class OSShop(PortShop, AkashiShop):
         点击明石所在的网格进入商店，执行购买后返回地图。
 
         Args:
-            grid: 明石所在的网格位置。
+            grid (Button): 明石所在的网格位置。
 
         Pages:
             in: is_in_map
@@ -450,11 +457,14 @@ class OSShop(PortShop, AkashiShop):
         根据大世界重置剩余时间决定是否扣除保留数量。
 
         Args:
-            item: 待购买的物品。
+            item (OSShopItem): 待购买的物品。
 
         Returns:
             int: 可用货币数量。
         """
+        if getattr(self, '_opsi_action_point_purchase', False):
+            # 用户明确要求一次买完行动力，专购时允许使用原本为练级保留的货币。
+            return self.get_coins_no_limit(item)
         if item.cost == 'YellowCoins':
             if get_os_reset_remain() == 0:
                 return self._shop_yellow_coins - 100
@@ -471,7 +481,7 @@ class OSShop(PortShop, AkashiShop):
         """获取不限制的货币数量（不扣除保留量）。
 
         Args:
-            item: 待购买的物品。
+            item (OSShopItem): 待购买的物品。
 
         Returns:
             int: 货币总量。

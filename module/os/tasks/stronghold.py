@@ -1,4 +1,15 @@
+"""大世界塞壬要塞任务模块。
+
+执行大世界塞壬要塞（Stronghold）的清理任务，包括：
+- 在地球仪上检索塞壬要塞入口
+- 轮换配置的 Boss 舰队进行多轮攻坚
+- 潜艇支援与弹药耗尽判断
+- 战后港口舰队维修与补给
+- 代币资源保护与无内容调度推迟
+"""
+
 from module.config.config import TaskEnd
+from module.exception import RequestHumanTakeover
 from module.logger import logger
 from module.os.fleet import BossFleet
 from module.os.map import OSMap
@@ -8,13 +19,11 @@ from module.ui.page import page_os
 
 
 class OpsiStronghold(CoinTaskMixin, OSMap):
-    
     def clear_stronghold(self):
-        """
-        清理一个塞壬要塞。
+        """清理一个塞壬要塞。
 
         在地球仪地图上找到塞壬要塞，进入并清理，完成后在港口修理舰队。
-        如果没有找到要塞，会标记本轮无可执行内容。
+        若没有找到要塞，会标记本轮无可执行内容。
 
         Raises:
             ActionPointLimit: 行动力不足。
@@ -43,7 +52,8 @@ class OpsiStronghold(CoinTaskMixin, OSMap):
         self.globe_enter(zone)
         self.zone_init()
         self.os_order_execute(recon_scan=True, submarine_call=False)
-        self.run_stronghold(submarine=self.config.OpsiStronghold_SubmarineEveryCombat)
+        if not self.run_stronghold(submarine=self.config.OpsiStronghold_SubmarineEveryCombat):
+            raise RequestHumanTakeover
 
         if self.config.OpsiStronghold_SubmarineEveryCombat:
             if self.zone.is_azur_port:
@@ -65,23 +75,33 @@ class OpsiStronghold(CoinTaskMixin, OSMap):
                 return
 
     def os_stronghold(self):
+        """执行大世界塞壬要塞清理任务主流程。"""
         while True:
             self.clear_stronghold()
             self.config.check_task_switch()
 
     def os_sumbarine_empty(self):
+        """检查潜艇弹药是否已耗尽。
+
+        Returns:
+            bool: 若潜艇弹药为空图标匹配成功返回 True，否则返回 False。
+        """
         return self.match_template_color(OS_SUBMARINE_EMPTY, offset=(20, 20))
 
     def stronghold_interrupt_check(self):
+        """检查要塞战斗自律寻敌是否应当中断。
+
+        Returns:
+            bool: 潜艇弹药耗尽且无指挥喵正在寻敌时返回 True，否则返回 False。
+        """
         return self.os_sumbarine_empty() and self.no_meowfficer_searching()
 
     def run_stronghold_one_fleet(self, fleet, submarine=False):
-        """
-        使用单支舰队清理要塞。最多尝试 3 次（舰队可能卡在迷雾中）。
+        """使用单支舰队清理要塞。最多尝试 3 次（防止舰队卡在迷雾中）。
 
         Args:
             fleet (BossFleet): 舰队对象。
-            submarine (bool): 是否每场战斗都呼叫潜艇。
+            submarine (bool): 是否每场战斗都呼叫潜艇。默认 False。
 
         Returns:
             bool: 是否全部清理完毕。
@@ -130,11 +150,10 @@ class OpsiStronghold(CoinTaskMixin, OSMap):
                 continue
 
     def run_stronghold(self, submarine=False):
-        """
-        所有舰队轮流攻击塞壬要塞。
+        """所有舰队轮流攻击塞壬要塞。
 
         Args:
-            submarine (bool): 是否每场战斗都呼叫潜艇。
+            submarine (bool): 是否每场战斗都呼叫潜艇。默认 False。
 
         Returns:
             bool: 是否成功清理。

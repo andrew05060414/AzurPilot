@@ -1,3 +1,7 @@
+/**
+ * @fileoverview 部署设置数据拉取与编辑队列管理 Hook。
+ */
+
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { api } from '../api/client'
 import type { Settings as SettingsData } from '../api/types'
@@ -15,7 +19,7 @@ export function useDeploySettings() {
   const [error, setError] = useState('')
   const connection = useConnection()
   const queue = editor('deploy')
-  const edits = useSyncExternalStore(queue.subscribe, queue.getSnapshot)
+  const edits = useSyncExternalStore(queue.subscribe, queue.getSnapshot, queue.getSnapshot)
 
   useEffect(() => {
     if (connection !== 'ready') return

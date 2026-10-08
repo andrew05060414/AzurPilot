@@ -81,7 +81,13 @@ class CampaignEvent(CampaignStatus):
             self.config.cross_set(keys='EventGeneral.EventGeneral.TimeLimit', value=DEFAULT_TIME)
 
     def get_event_pt_limit(self):
-        """返回当前任务适用的 PT 上限；不适用时返回 0，不读取游戏画面。"""
+        """返回当前任务适用的 PT 上限。
+
+        不适用时返回 0，不读取游戏画面。
+
+        Returns:
+            int: PT 上限数值，不限制时返回 0。
+        """
         # 部分配置可能使用 "100,000" 这种带逗号的格式
         limit = int(
             re.sub(r'[,.\'"，。]', '', str(self.config.EventGeneral_PtLimit))
@@ -94,8 +100,7 @@ class CampaignEvent(CampaignStatus):
         return limit
 
     def event_pt_limit_triggered(self):
-        """
-        检查活动 PT 是否达到限制。
+        """检查活动 PT 是否达到限制。
 
         Returns:
             bool: 是否触发 PT 限制。
@@ -123,8 +128,7 @@ class CampaignEvent(CampaignStatus):
             return False
 
     def coin_limit_triggered(self):
-        """
-        检查金币数量是否达到 StopCondition.CoinLimit 限制。
+        """检查金币数量是否达到 StopCondition.CoinLimit 限制。
 
         Returns:
             bool: 是否触发金币限制。
@@ -155,8 +159,7 @@ class CampaignEvent(CampaignStatus):
             return False
 
     def event_time_limit_triggered(self):
-        """
-        检查活动时间是否达到限制。
+        """检查活动时间是否达到限制。
 
         Returns:
             bool: 是否触发时间限制。
@@ -184,8 +187,7 @@ class CampaignEvent(CampaignStatus):
             return False
 
     def triggered_task_balancer(self):
-        """
-        检查任务均衡器是否触发。
+        """检查任务均衡器是否触发。
 
         Returns:
             bool: 是否触发任务切换。
@@ -214,6 +216,10 @@ class CampaignEvent(CampaignStatus):
                 return False
 
     def handle_task_balancer(self):
+        """处理任务均衡器逻辑。
+
+        若已启用且触发条件满足，则延迟当前任务并调度目标任务。
+        """
         if self.config.TaskBalancer_Enable and self.triggered_task_balancer():
             self.config.task_delay(minute=5)
             next_task = self.config.TaskBalancer_TaskCall
@@ -227,14 +233,10 @@ class CampaignEvent(CampaignStatus):
             self.config.task_stop()
 
     def is_event_entrance_available(self):
-        """
-        检查活动入口是否可用。
+        """检查活动入口是否可用。
 
         Returns:
             bool: 可用返回 True。
-
-        Raises:
-            TaskEnd: 不可用时抛出。
         """
         if self.appear(CAMPAIGN_MENU_NO_EVENT, offset=(20, 20)):
             logger.info('[活动战役] 活动不可用，禁用任务')
@@ -373,6 +375,15 @@ class CampaignEvent(CampaignStatus):
         self.config.task_stop()
 
     def ui_goto_event(self):
+        """导航至活动主页面。
+
+        Returns:
+            bool: 成功到达返回 True。
+
+        Pages:
+            in: 任意页面
+            out: page_event
+        """
         # 已在剧情活动 UI（含 SP 分页），跳过活动检查。
         current = self.ui_get_current_page()
         if current in (page_event, page_sp):
@@ -385,6 +396,15 @@ class CampaignEvent(CampaignStatus):
         return self._ui_goto_event_from_menu(page_event)
 
     def ui_goto_sp(self):
+        """导航至 SP 活动页面。
+
+        Returns:
+            bool: 成功到达返回 True。
+
+        Pages:
+            in: 任意页面
+            out: page_sp
+        """
         # 已在剧情活动 UI（含 EVENT 分页），跳过活动检查。
         current = self.ui_get_current_page()
         if current in (page_event, page_sp):
@@ -397,6 +417,15 @@ class CampaignEvent(CampaignStatus):
         return self._ui_goto_event_from_menu(page_sp)
 
     def ui_goto_coalition(self):
+        """导航至联动作战页面。
+
+        Returns:
+            bool: 成功到达返回 True。
+
+        Pages:
+            in: 任意页面
+            out: page_coalition
+        """
         # 已在 page_coalition，跳过活动检查。
         if self.ui_get_current_page() == page_coalition:
             logger.info('[活动战役] 已在联动页面')
@@ -404,8 +433,10 @@ class CampaignEvent(CampaignStatus):
         return self._ui_goto_event_from_menu(page_coalition)
 
     def disable_raid_on_event(self):
-        """
-        进入活动时禁用突袭（或联动）任务，防止用户忘记在突袭结束后手动禁用。
+        """进入活动时禁用突袭（或联动）任务，防止用户忘记在突袭结束后手动禁用。
+
+        Returns:
+            bool: 是否禁用了突袭任务。
         """
         command = self.config.Scheduler_Command
         if command not in EVENTS + GEMS_FARMINGS:
@@ -423,8 +454,10 @@ class CampaignEvent(CampaignStatus):
             return False
 
     def disable_event_on_raid(self):
-        """
-        进入突袭或联动时禁用活动任务，防止用户忘记在活动结束后手动禁用。
+        """进入突袭或联动时禁用活动任务，防止用户忘记在活动结束后手动禁用。
+
+        Returns:
+            bool: 是否禁用了活动任务。
         """
         command = self.config.Scheduler_Command
         if command not in RAIDS + COALITIONS + MARITIME_ESCORTS:
@@ -436,15 +469,17 @@ class CampaignEvent(CampaignStatus):
         if events or gems:
             logger.info('[活动战役] 新突袭活动进行中，禁用旧活动任务')
             self._disable_tasks(events + gems)
-        return events or gems
+        return bool(events or gems)
 
     @staticmethod
     def stage_is_main(name) -> bool:
-        """
-        判断给定关卡名称是否为主线关卡。
+        """判断给定关卡名称是否为主线关卡。
 
         Args:
             name (str): 关卡名称，如 `7-2`、`D3`。
+
+        Returns:
+            bool: 若为主线关卡返回 True，否则返回 False。
         """
         regex_main = re.compile(r'^(?:campaign_)?\d{1,2}[-_]\d')
         return bool(regex_main.match(str(name).strip().lower()))

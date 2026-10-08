@@ -1,3 +1,7 @@
+/**
+ * @fileoverview 开发者模式专属多语言文案字典。
+ */
+
 export const developerZhCN = {
   'developer.disabled': '开发者模式已关闭',
   'developer.pageTitle': '开发者 · 控件预览',
@@ -160,7 +164,7 @@ export const developerZhCN = {
   'developer.sampleInput': '示例输入',
 } as const
 
-export type DeveloperUiKey = keyof typeof developerZhCN
+type DeveloperUiKey = keyof typeof developerZhCN
 
 export const developerEnUS: Record<DeveloperUiKey, string> = {
   'developer.disabled': 'Developer mode disabled',

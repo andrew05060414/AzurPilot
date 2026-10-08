@@ -1,3 +1,7 @@
+/**
+ * @fileoverview 实例运行总览页面（资源卡、调度器计划与实时日志）。
+ */
+
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../api/client'
@@ -11,7 +15,6 @@ import { InstanceActions } from '../components/InstanceActions'
 import { LegacyRail } from '../components/LegacyRail'
 import { Statistics } from './Statistics'
 import { readOverviewPanel, setOverviewPanel, subscribeOverviewPanel } from '../app/overviewPanelPrefs'
-
 
 function loadResourceSelection(instance: string) {
   try {
@@ -28,7 +31,7 @@ export function Overview() {
   const [error, setError] = useState('')
   const [selectedResources, setSelectedResources] = useState<string[]>(() => loadResourceSelection(instance))
   const connection = useConnection()
-  const panel = useSyncExternalStore(subscribeOverviewPanel, readOverviewPanel)
+  const panel = useSyncExternalStore(subscribeOverviewPanel, readOverviewPanel, readOverviewPanel)
 
   useEffect(() => setSelectedResources(loadResourceSelection(instance)), [instance])
 

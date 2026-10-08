@@ -183,8 +183,16 @@ worker 是 spawn 的全新解释器：初始化文件日志（`log/{配置名}.t
 
 | 进程层级 | 退出码 | 常量/触发源 | 场景说明 |
 | :--- | :---: | :--- | :--- |
-| **WebUI 监督父进程** (`gui.py`) | `0` | 正常退出 | 用户按下 Ctrl+C (`KeyboardInterrupt`) 或非重载模式下正常退出 |
-| **WebUI 监督父进程** (`gui.py`) | `70` | `EXIT_STARTUP_FAILURE` | 启动或热重载恢复致命失败（残留 worker 无法回收、依赖同步失败、前端构建失败、子进程连续启动/监听失败、反复意外崩溃超过 3 次等） |
+| **WebUI 监督父进程** (`gui.py`) | `0` | `EXIT_SUCCESS` | 用户按下 Ctrl+C (`KeyboardInterrupt`) 或非重载模式下正常退出 |
+| **WebUI 监督父进程** (`gui.py`) | `70` | `EXIT_STARTUP_FAILURE` | 通用/未分类启动致命失败兜底 |
+| **WebUI 监督父进程** (`gui.py`) | `71` | `EXIT_WORKER_CLEANUP_FAILURE` | 残留 worker 无法回收，无法保证任务唯一 |
+| **WebUI 监督父进程** (`gui.py`) | `72` | `EXIT_DEPENDENCY_SYNC_FAILURE` | 启动前依赖同步失败或服务未就绪 |
+| **WebUI 监督父进程** (`gui.py`) | `73` | `EXIT_FRONTEND_BUILD_FAILURE` | React 前端构建失败（Node.js / npm 缺失或构建报错） |
+| **WebUI 监督父进程** (`gui.py`) | `74` | `EXIT_SUBPROCESS_SPAWN_FAILURE` | WebUI 服务子进程连续拉起失败 |
+| **WebUI 监督父进程** (`gui.py`) | `75` | `EXIT_PORT_LISTEN_TIMEOUT` | WebUI 子进程连续端口监听/就绪超时 |
+| **WebUI 监督父进程** (`gui.py`) | `76` | `EXIT_WEBUI_RUNTIME_CRASH` | WebUI 启动就绪后反复意外崩溃退出（连续 3 次） |
+| **WebUI 监督父进程** (`gui.py`) | `77` | `EXIT_PROCESS_TERMINATE_FAILURE` | 终止旧 WebUI 子进程失败（进程僵死无法回收） |
+| **WebUI 监督父进程** (`gui.py`) | `78` | `EXIT_IPC_FAILURE` | 进程间通信或重载状态读取异常 |
 | **Worker / 调度器** (`alas.py`) | `0` | 正常更新退出 | 调度器检测到 `stop_event.is_set()`，跳出主循环安全退出 |
 | **Worker / 调度器** (`alas.py`) | `1` | 致命异常退出 | 缺少配置文件 (`is_oobe_needed`)、敏感任务失败 (`_check_sensitive_exit`)、连续代码错误超限 (`ScriptError`) |
 | **Worker / 调度器** (`alas.py`) | *(不退出)* | 容错自愈循环 | 游戏卡死 (`GameStuckError`)、客户端崩溃 (`GameBugError`)、网络断开等，通过重启模拟器 + 注入 `Restart` + 指数退避 (20s~300s) 持续自愈 |
@@ -354,9 +362,19 @@ stateDiagram-v2
 | `config/webui-dependency-sync-pending` | updater（更新前） | gui.py（启动前检查）、setting（is/clear） | 存在即「必须先依赖同步再启动 WebUI」；仅同步成功后清除 |
 | `config/reloadalas` | updater（更新前写实例名单） | `ProcessManager.restart_processes` | 更新后待恢复的实例列表；恢复后删除 |
 | `config/deploy.yaml` | `DeployConfig.__setattr__` / `save_deploy_settings` | 全模块经 `State.deploy_config` | 部署设置唯一持久化点；属性赋值即落盘 |
+| `config/stock-exchange/game.key` / `registry.json` | `game_data.GameDataProtector` | 交易代理、中央行动力历史与补传日志 | 独立随机游戏密钥及加密登记/检查点；不绑定主机、用户或项目路径 |
+| `config/stock-exchange/` | `GameDataProtector` / 交易代理 | 交易代理与历史采集 | 密文身份、绑定、补传 SQLite 与 `protected-v2` 标记；旧 cache 文件先搬到本目录再按常规流程处理 |
 | `password.txt`（仓库根） | `ensure_password_for_host` | 用户查看 | 公网监听自动生成的密码副本 |
 | `cache/wiki_event_calculator.json` | `event_calculator` | `load_event_calculator` | Wiki 解析结果缓存（`cache_version=2`），网络失败时回退 |
 | 内存 `renderables` / `PreviewHub.frames` | 转发线程 / worker | RuntimeService | 日志环形缓冲（≤400）与每实例最新一帧，进程级不持久化 |
+
+茗交所新部署不使用账号保险库的本机密钥封装或 DPAPI，不要求 Linux `machine-id`；密钥通过文件访问权限保护，目录新建为 `0700`、文件为 `0600`，Windows 按部署目录的访问控制授权。容器重建、用户变化与项目改路径后，只要完整保留 `config/` 且进程可读写，仍沿用原 UUID、签名私钥、账户绑定与检查点。检测到旧 `cache/stock-exchange/` 时只搬文件，不在搬运阶段解析或校验账户；冲突静默采用默认加载的 config 数据，随后统一执行常规读取、格式升级和认证。支持 cache 与 config 位于不同挂载盘。账号保险库的本机自动解锁仍采用原有安全语义。
+
+macOS 同样使用该游戏密钥方案，无需账号保险库的本机提供者支持或 Keychain。项目根目录规范化后再检查链接，macOS 系统临时目录的路径别名不会影响身份；实际写入使用 POSIX 私有权限与 `fcntl` 文件锁。原生 macOS 回归及多进程初始化测试位于 `tests/test_game_data.py`，Apple Silicon 与 Intel 均有 CI 入口。
+
+首次升级读取项目外 `<旧保护上下文>.game` 及对应本机密钥，认证通过后自动保存到新目录，保留原认证上下文和游戏密文，不重写历史。Linux 格式升级使用旧封装记录的主机元数据进行认证，不读取当前 `machine-id`；Windows 旧密钥仍需原用户的 DPAPI 解封。升级保留旧登记和旧密钥供恢复。`config/stock-exchange/protected-v2` 存在后，新登记缺失不能退回旧检查点；密钥、登记或受保护文件丢失/损坏均保留原文件并停止交易同步。玩家可在茗交所页面恢复备份或明确确认重建本地账户；重建新身份不能登录永久绑定原身份的远端账户。备份与部署要求见 [部署文档](../infra/deploy.md#茗交所持久化)。
+
+配置创建和删除不调用交易保护登记；新配置的 `_stockInstance` 为空占位，后续采集或交易使用时登记身份。普通 `ProgramStore` 读取跳过交易历史校验，采集行动力时尽力维护认证链，认证失败或交易历史表损坏仍提交正常资源记录和调度事务。交易历史采集显式使用 `strict_history=True`，继续拒绝损坏、回滚和跨实例历史。`stock_exchange_recovery.StockExchangeRecovery` 先返回重建范围，再在确认后保留 `config/backup/stock-rebuild-*/` 快照并重建；身份或单实例历史问题只重建当前实例，共享密钥、登记或绑定不可读时须确认所有本地账户。重建与代理请求、后台同步互斥，清除旧本地会话及补传历史，保留调度程序、变量和最新资源观察。
 
 ## 14. 生命周期
 

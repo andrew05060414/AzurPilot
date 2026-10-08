@@ -1,3 +1,7 @@
+/**
+ * @fileoverview 开发者调试工具箱页面，提供动效、状态模拟与控件预览。
+ */
+
 import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { MarqueeText } from '../components/MarqueeText'
 import { useNavigate } from 'react-router-dom'
@@ -51,7 +55,7 @@ export function DevControls() {
   const [demoTab, setDemoTab] = useState('resources')
   const [throwing, setThrowing] = useState(false)
   const override = useDevOverride()
-  const motionPrefs = useSyncExternalStore(subscribeMotionPrefs, readMotionPrefs)
+  const motionPrefs = useSyncExternalStore(subscribeMotionPrefs, readMotionPrefs, readMotionPrefs)
   const motionAvailable = theme !== 'minimal' && theme !== 'extreme'
   const statusLabel = override.status ? ui(STATUS_LABELS[override.status]) : ''
 

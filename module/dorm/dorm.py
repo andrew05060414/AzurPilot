@@ -39,6 +39,13 @@ OCR_BUY_FOOD_AMOUNT = Digit(OCR_DORM_BUY_FOOD_AMOUNT, letter=(96, 96, 100), thre
 class OcrDormFood(DigitCounter):
     """宿舍食物 OCR，识别食物数量格式如 `1000/5800`。"""
 
+    # The OCR area includes the icon left of the number, OCR may read it as an extra
+    # '7' in front of the number. The image is cut at the leftmost orange pixel, so
+    # the icon is not OCRed. Orange scores about 250 in the color similarity map,
+    # the icon, the gray total (40000) and the background score below 130.
+    ORANGE_THRESHOLD = 150
+    ORANGE_MARGIN = 5
+
     def pre_process(self, image):
         orange = color_similarity_2d(image, color=(239, 158, 49))
         gray = color_similarity_2d(image, color=(99, 97, 99))
@@ -47,6 +54,12 @@ class OcrDormFood(DigitCounter):
         cv2.max(orange, gray, dst=gray)
         cv2.bitwise_not(gray, dst=gray)
         cv2.convertScaleAbs(gray, alpha=2, dst=gray)
+
+        # Keep the orange number and ORANGE_MARGIN pixels on its left, cut the rest.
+        columns = np.where(orange.max(axis=0) > self.ORANGE_THRESHOLD)[0]
+        if len(columns):
+            gray = gray[:, max(int(columns[0]) - self.ORANGE_MARGIN, 0):]
+
         return gray
 
     def after_process(self, result):
@@ -139,6 +152,12 @@ class RewardDorm(UI):
 
     @Config.when(DEVICE_CONTROL_METHOD='minitouch')
     def _dorm_feed_long_tap(self, button, count):
+        """通过 minitouch 长按食物按钮进行喂食。
+
+        Args:
+            button (Button): 食物按钮。
+            count (int): 喂食消耗量对应计算出的次数。
+        """
         # 长按喂食，需要 minitouch 支持。
         timeout = Timer(count // 5 + 5).start()
         x, y = random_rectangle_point(button.button)
@@ -164,6 +183,12 @@ class RewardDorm(UI):
 
     @Config.when(DEVICE_CONTROL_METHOD='MaaTouch')
     def _dorm_feed_long_tap(self, button, count):
+        """通过 MaaTouch 长按食物按钮进行喂食。
+
+        Args:
+            button (Button): 食物按钮。
+            count (int): 喂食消耗量对应计算出的次数。
+        """
         timeout = Timer(count // 5 + 5).start()
         x, y = random_rectangle_point(button.button)
         builder = self.device.maatouch_builder
@@ -188,6 +213,12 @@ class RewardDorm(UI):
 
     @Config.when(DEVICE_CONTROL_METHOD='uiautomator2')
     def _dorm_feed_long_tap(self, button, count):
+        """通过 uiautomator2 长按食物按钮进行喂食。
+
+        Args:
+            button (Button): 食物按钮。
+            count (int): 喂食消耗量对应计算出的次数。
+        """
         timeout = Timer(count // 5 + 5).start()
         x, y = random_rectangle_point(button.button)
         self.device.u2.touch.down(x, y)
@@ -209,6 +240,12 @@ class RewardDorm(UI):
 
     @Config.when(DEVICE_CONTROL_METHOD='nemu_ipc')
     def _dorm_feed_long_tap(self, button, count):
+        """通过 nemu_ipc 长按食物按钮进行喂食。
+
+        Args:
+            button (Button): 食物按钮。
+            count (int): 喂食消耗量对应计算出的次数。
+        """
         timeout = Timer(count // 5 + 5).start()
         x, y = random_rectangle_point(button.button)
 
@@ -229,6 +266,12 @@ class RewardDorm(UI):
 
     @Config.when(DEVICE_CONTROL_METHOD=None)
     def _dorm_feed_long_tap(self, button, count):
+        """当控制方式不支持长按抬起时，使用多次点击替代长按。
+
+        Args:
+            button (Button): 食物按钮。
+            count (int): 喂食消耗量对应计算出的次数。
+        """
         logger.warning(f'[宿舍-喂食] 当前控制方式 {self.config.Emulator_ControlMethod} '
                        f'不支持DOWN/UP事件，使用多次点击代替')
         self.device.multi_click(button, count)
@@ -298,22 +341,23 @@ class RewardDorm(UI):
 
     @cached_property
     def _dorm_food(self):
+        """获取后宅喂食界面的 6 个食物槽位按钮网格。"""
         return ButtonGrid(origin=(395, 410), delta=(129, 0), button_shape=(105, 70), grid_shape=(6, 1), name='FOOD')
 
     @cached_property
     def _dorm_food_ocr(self):
+        """获取后宅 6 个食物槽位的数字库存 OCR 识别对象。"""
         grids = self._dorm_food.crop((54, 41, 101, 66), name='FOOD_AMOUNT')
         return Digit(grids.buttons, letter=(255, 255, 255), threshold=128, name='OCR_DORM_FOOD')
 
     def _dorm_has_food(self, button):
-        """
-        检测指定食物按钮是否有食物（非空槽位）。
+        """检测指定食物按钮是否有食物（非空槽位）。
 
         Args:
             button (Button): 食物按钮。
 
         Returns:
-            bool: 有食物返回 True，空槽位返回 False。
+            bool: 槽位有食物返回 True，空槽位返回 False。
         """
         return np.min(rgb2gray(self.image_crop(button, copy=False))) < 127
 

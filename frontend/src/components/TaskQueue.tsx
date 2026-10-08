@@ -1,3 +1,7 @@
+/**
+ * @fileoverview 任务队列与拖拽排序列表组件。
+ */
+
 import { useLayoutEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight, CirclePlay, Hourglass, ListTodo } from 'lucide-react'
@@ -161,7 +165,8 @@ export function TaskQueue({instance, data, onNavigate}: {instance: string; data?
       )
       animation.finished.then(() => source.remove()).catch(() => source.remove())
     }
-  })
+  /* 条目位置只在 data 变化时改变。 */
+  }, [data])
 
   return <div className="rail-task-list" ref={list}>
     {data?.tasks.length ? taskGroups.map(group => {

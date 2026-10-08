@@ -20,13 +20,17 @@ from module.os_handler.assets import OS_MONTHBOSS_NORMAL, OS_MONTHBOSS_HARD
 
 class OpsiMonthBoss(OSMap):
     def get_adaptability(self):
+        """识别当前界面的大世界适应性数值。
+
+        Returns:
+            tuple[int, int, int]: 攻击、耐久、回复的三项适应性数值。
+        """
         adaptability = OCR_OS_ADAPTABILITY.ocr(self.device.image)
 
         return adaptability
 
     def clear_month_boss(self):
-        """
-        清理月度Boss。
+        """清理大世界月度Boss。
 
         检查适应性、判断当前 Boss 难度、击败 Boss 并在港口修理舰队。
 
@@ -39,7 +43,7 @@ class OpsiMonthBoss(OSMap):
             out: page_os, 大世界地图
         """
         if self.is_in_opsi_explore():
-            logger.info('每月开荒+正在运行，停止月度Boss')
+            logger.info('每月开荒正在运行，停止月度Boss')
             self.config.task_delay(server_update=True)
             self.config.task_stop()
 
@@ -90,14 +94,13 @@ class OpsiMonthBoss(OSMap):
             self.month_boss_delay(is_normal=is_normal, result=result)
 
     def month_boss_delay(self, is_normal=True, result=True):
-        """
-        月度Boss任务延迟逻辑。
+        """处理月度Boss任务完成或失败后的延迟调度。
 
-        根据难度和清理结果决定延迟到下次重置还是稍后重试。
+        根据难度和清理结果决定延迟到下次月度重置还是稍后重试。
 
         Args:
-            is_normal (bool): True 为普通难度，False 为困难难度。
-            result (bool): 是否成功击败 Boss。
+            is_normal (bool): True 为普通难度，False 为困难难度。默认 True。
+            result (bool): 是否成功击败 Boss。默认 True。
         """
         if is_normal:
             if result:

@@ -13,6 +13,8 @@
 
 它们都被 [调度器](../entry/alas.md) 的异常恢复链调用：异常 → 记日志（error_context）→ 保存错误现场（触发 LLM 分析）→ 推送通知（OnePush + WebUI 双通道）→ 决定恢复或等待服务器。理解这条链是读懂任何崩溃日志的前提。
 
+普通统计数值日志与既有 CL1 遥测保留；所有 Rich 异常渲染关闭 `tracebacks_show_locals`，避免敏感运行状态随局部变量落盘。
+
 ## 2. 模块职责
 
 ### 负责
@@ -88,6 +90,8 @@ module/
 
 `notify_webui` 是独立通道：读部署配置的 `WebuiPort`（默认 25548），向本机 `/api/notify` 发 2 秒超时的 POST，异常静默。业务方几乎总是双通道一起调用——OnePush 送达手机，WebUI 送达正在看启动器的用户。
 
+调度器额外套了一层**低推送量模式**：`alas.py` 的可恢复异常分支（`GameNotRunningError`、`EmulatorNotRunningError`、`GameStuckError`、`GamePageUnknownError`、未满 3 次的 `ScriptError`、`RequestHumanTakeover`、`AutoSearchSetError` 与兜底 `Exception`）统一经 `_notify_recoverable()` 发双通道；开启 `Error_LowPushMode` 时该方法是空操作，只记一条 info 日志。这些错误都会被自动重启游戏/模拟器消化，逐个推送会在无人值守时形成轰炸。需要人工介入的路径（`_check_sensitive_exit`、`ScriptError` 满 3 次退出、调度循环的任务连败判定）仍直接调用 `handle_notify`，不受该模式影响。
+
 ### LLM 错误分析（module/llm.py）
 
 1. 触发点只有 `alas.py`：任务级异常经 `save_error_log()` 时取 `sys.exc_info()` 分析（放在最前，避免后续截图二次崩溃导致分析未执行）；调度循环的未处理异常则直接调用。
@@ -134,7 +138,7 @@ module/
 | --- | --- |
 | 调度器 `alas.py` | 异常恢复链的主要消费方：各 except 分支双通道推送，错误现场触发 LLM 分析，循环头部做服务器检查 |
 | 战役/委托/秘书舰等业务 | 收益与状态事件推送（委托奖励、秘书舰替换、作战委托冲突等） |
-| 大世界智能调度+ | `notify_push` 统一封装启动器推送与 OnePush（可独立渠道） |
+| 大世界智能调度 | `notify_push` 统一封装启动器推送与 OnePush（可独立渠道） |
 | 日报服务 | 复用 `Error_Llm*` 配置生成日报，并经 `handle_notify` 推送（最多 3 次重试） |
 | WebUI 进程管理 | worker 启动时调用 `set_file_logger` / `set_func_logger`，消费日志队列 |
 
@@ -154,6 +158,7 @@ module/
 | 配置 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `Alas.Error.OnePushConfig` | YAML 文本 | `provider: null` | 全局推送渠道配置；留空或 provider 为 null 视为未配置 |
+| `Alas.Error.LowPushMode` | checkbox | false | 低推送量模式；可恢复错误只记日志不推送，仅保留需要人工介入的错误推送 |
 | `Alas.Error.LlmAnalysis` | checkbox | true | 启用 LLM 错误分析 |
 | `Alas.Error.LlmApiKey` | 文本 | 空 | OpenAI 兼容 API Key，缺失时仅告警不分析 |
 | `Alas.Error.LlmApiBase` | 文本 | `https://api.xiaomimimo.com/v1` | API 基地址，可指向任意 OpenAI 兼容服务 |
@@ -161,7 +166,7 @@ module/
 | `Alas.Error.SaveError` / `SaveErrorRetentionDays` / `SaveErrorBackUpMethod` / `SaveErrorZipMethod` | checkbox / 数值 / 选项 | true / 30 / zip / zip | 错误现场保存；过期天数（0 = 不清理）、过期处理方式（delete/copy/zip）与压缩格式，备份落 `log/error/<实例>/bak/`；LLM 分析在保存流程最前执行 |
 | `Alas.Emulator.ServerName` | 选项 | `disabled` | 服务器检查目标；disabled 跳过检查 |
 | `Secretary.Secretary.Notify` / `OnePushConfig` | checkbox / YAML | true / `provider: null` | 秘书舰推送，专用配置留空回退全局 OnePushConfig |
-| `OpsiGeneral.OpsiGeneral.LauncherPush` / `NotifyOpsiMail` / `IndependentPush` / `OpsiOnePushConfig` | — | true / true / false / `provider: null` | 大世界智能调度+的启动器/OnePush 双通道与独立渠道 |
+| `OpsiGeneral.OpsiGeneral.LauncherPush` / `NotifyOpsiMail` / `IndependentPush` / `OpsiOnePushConfig` | — | true / true / false / `provider: null` | 大世界智能调度的启动器/OnePush 双通道与独立渠道 |
 | `Commission.CommissionNotifyReward` / `GemNotify` | checkbox | false / true | 委托奖励、钻石委托推送开关 |
 | `General.Log.LogKeepCount` / `LogBackUpMethod` / `ZipMethod` | — | 3 / zip / zip | 文件日志保留份数、过期处理（delete/copy/zip）与压缩格式 |
 

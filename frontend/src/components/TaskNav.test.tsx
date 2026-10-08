@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AppContext, type AppContextValue } from '../app/context'
 import { TaskNav } from './TaskNav'
 import { isDesktopDevice } from './TaskNavFlyout'
-import type { Theme, TaskNavMode } from '../app/theme'
+import type { Theme } from '../app/theme'
 import type { Schema } from '../api/types'
 import { translateUi } from '../i18n'
 
@@ -27,7 +27,7 @@ const mockSchema: Schema = {
 
 const mockTranslations: Record<string, string> = {
   'Menu.Alas.name': '系统',
-  'Menu.Farm.name': '出击Plus',
+  'Menu.Farm.name': '出击',
   'Task.Alas.name': '系统设置',
   'Task.General.name': '通用设置',
   'Task.Restart.name': '游戏重启',
@@ -36,7 +36,7 @@ const mockTranslations: Record<string, string> = {
   'Task.ThreeOilLowCost.name': '3油低耗出击',
 }
 
-function contextWith(theme: Theme, taskNavMode: TaskNavMode = 'tree'): AppContextValue {
+function contextWith(theme: Theme): AppContextValue {
   return {
     instancesLoaded: true,
     instances: [{ name: 'default', status: 'stopped', serial: '127.0.0.1:5555', server: 'cn' }],
@@ -51,11 +51,11 @@ function contextWith(theme: Theme, taskNavMode: TaskNavMode = 'tree'): AppContex
     setDevMode: () => {},
     theme,
     setTheme: () => {},
+    material: 'glass',
+    setMaterial: () => {},
     colorMode: 'auto', resolvedMode: 'light', setColorMode: () => {},
     customPalettes: [], saveCustomPalette: () => {}, deleteCustomPalette: () => {},
     compactRailSide: 'right', setCompactRailSide: () => {}, compactRailWidth: 244, setCompactRailWidth: () => {},
-    taskNavMode,
-    setTaskNavMode: () => {},
     palette: 'ocean',
     setPalette: () => {},
     language: 'zh-CN',
@@ -63,9 +63,9 @@ function contextWith(theme: Theme, taskNavMode: TaskNavMode = 'tree'): AppContex
   }
 }
 
-function render(path: string, props: {defaultOpenKey?: string} = {}, theme: Theme = 'legacy-light', taskNavMode: TaskNavMode = 'tree') {
+function render(path: string, props: {defaultOpenKey?: string; isDesktop?: boolean} = {}, theme: Theme = 'legacy-light') {
   return renderToStaticMarkup(
-    <AppContext.Provider value={contextWith(theme, taskNavMode)}>
+    <AppContext.Provider value={contextWith(theme)}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/i/:instance/*" element={<TaskNav {...props} />} />
@@ -87,7 +87,7 @@ describe('TaskNav 导航组件', () => {
     expect(html).toContain('aria-expanded="false"')
     expect(html).toContain('aria-controls="task-group-Alas"')
     expect(html).toContain('系统')
-    expect(html).toContain('出击Plus')
+    expect(html).toContain('出击')
 
     // 子菜单常驻以便高度过渡；收起态不带 expanded，侧栏一上来不会是长列表
     expect(html).toContain('task-submenu-list')
@@ -119,30 +119,31 @@ describe('TaskNav 导航组件', () => {
   it('旧版主题处于某任务页时，所属分组自动展开并高亮', () => {
     const html = render('/i/default/task/Main')
 
-    // Main 任务属于 Farm 分组（出击Plus）
+    // Main 任务属于 Farm 分组（出击）
     expect(html).toContain('task-group-button expanded active')
-    expect(html).toContain('出击Plus')
+    expect(html).toContain('出击')
     expect(html).toContain('href="/i/default/task/Main"')
   })
 
-  it('现代主题在默认模式下同样使用树状向下展开', () => {
-    const html = render('/i/default/overview', {defaultOpenKey: 'Alas'}, 'light', 'tree')
-
-    expect(html).toContain('task-group-button expanded')
-    expect(html).toContain('task-submenu-list')
-    expect(html).toContain('task-submenu-item')
-    expect(html).toContain('href="/i/default/task/Alas"')
-    expect(html).not.toContain('task-submenu-flyout')
-  })
-
-  it('显式配置为向右浮出模式时，现代主题使用向右浮出的二级菜单', () => {
-    const html = render('/i/default/overview', {defaultOpenKey: 'Alas'}, 'light', 'flyout')
+  it('其余主题继续用向右浮出的二级菜单', () => {
+    const html = render('/i/default/overview', {defaultOpenKey: 'Alas'}, 'light')
 
     expect(html).toContain('aria-haspopup="menu"')
     expect(html).toContain('task-submenu-flyout')
     expect(html).toContain('href="/i/default/task/Alas"')
     // 浮出层不挂在侧栏的分组里，分组按钮也就不带 aria-controls
     expect(html).not.toContain('aria-controls="task-group-')
+  })
+
+  it('移动端/窄屏下，非经典主题也采用树状折叠菜单（参考经典主题）', () => {
+    const html = render('/i/default/overview', {defaultOpenKey: 'Alas', isDesktop: false}, 'light')
+
+    expect(html).toContain('task-group-button')
+    expect(html).toContain('task-submenu-list')
+    expect(html).toContain('aria-controls="task-group-Alas"')
+    expect(html).toContain('系统设置')
+    expect(html).not.toContain('task-submenu-flyout')
+    expect(html).not.toContain('aria-haspopup="menu"')
   })
 })
 

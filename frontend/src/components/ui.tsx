@@ -1,3 +1,7 @@
+/**
+ * @fileoverview 通用 UI 基础原子组件（按钮、弹窗、加载状态、错误框等）。
+ */
+
 import { useEffect, useRef, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import { AlertCircle, LoaderCircle, X } from 'lucide-react'
 import { GlassMaterial } from './GlassMaterial'
@@ -52,8 +56,13 @@ function createTitleMask(title: string) {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
 }
 
+/** 页面动作组：控件外面包一层一级底，挂载位置由调用方决定。 */
+export function ActionGroup({children}: {children: ReactNode}) {
+  return <div className="title-actions"><GlassMaterial/>{children}</div>
+}
+
 export function PageTitle({title, actions, className = ''}: {title: string; actions?: ReactNode; className?: string}) {
   const {theme} = useApp()
   const titleStyle = usesMaterial(theme) ? {'--page-title-mask': createTitleMask(title)} as CSSProperties : undefined
-  return <div className={`page-title ${className}`.trim()}><h1 aria-label={title} data-text={title} style={titleStyle}>{title}</h1>{actions && <div className="title-actions"><GlassMaterial/>{actions}</div>}</div>
+  return <div className={`page-title ${className}`.trim()}><h1 aria-label={title} data-text={title} style={titleStyle}>{title}</h1>{actions && <ActionGroup>{actions}</ActionGroup>}</div>
 }

@@ -141,6 +141,12 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
     is_hoarding_task = True
 
     def __setattr__(self, key, value):
+        overlay = self.__dict__.get('_scheduler_overrides', {})
+        if key in overlay:
+            # 调度卡片的任务参数只属于本次调用；任务自身修改也不回写用户配置。
+            overlay[key] = value
+            super().__setattr__(key, value)
+            return
         if key in self.bound:
             self.cross_set(self.bound[key], value)
         else:
@@ -264,6 +270,8 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
 
         # 覆盖参数
         for arg, value in self.overridden.items():
+            super().__setattr__(arg, value)
+        for arg, value in self.__dict__.get('_scheduler_overrides', {}).items():
             super().__setattr__(arg, value)
 
 
@@ -441,7 +449,7 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
 
         limit_next_run(["Commission", "Reward"], limit=now + timedelta(hours=12, seconds=-1))
         limit_next_run(["Research"], limit=now + timedelta(hours=24, seconds=-1))
-        limit_next_run(["OpsiExplore", "OpsiCrossMonth", "OpsiVoucher", "OpsiMonthBoss", "OpsiShop"],
+        limit_next_run(["OpsiExplore", "OpsiExploreCleanup", "OpsiCrossMonth", "OpsiVoucher", "OpsiMonthBoss", "OpsiShop"],
                        limit=now + timedelta(days=31, seconds=-1))
         limit_next_run(["OpsiArchive"], limit=now + timedelta(days=7, seconds=-1))
         # 防溢出任务会按当前行动力恢复到 200 的时间延后，最长可能超过 24 小时。
@@ -463,6 +471,10 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         注意：此方法不可逆。
         """
         for arg, value in kwargs.items():
+            if arg in self.__dict__.get('_scheduler_overrides', {}):
+                self._scheduler_overrides[arg] = value
+                super().__setattr__(arg, value)
+                continue
             self.overridden[arg] = value
             super().__setattr__(arg, value)
 
@@ -518,7 +530,9 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         Args:
             values (dict[str, Any]): 配置路径到新值的映射。
         """
-        self.modified.update(values)
+        overlay = self.__dict__.get('_scheduler_overrides', {})
+        protected = {self.bound[key] for key in overlay if key in self.bound}
+        self.modified.update({path: value for path, value in values.items() if path not in protected})
         if self.auto_update:
             self.update()
 
@@ -680,6 +694,7 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
             tasks = SelectedGrids(
                 [
                     "OpsiExplore",
+                    "OpsiExploreCleanup",
                     "OpsiDaily",
                     "OpsiObscure",
                     "OpsiAbyssal",
@@ -724,6 +739,11 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         Returns:
             bool: 是否成功调用。
         """
+        runtime = self.__dict__.get('_scheduler_runtime')
+        if runtime is not None and runtime.mode == 'takeover':
+            return runtime.request(task)
+        if runtime is not None and task == 'Restart' and runtime.mode == 'enhance':
+            runtime.request(task)
         if deep_get(self.data, keys=f"{task}.Scheduler.NextRun", default=None) is None:
             raise ScriptError(f"[配置] 要调用的任务: `{task}` 在用户配置中不存在")
 
@@ -766,6 +786,9 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         if self.stop_event is not None:
             if self.stop_event.is_set():
                 return True
+        runtime = self.__dict__.get('_scheduler_runtime')
+        if runtime is not None and runtime.mode != 'native':
+            return runtime.should_yield(self)
         prev = getattr(self, '_task_switch_owner', self.task)
         self.load()
         new = self.get_next()
@@ -901,8 +924,15 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
 
 
 class ConfigBackup:
+    """配置临时覆盖备份管理器。
+
+    用于在特定代码块内临时修改配置项并在退出时恢复原始值。
+    支持作为上下文管理器（with 语句）使用。
+    """
+
     def __init__(self, config):
-        """
+        """初始化配置备份管理器。
+
         Args:
             config (AzurLaneConfig): 要备份的配置对象。
         """
@@ -911,25 +941,50 @@ class ConfigBackup:
         self.kwargs = {}
 
     def cover(self, **kwargs):
+        """应用临时配置覆盖并记录原始值。
+
+        Args:
+            **kwargs: 键值对形式的临时配置项。
+        """
         self.kwargs = kwargs
         for key, value in kwargs.items():
             self.backup[key] = self.config.__getattribute__(key)
             self.config.__setattr__(key, value)
 
     def recover(self):
+        """恢复所有已备份的原始配置项。"""
         for key, value in self.backup.items():
             self.config.__setattr__(key, value)
 
     def __enter__(self):
+        """进入上下文管理器。
+
+        Returns:
+            ConfigBackup: 当前备份对象实例。
+        """
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """退出上下文管理器并自动恢复原始配置。
+
+        Args:
+            exc_type: 异常类型。
+            exc_val: 异常值。
+            exc_tb: 异常追踪。
+        """
         self.recover()
 
 
 class MultiSetWrapper:
+    """批量配置设置上下文管理器。
+
+    在上下文内部临时禁用配置的自动保存（auto_update），
+    在退出上下文时统一触发一次保存更新，提高批量修改配置时的性能。
+    """
+
     def __init__(self, main):
-        """
+        """初始化批量配置设置管理器。
+
         Args:
             main (AzurLaneConfig): 配置实例。
         """
@@ -937,11 +992,23 @@ class MultiSetWrapper:
         self._previous_auto_update = []
 
     def __enter__(self):
+        """进入批量修改模式，暂停自动更新。
+
+        Returns:
+            MultiSetWrapper: 当前包装器实例。
+        """
         self._previous_auto_update.append(self.main.auto_update)
         self.main.auto_update = False
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """退出批量修改模式并执行合并保存。
+
+        Args:
+            exc_type: 异常类型。
+            exc_val: 异常值。
+            exc_tb: 异常追踪。
+        """
         auto_update = self._previous_auto_update.pop()
         try:
             if auto_update:

@@ -124,6 +124,8 @@ module/config/mcp_helper.py    # McpConfigHelper：args.json + i18n 的任务元
 | 设备类 | `restart_emulator` | 重启实例对应模拟器进程（含上游退出缓冲，硬超时 150 秒） |
 | 设备类 | `restart_adb` | 重启 ADB 服务（kill-server/start-server），`instance` 可选 |
 
+`get_scheduler_queue` 与 `clear_scheduler_queue` 遍历配置时只读取字典形式的任务节点，跳过 `_stockInstance` 等非字典内部元数据；清空队列仍通过配置事务修改可编辑的 `Scheduler.Enable`，保留实例身份及只读任务。
+
 ### 与 module/runtime 的关系
 
 工具「作用于实例」的路径有四条，都不直接操作进程：
@@ -288,7 +290,7 @@ MCP 没有自己的 `<Task>.<Group>.<Argument>` 配置，行为由部署配置�
 
 ## 14. 生命周期
 
-独立模式（`python mcp_server_sse.py`）：
+独立模式（`uv run python mcp_server_sse.py`）：
 
 1. 导入期：创建模块级 `Server`、`SseServerTransport`、默认 `Tools` 与 `app = create_app()`。
 2. `__main__`：`_resolve_standalone_password()`（deploy.yaml → 公网自动生成并落盘）→ `configure_auth(..., public_bind=True)` → uvicorn 监听 `0.0.0.0:22268`。

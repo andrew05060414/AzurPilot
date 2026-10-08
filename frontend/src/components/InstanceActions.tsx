@@ -1,3 +1,7 @@
+/**
+ * @fileoverview 实例资源卡片设置入口与选项弹窗。
+ */
+
 import { useState, useSyncExternalStore } from 'react'
 import { Settings2 } from 'lucide-react'
 import type { Resource } from '../api/types'
@@ -14,6 +18,7 @@ const DASHBOARD_OPTIONS: {key: keyof DashboardPrefs; label: UiKey; help: UiKey}[
   {key: 'dense', label: 'dashboard.dense', help: 'dashboard.denseHelp'},
   {key: 'merged', label: 'dashboard.merged', help: 'dashboard.mergedHelp'},
   {key: 'totalFirst', label: 'dashboard.totalFirst', help: 'dashboard.totalFirstHelp'},
+  {key: 'dogIcon', label: 'dashboard.dogIcon', help: 'dashboard.dogIconHelp'},
 ]
 /** showLabel：紧凑主题下按钮改挂日志面板工具栏，空间充足故补上文字。 */
 export function InstanceActions({resources, selectedResources, onResourcesChange, showLabel = false}: {resources: Resource[]; selectedResources: string[]; onResourcesChange: (keys: string[]) => void; showLabel?: boolean}) {

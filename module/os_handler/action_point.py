@@ -35,7 +35,17 @@ OCR_OS_ADAPTABILITY = Digit([
 
 
 class ActionPointBuyCounter(DigitCounter):
+    """行动力购买次数计数器。"""
+
     def after_process(self, result):
+        """后处理识别结果，修正常见误识别。
+
+        Args:
+            result (str): 识别出的原始字符串。
+
+        Returns:
+            str: 修正后的购买次数格式字符串。
+        """
         result = super().after_process(result)
 
         # 可能的结果: 0/5, 05
@@ -57,16 +67,33 @@ else:
 
 class ActionPointItem(Item):
     """大世界行动力物品。"""
+
     def predict_valid(self):
+        """预测当前物品是否有效。
+
+        Returns:
+            bool: 恒返回 True。
+        """
         return True
 
 
 ACTION_POINT_GRID = ButtonGrid(
     origin=(323, 274), delta=(173, 0), button_shape=(115, 115), grid_shape=(4, 1), name='ACTION_POINT_GRID')
 
+
 class GridSlice:
-    """网格切片，用于构建物品网格。"""
+    """网格切片，用于构建物品网格。
+
+    Attributes:
+        buttons (list[Button]): 切片包含的按钮列表。
+    """
+
     def __init__(self, buttons):
+        """初始化网格切片。
+
+        Args:
+            buttons (list[Button]): 按钮列表。
+        """
         self.buttons = buttons
 
 OIL_ITEM = ItemGrid(GridSlice([ACTION_POINT_GRID.buttons[0]]), templates={}, amount_area=(43, 91, 111, 113))
@@ -111,15 +138,31 @@ ACTION_POINT_BOX = {
     2: 50,
     3: 100,
 }
+# 防溢出模式（avoid_ap_overflow）下当前行动力达到该值即直接开工，不再开箱等待
+ACTION_POINT_AVOID_OVERFLOW_START = 100
 
 
 class ActionPointLimit(Exception):
-    """
-    行动力不足异常。
+    """行动力不足异常。
 
     当行动力不足以进入目标海域时抛出。
+
+    Attributes:
+        current (int | None): 当前行动力。
+        total (int | None): 总行动力（含药剂）。
+        cost (int | None): 目标海域消耗。
+        preserve (int | None): 保留行动力设定值。
     """
+
     def __init__(self, current=None, total=None, cost=None, preserve=None):
+        """初始化行动力不足异常。
+
+        Args:
+            current (int, optional): 当前行动力。
+            total (int, optional): 总行动力。
+            cost (int, optional): 需要消耗的行动力。
+            preserve (int, optional): 保留行动力限制。
+        """
         super().__init__()
         self.current = current
         self.total = total
@@ -128,8 +171,7 @@ class ActionPointLimit(Exception):
 
     @property
     def delay_minutes(self):
-        """
-        获取需要延迟的分钟数。
+        """获取需要延迟的分钟数。
 
         Returns:
             int | None: 需要延迟的分钟数，如果无需延迟则返回 None。
@@ -145,6 +187,8 @@ class ActionPointLimit(Exception):
 
 
 class ActionPointHandler(UI, MapEventHandler):
+    """大世界行动力操作处理器。"""
+
     _action_point_box = [0, 0, 0, 0]
     _action_point_current = 0
     _action_point_total = 0
@@ -152,8 +196,7 @@ class ActionPointHandler(UI, MapEventHandler):
 
     @staticmethod
     def _is_in_month_end_purchase_block_week():
-        """
-        判断当前是否处于月末购买封锁周。
+        """判断当前是否处于月末购买封锁周。
 
         在包含下个服务器月第一天的自然周（周一至周日）内，封锁每周行动力购买。
         进入下个服务器月后，购买将重新可用。
@@ -172,12 +215,26 @@ class ActionPointHandler(UI, MapEventHandler):
         return current_week_start == next_month_week_start
 
     def _is_in_action_point(self):
+        """判断是否处于行动力使用弹窗。
+
+        Returns:
+            bool: 是否出现行动力使用弹窗。
+        """
         return self.appear(ACTION_POINT_USE, offset=(20, 20))
 
     def is_current_ap_visible(self):
+        """判断当前行动力数值区域是否可见。
+
+        Returns:
+            bool: 是否可见。
+        """
         return self.match_template_color(CURRENT_AP_CHECK, offset=(40, 5), threshold=15)
 
     def action_point_use(self):
+        """执行一次行动力道具使用或购买操作。
+
+        点击使用按钮并确认，直到当前行动力数值增加。
+        """
         prev = self._action_point_current
         self.interval_clear(ACTION_POINT_USE)
         for _ in self.loop():
@@ -210,7 +267,8 @@ class ActionPointHandler(UI, MapEventHandler):
             total += box_sum
         oil = box[0]
 
-        LogRes(self.config).Oil = oil
+        if oil > 100:
+            LogRes(self.config).record('Oil', oil, observed=True)
         logger.info(f'[大世界-行动点] 行动点: {current}({total}), 石油: {oil}')
         # 统计口径的总行动力始终包含体力箱，不受 OS_ACTION_POINT_BOX_USE 临时关闭的影响
         # （防止行动力溢出任务会临时关闭该开关，导致统计快照丢箱、图表出现深坑）
@@ -218,7 +276,8 @@ class ActionPointHandler(UI, MapEventHandler):
         self.config._action_point_total_with_box = self._action_point_total_with_box
         # 仪表盘的 Total 同样使用恒含体力箱口径：写入受开关影响的 total 时，
         # 防溢出任务运行期间它会退化成 current，WebUI 的行动力卡片会在整段时间里不显示总行动力
-        LogRes(self.config).ActionPoint = {'Value': current, 'Total': self._action_point_total_with_box}
+        LogRes(self.config).record('ActionPoint', {'Value': current, 'Total': self._action_point_total_with_box},
+                                   observed=0 <= current <= 600 and bool(getattr(OCR_ACTION_POINT_REMAIN, 'last_valid', False)))
         self.config.update()
         self._action_point_current = current
         self._action_point_box = box
@@ -433,13 +492,16 @@ class ActionPointHandler(UI, MapEventHandler):
                 continue
 
         # 「打开弹窗读行动力 → 取消关闭」是设计内的成对操作，一轮里会被连续调用多次
-        # （智能调度+ 决策、短猫前置检查、统计快照），点击记录（最近 15 次）会攒出
+        # （智能调度决策、短猫前置检查、统计快照），点击记录（最近 15 次）会攒出
         # 两个按钮各 ≥6 次，被「两个按钮交替点击次数过多」规则误判成卡死。
         # 只在弹窗确实关闭后清理：真卡死时上面的循环不会跳出，仍由单按钮 ≥12 次兜底。
         self.device.click_record_remove(ACTION_POINT_REMAIN_OS)
         self.device.click_record_remove(ACTION_POINT_CANCEL)
+        # 已正向确认弹窗关闭；下一次有意打开无需继承上一次的3秒重试冷却。
+        self.interval_clear(OS_CHECK)
 
-    def handle_action_point(self, zone, pinned, cost=None, keep_current_ap=True, check_rest_ap=False, avoid_ap_overflow=False):
+    def handle_action_point(self, zone, pinned, cost=None, keep_current_ap=True, check_rest_ap=False,
+                            avoid_ap_overflow=False, *, skip_first_read=False):
         """
         处理行动力，包括购买和使用药剂。
 
@@ -453,6 +515,8 @@ class ActionPointHandler(UI, MapEventHandler):
                 当前行动力达到 100 即直接开工、不开启行动力箱（100-119 区间
                 不再等待自然恢复，也不开 100 箱造成溢出）；低于 100 时开箱后
                 达到或超过 200 满值的箱子不开启。
+            skip_first_read (bool): 已在同一面板安全读取过行动力时复用首读。
+                只省略操作前的重复读取，购买或开箱后的实际读数仍须刷新。
 
         Returns:
             bool: 是否处理成功。
@@ -467,7 +531,8 @@ class ActionPointHandler(UI, MapEventHandler):
             return False
 
         # 行动力药剂有显示动画
-        self.action_point_safe_get()
+        if not skip_first_read:
+            self.action_point_safe_get()
         if cost is None:
             cost = self.action_point_get_cost(zone, pinned)
         buy_checked = False
@@ -499,9 +564,9 @@ class ActionPointHandler(UI, MapEventHandler):
                 self.action_point_quit()
                 return True
 
-            # 防溢出模式下，行动力达到 100 即直接开工，不开启行动力箱。
-            # 100-119 区间不再等待自然恢复，也不会开启 100 箱造成溢出。
-            if avoid_ap_overflow and self._action_point_current >= 100:
+            # 防溢出模式下，行动力达到开工线即直接开工，不开启行动力箱。
+            # 开工线到 119 区间不再等待自然恢复，也不会开启 100 箱造成溢出。
+            if avoid_ap_overflow and self._action_point_current >= ACTION_POINT_AVOID_OVERFLOW_START:
                 logger.info('[大世界-行动点] 当前行动力达到100，直接开工不开启行动力箱')
                 self.action_point_quit()
                 return True
@@ -595,6 +660,35 @@ class ActionPointHandler(UI, MapEventHandler):
                 continue
             if self.appear_then_click(AUTO_SEARCH_REWARD, offset=(50, 50)):
                 continue
+
+    def action_point_reusable(self, fresh_ap, cost, avoid_ap_overflow=False):
+        """判断能否复用刚读到的行动力、跳过 action_point_set 的行动点弹窗。
+
+        仅当复用后与「开弹窗走 handle_action_point」行为完全一致时才返回 True：
+        弹窗口径的总行动力高于 OS_ACTION_POINT_PRESERVE（不会触发保留拦截），
+        且当前行动力已达到开工线（防溢出模式为
+        ACTION_POINT_AVOID_OVERFLOW_START，否则为 cost），弹窗路径也只会
+        「行动点充足」直接关闭。不满足时必须照常调用 action_point_set
+        ——开行动力箱与石油购买都在那里处理。
+
+        Args:
+            fresh_ap (tuple[int, int] | None): 调用方刚读到的
+                (弹窗口径总行动力, 当前行动力)。读数与本次调用之间不得有
+                任何行动力消耗；为 None 时返回 False。
+            cost (int): 目标海域消耗，与 action_point_set 的 cost 相同。
+            avoid_ap_overflow (bool): 是否与 action_point_set 一样启用防溢出模式。
+
+        Returns:
+            bool: 是否可以跳过弹窗。
+        """
+        if fresh_ap is None:
+            return False
+        fresh_total, fresh_current = fresh_ap
+        if fresh_total <= self.config.OS_ACTION_POINT_PRESERVE:
+            return False
+        if avoid_ap_overflow:
+            return fresh_current >= ACTION_POINT_AVOID_OVERFLOW_START
+        return fresh_current >= cost
 
     def action_point_set(self, zone=None, pinned=None, cost=None, keep_current_ap=True, check_rest_ap=False, avoid_ap_overflow=False):
         """

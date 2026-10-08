@@ -5,6 +5,7 @@
       "mutates": false,
       "params": {
         "additionalProperties": false,
+        "description": "API 入参基础模型，禁止额外字段并启用严格类型校验。",
         "properties": {},
         "title": "Params",
         "type": "object"
@@ -14,6 +15,7 @@
       "mutates": false,
       "params": {
         "additionalProperties": false,
+        "description": "配置界面架构查询参数模型。",
         "properties": {
           "language": {
             "default": "zh-CN",
@@ -32,10 +34,31 @@
         "type": "object"
       }
     },
+    "search.content": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "侧栏内容检索请求参数模型。",
+        "properties": {
+          "query": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "SearchContentParams",
+        "type": "object"
+      }
+    },
     "instances.list": {
       "mutates": false,
       "params": {
         "additionalProperties": false,
+        "description": "API 入参基础模型，禁止额外字段并启用严格类型校验。",
         "properties": {},
         "title": "Params",
         "type": "object"
@@ -45,6 +68,7 @@
       "mutates": true,
       "params": {
         "additionalProperties": false,
+        "description": "新建实例请求参数模型。",
         "properties": {
           "name": {
             "maxLength": 64,
@@ -88,6 +112,7 @@
       "mutates": false,
       "params": {
         "additionalProperties": false,
+        "description": "API 入参基础模型，禁止额外字段并启用严格类型校验。",
         "properties": {},
         "title": "Params",
         "type": "object"
@@ -124,6 +149,7 @@
       "mutates": true,
       "params": {
         "additionalProperties": false,
+        "description": "带版本校验的请求参数模型。",
         "properties": {
           "instance": {
             "maxLength": 64,
@@ -148,6 +174,27 @@
       "mutates": false,
       "params": {
         "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance"
+        ],
+        "title": "InstanceParams",
+        "type": "object"
+      }
+    },
+    "config.export": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
         "properties": {
           "instance": {
             "maxLength": 64,
@@ -169,6 +216,7 @@
         "$defs": {
           "ConfigChange": {
             "additionalProperties": false,
+            "description": "单个配置项修改条目模型。",
             "properties": {
               "path": {
                 "maxLength": 180,
@@ -189,6 +237,7 @@
           }
         },
         "additionalProperties": false,
+        "description": "批量配置修改请求参数模型。",
         "properties": {
           "instance": {
             "maxLength": 64,
@@ -271,6 +320,7 @@
       "mutates": false,
       "params": {
         "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
         "properties": {
           "instance": {
             "maxLength": 64,
@@ -286,10 +336,121 @@
         "type": "object"
       }
     },
+    "stock.status": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance"
+        ],
+        "title": "InstanceParams",
+        "type": "object"
+      }
+    },
+    "stock.rebuild": {
+      "mutates": true,
+      "params": {
+        "additionalProperties": false,
+        "description": "先返回实际重建范围，用户确认后才重建本地交易账户。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "scope": {
+            "default": "instance",
+            "enum": [
+              "instance",
+              "all"
+            ],
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance"
+        ],
+        "title": "StockRebuildParams",
+        "type": "object"
+      }
+    },
+    "stock.request": {
+      "mutates": true,
+      "params": {
+        "additionalProperties": false,
+        "description": "实例专属交易请求；实例身份和远端凭据由后端补充。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "method": {
+            "default": "GET",
+            "enum": [
+              "GET",
+              "POST",
+              "DELETE"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Body"
+          },
+          "etag": {
+            "default": "",
+            "maxLength": 128,
+            "title": "Etag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance",
+          "path"
+        ],
+        "title": "StockRequestParams",
+        "type": "object"
+      }
+    },
     "scheduler.start": {
       "mutates": true,
       "params": {
         "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
         "properties": {
           "instance": {
             "maxLength": 64,
@@ -309,6 +470,1155 @@
       "mutates": true,
       "params": {
         "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance"
+        ],
+        "title": "InstanceParams",
+        "type": "object"
+      }
+    },
+    "scheduler.program.catalog": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance"
+        ],
+        "title": "InstanceParams",
+        "type": "object"
+      }
+    },
+    "scheduler.program.get": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance"
+        ],
+        "title": "InstanceParams",
+        "type": "object"
+      }
+    },
+    "scheduler.program.save": {
+      "mutates": true,
+      "params": {
+        "$defs": {
+          "CardNode": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "maxLength": 80,
+                "minLength": 1,
+                "title": "Id",
+                "type": "string"
+              },
+              "type": {
+                "title": "Type",
+                "type": "string"
+              },
+              "label": {
+                "default": "",
+                "title": "Label",
+                "type": "string"
+              },
+              "comment": {
+                "default": "",
+                "maxLength": 2000,
+                "title": "Comment",
+                "type": "string"
+              },
+              "params": {
+                "additionalProperties": true,
+                "title": "Params",
+                "type": "object"
+              },
+              "position": {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "title": "Position",
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "type"
+            ],
+            "title": "CardNode",
+            "type": "object"
+          },
+          "Connection": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "source": {
+                "title": "Source",
+                "type": "string"
+              },
+              "sourcePort": {
+                "title": "Sourceport",
+                "type": "string"
+              },
+              "target": {
+                "title": "Target",
+                "type": "string"
+              },
+              "targetPort": {
+                "default": "in",
+                "title": "Targetport",
+                "type": "string"
+              },
+              "kind": {
+                "default": "control",
+                "enum": [
+                  "control",
+                  "data"
+                ],
+                "title": "Kind",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "sourcePort",
+              "target"
+            ],
+            "title": "Connection",
+            "type": "object"
+          },
+          "PortDefinition": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "type": {
+                "default": "any",
+                "enum": [
+                  "any",
+                  "number",
+                  "boolean",
+                  "string",
+                  "time",
+                  "duration",
+                  "resource",
+                  "task",
+                  "tasks",
+                  "result",
+                  "list",
+                  "object"
+                ],
+                "title": "Type",
+                "type": "string"
+              },
+              "required": {
+                "default": false,
+                "title": "Required",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "title": "PortDefinition",
+            "type": "object"
+          },
+          "ProgramDocument": {
+            "additionalProperties": false,
+            "properties": {
+              "entry": {
+                "title": "Entry",
+                "type": "string"
+              },
+              "nodes": {
+                "items": {
+                  "$ref": "#/$defs/CardNode"
+                },
+                "maxItems": 500,
+                "title": "Nodes",
+                "type": "array"
+              },
+              "edges": {
+                "items": {
+                  "$ref": "#/$defs/Connection"
+                },
+                "maxItems": 2000,
+                "title": "Edges",
+                "type": "array"
+              },
+              "schemaVersion": {
+                "const": 1,
+                "default": 1,
+                "title": "Schemaversion",
+                "type": "integer"
+              },
+              "name": {
+                "default": "自定义调度",
+                "title": "Name",
+                "type": "string"
+              },
+              "subgraphs": {
+                "items": {
+                  "$ref": "#/$defs/SubgraphDefinition"
+                },
+                "maxItems": 100,
+                "title": "Subgraphs",
+                "type": "array"
+              },
+              "variables": {
+                "items": {
+                  "$ref": "#/$defs/VariableDefinition"
+                },
+                "maxItems": 200,
+                "title": "Variables",
+                "type": "array"
+              },
+              "viewport": {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "title": "Viewport",
+                "type": "object"
+              }
+            },
+            "required": [
+              "entry",
+              "nodes"
+            ],
+            "title": "ProgramDocument",
+            "type": "object"
+          },
+          "SubgraphDefinition": {
+            "additionalProperties": false,
+            "properties": {
+              "entry": {
+                "title": "Entry",
+                "type": "string"
+              },
+              "nodes": {
+                "items": {
+                  "$ref": "#/$defs/CardNode"
+                },
+                "maxItems": 500,
+                "title": "Nodes",
+                "type": "array"
+              },
+              "edges": {
+                "items": {
+                  "$ref": "#/$defs/Connection"
+                },
+                "maxItems": 2000,
+                "title": "Edges",
+                "type": "array"
+              },
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "pure": {
+                "default": false,
+                "title": "Pure",
+                "type": "boolean"
+              },
+              "inputs": {
+                "items": {
+                  "$ref": "#/$defs/PortDefinition"
+                },
+                "title": "Inputs",
+                "type": "array"
+              },
+              "outputs": {
+                "items": {
+                  "$ref": "#/$defs/PortDefinition"
+                },
+                "title": "Outputs",
+                "type": "array"
+              }
+            },
+            "required": [
+              "entry",
+              "nodes",
+              "id",
+              "name"
+            ],
+            "title": "SubgraphDefinition",
+            "type": "object"
+          },
+          "VariableDefinition": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "maxLength": 80,
+                "minLength": 1,
+                "title": "Name",
+                "type": "string"
+              },
+              "type": {
+                "default": "any",
+                "enum": [
+                  "any",
+                  "number",
+                  "boolean",
+                  "string",
+                  "time",
+                  "duration",
+                  "resource",
+                  "task",
+                  "tasks",
+                  "result",
+                  "list",
+                  "object"
+                ],
+                "title": "Type",
+                "type": "string"
+              },
+              "initial": {
+                "default": null,
+                "title": "Initial"
+              },
+              "persistent": {
+                "default": false,
+                "title": "Persistent",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "title": "VariableDefinition",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "description": "按修订号保存调度程序草稿。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "document": {
+            "$ref": "#/$defs/ProgramDocument"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance",
+          "document",
+          "revision"
+        ],
+        "title": "ProgramSaveParams",
+        "type": "object"
+      }
+    },
+    "scheduler.program.validate": {
+      "mutates": false,
+      "params": {
+        "$defs": {
+          "CardNode": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "maxLength": 80,
+                "minLength": 1,
+                "title": "Id",
+                "type": "string"
+              },
+              "type": {
+                "title": "Type",
+                "type": "string"
+              },
+              "label": {
+                "default": "",
+                "title": "Label",
+                "type": "string"
+              },
+              "comment": {
+                "default": "",
+                "maxLength": 2000,
+                "title": "Comment",
+                "type": "string"
+              },
+              "params": {
+                "additionalProperties": true,
+                "title": "Params",
+                "type": "object"
+              },
+              "position": {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "title": "Position",
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "type"
+            ],
+            "title": "CardNode",
+            "type": "object"
+          },
+          "Connection": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "source": {
+                "title": "Source",
+                "type": "string"
+              },
+              "sourcePort": {
+                "title": "Sourceport",
+                "type": "string"
+              },
+              "target": {
+                "title": "Target",
+                "type": "string"
+              },
+              "targetPort": {
+                "default": "in",
+                "title": "Targetport",
+                "type": "string"
+              },
+              "kind": {
+                "default": "control",
+                "enum": [
+                  "control",
+                  "data"
+                ],
+                "title": "Kind",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "sourcePort",
+              "target"
+            ],
+            "title": "Connection",
+            "type": "object"
+          },
+          "PortDefinition": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "type": {
+                "default": "any",
+                "enum": [
+                  "any",
+                  "number",
+                  "boolean",
+                  "string",
+                  "time",
+                  "duration",
+                  "resource",
+                  "task",
+                  "tasks",
+                  "result",
+                  "list",
+                  "object"
+                ],
+                "title": "Type",
+                "type": "string"
+              },
+              "required": {
+                "default": false,
+                "title": "Required",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "title": "PortDefinition",
+            "type": "object"
+          },
+          "ProgramDocument": {
+            "additionalProperties": false,
+            "properties": {
+              "entry": {
+                "title": "Entry",
+                "type": "string"
+              },
+              "nodes": {
+                "items": {
+                  "$ref": "#/$defs/CardNode"
+                },
+                "maxItems": 500,
+                "title": "Nodes",
+                "type": "array"
+              },
+              "edges": {
+                "items": {
+                  "$ref": "#/$defs/Connection"
+                },
+                "maxItems": 2000,
+                "title": "Edges",
+                "type": "array"
+              },
+              "schemaVersion": {
+                "const": 1,
+                "default": 1,
+                "title": "Schemaversion",
+                "type": "integer"
+              },
+              "name": {
+                "default": "自定义调度",
+                "title": "Name",
+                "type": "string"
+              },
+              "subgraphs": {
+                "items": {
+                  "$ref": "#/$defs/SubgraphDefinition"
+                },
+                "maxItems": 100,
+                "title": "Subgraphs",
+                "type": "array"
+              },
+              "variables": {
+                "items": {
+                  "$ref": "#/$defs/VariableDefinition"
+                },
+                "maxItems": 200,
+                "title": "Variables",
+                "type": "array"
+              },
+              "viewport": {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "title": "Viewport",
+                "type": "object"
+              }
+            },
+            "required": [
+              "entry",
+              "nodes"
+            ],
+            "title": "ProgramDocument",
+            "type": "object"
+          },
+          "SubgraphDefinition": {
+            "additionalProperties": false,
+            "properties": {
+              "entry": {
+                "title": "Entry",
+                "type": "string"
+              },
+              "nodes": {
+                "items": {
+                  "$ref": "#/$defs/CardNode"
+                },
+                "maxItems": 500,
+                "title": "Nodes",
+                "type": "array"
+              },
+              "edges": {
+                "items": {
+                  "$ref": "#/$defs/Connection"
+                },
+                "maxItems": 2000,
+                "title": "Edges",
+                "type": "array"
+              },
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "pure": {
+                "default": false,
+                "title": "Pure",
+                "type": "boolean"
+              },
+              "inputs": {
+                "items": {
+                  "$ref": "#/$defs/PortDefinition"
+                },
+                "title": "Inputs",
+                "type": "array"
+              },
+              "outputs": {
+                "items": {
+                  "$ref": "#/$defs/PortDefinition"
+                },
+                "title": "Outputs",
+                "type": "array"
+              }
+            },
+            "required": [
+              "entry",
+              "nodes",
+              "id",
+              "name"
+            ],
+            "title": "SubgraphDefinition",
+            "type": "object"
+          },
+          "VariableDefinition": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "maxLength": 80,
+                "minLength": 1,
+                "title": "Name",
+                "type": "string"
+              },
+              "type": {
+                "default": "any",
+                "enum": [
+                  "any",
+                  "number",
+                  "boolean",
+                  "string",
+                  "time",
+                  "duration",
+                  "resource",
+                  "task",
+                  "tasks",
+                  "result",
+                  "list",
+                  "object"
+                ],
+                "title": "Type",
+                "type": "string"
+              },
+              "initial": {
+                "default": null,
+                "title": "Initial"
+              },
+              "persistent": {
+                "default": false,
+                "title": "Persistent",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "title": "VariableDefinition",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "description": "调度程序草稿的校验请求。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "document": {
+            "$ref": "#/$defs/ProgramDocument"
+          },
+          "mode": {
+            "default": "takeover",
+            "enum": [
+              "native",
+              "enhance",
+              "takeover"
+            ],
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance",
+          "document"
+        ],
+        "title": "ProgramValidateParams",
+        "type": "object"
+      }
+    },
+    "scheduler.program.simulate": {
+      "mutates": false,
+      "params": {
+        "$defs": {
+          "CardNode": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "maxLength": 80,
+                "minLength": 1,
+                "title": "Id",
+                "type": "string"
+              },
+              "type": {
+                "title": "Type",
+                "type": "string"
+              },
+              "label": {
+                "default": "",
+                "title": "Label",
+                "type": "string"
+              },
+              "comment": {
+                "default": "",
+                "maxLength": 2000,
+                "title": "Comment",
+                "type": "string"
+              },
+              "params": {
+                "additionalProperties": true,
+                "title": "Params",
+                "type": "object"
+              },
+              "position": {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "title": "Position",
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "type"
+            ],
+            "title": "CardNode",
+            "type": "object"
+          },
+          "Connection": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "source": {
+                "title": "Source",
+                "type": "string"
+              },
+              "sourcePort": {
+                "title": "Sourceport",
+                "type": "string"
+              },
+              "target": {
+                "title": "Target",
+                "type": "string"
+              },
+              "targetPort": {
+                "default": "in",
+                "title": "Targetport",
+                "type": "string"
+              },
+              "kind": {
+                "default": "control",
+                "enum": [
+                  "control",
+                  "data"
+                ],
+                "title": "Kind",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "sourcePort",
+              "target"
+            ],
+            "title": "Connection",
+            "type": "object"
+          },
+          "PortDefinition": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "type": {
+                "default": "any",
+                "enum": [
+                  "any",
+                  "number",
+                  "boolean",
+                  "string",
+                  "time",
+                  "duration",
+                  "resource",
+                  "task",
+                  "tasks",
+                  "result",
+                  "list",
+                  "object"
+                ],
+                "title": "Type",
+                "type": "string"
+              },
+              "required": {
+                "default": false,
+                "title": "Required",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "title": "PortDefinition",
+            "type": "object"
+          },
+          "ProgramDocument": {
+            "additionalProperties": false,
+            "properties": {
+              "entry": {
+                "title": "Entry",
+                "type": "string"
+              },
+              "nodes": {
+                "items": {
+                  "$ref": "#/$defs/CardNode"
+                },
+                "maxItems": 500,
+                "title": "Nodes",
+                "type": "array"
+              },
+              "edges": {
+                "items": {
+                  "$ref": "#/$defs/Connection"
+                },
+                "maxItems": 2000,
+                "title": "Edges",
+                "type": "array"
+              },
+              "schemaVersion": {
+                "const": 1,
+                "default": 1,
+                "title": "Schemaversion",
+                "type": "integer"
+              },
+              "name": {
+                "default": "自定义调度",
+                "title": "Name",
+                "type": "string"
+              },
+              "subgraphs": {
+                "items": {
+                  "$ref": "#/$defs/SubgraphDefinition"
+                },
+                "maxItems": 100,
+                "title": "Subgraphs",
+                "type": "array"
+              },
+              "variables": {
+                "items": {
+                  "$ref": "#/$defs/VariableDefinition"
+                },
+                "maxItems": 200,
+                "title": "Variables",
+                "type": "array"
+              },
+              "viewport": {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "title": "Viewport",
+                "type": "object"
+              }
+            },
+            "required": [
+              "entry",
+              "nodes"
+            ],
+            "title": "ProgramDocument",
+            "type": "object"
+          },
+          "SubgraphDefinition": {
+            "additionalProperties": false,
+            "properties": {
+              "entry": {
+                "title": "Entry",
+                "type": "string"
+              },
+              "nodes": {
+                "items": {
+                  "$ref": "#/$defs/CardNode"
+                },
+                "maxItems": 500,
+                "title": "Nodes",
+                "type": "array"
+              },
+              "edges": {
+                "items": {
+                  "$ref": "#/$defs/Connection"
+                },
+                "maxItems": 2000,
+                "title": "Edges",
+                "type": "array"
+              },
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "pure": {
+                "default": false,
+                "title": "Pure",
+                "type": "boolean"
+              },
+              "inputs": {
+                "items": {
+                  "$ref": "#/$defs/PortDefinition"
+                },
+                "title": "Inputs",
+                "type": "array"
+              },
+              "outputs": {
+                "items": {
+                  "$ref": "#/$defs/PortDefinition"
+                },
+                "title": "Outputs",
+                "type": "array"
+              }
+            },
+            "required": [
+              "entry",
+              "nodes",
+              "id",
+              "name"
+            ],
+            "title": "SubgraphDefinition",
+            "type": "object"
+          },
+          "VariableDefinition": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "maxLength": 80,
+                "minLength": 1,
+                "title": "Name",
+                "type": "string"
+              },
+              "type": {
+                "default": "any",
+                "enum": [
+                  "any",
+                  "number",
+                  "boolean",
+                  "string",
+                  "time",
+                  "duration",
+                  "resource",
+                  "task",
+                  "tasks",
+                  "result",
+                  "list",
+                  "object"
+                ],
+                "title": "Type",
+                "type": "string"
+              },
+              "initial": {
+                "default": null,
+                "title": "Initial"
+              },
+              "persistent": {
+                "default": false,
+                "title": "Persistent",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "title": "VariableDefinition",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "description": "带模拟上下文与步数上限的试运行请求。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "document": {
+            "$ref": "#/$defs/ProgramDocument"
+          },
+          "mode": {
+            "default": "takeover",
+            "enum": [
+              "native",
+              "enhance",
+              "takeover"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "context": {
+            "additionalProperties": true,
+            "title": "Context",
+            "type": "object"
+          },
+          "outcomes": {
+            "items": {
+              "enum": [
+                "completed",
+                "yielded",
+                "recoverable",
+                "failed"
+              ],
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "title": "Outcomes",
+            "type": "array"
+          },
+          "steps": {
+            "default": 100,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Steps",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "instance",
+          "document"
+        ],
+        "title": "ProgramSimulateParams",
+        "type": "object"
+      }
+    },
+    "scheduler.program.apply": {
+      "mutates": true,
+      "params": {
+        "additionalProperties": false,
+        "description": "把草稿应用到运行中的调度器。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "native",
+              "enhance",
+              "takeover"
+            ],
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance",
+          "revision",
+          "mode"
+        ],
+        "title": "ProgramApplyParams",
+        "type": "object"
+      }
+    },
+    "scheduler.program.state": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
         "properties": {
           "instance": {
             "maxLength": 64,
@@ -328,6 +1638,7 @@
       "mutates": true,
       "params": {
         "additionalProperties": false,
+        "description": "单任务控制请求参数模型。",
         "properties": {
           "instance": {
             "maxLength": 64,
@@ -354,6 +1665,7 @@
       "mutates": false,
       "params": {
         "additionalProperties": false,
+        "description": "日志获取请求参数模型。",
         "properties": {
           "instance": {
             "maxLength": 64,
@@ -375,10 +1687,97 @@
         "type": "object"
       }
     },
+    "opsi.simulator.status": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "日志获取请求参数模型。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "after": {
+            "default": 0,
+            "minimum": 0,
+            "title": "After",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "instance"
+        ],
+        "title": "LogsParams",
+        "type": "object"
+      }
+    },
+    "opsi.simulator.start": {
+      "mutates": true,
+      "params": {
+        "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance"
+        ],
+        "title": "InstanceParams",
+        "type": "object"
+      }
+    },
+    "opsi.simulator.stop": {
+      "mutates": true,
+      "params": {
+        "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance"
+        ],
+        "title": "InstanceParams",
+        "type": "object"
+      }
+    },
+    "opsi.simulator.figure": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance"
+        ],
+        "title": "InstanceParams",
+        "type": "object"
+      }
+    },
     "preview.capture": {
       "mutates": false,
       "params": {
         "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
         "properties": {
           "instance": {
             "maxLength": 64,
@@ -398,6 +1797,7 @@
       "mutates": true,
       "params": {
         "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
         "properties": {
           "instance": {
             "maxLength": 64,
@@ -417,6 +1817,7 @@
       "mutates": false,
       "params": {
         "additionalProperties": false,
+        "description": "综合统计报表请求参数模型。",
         "properties": {
           "instance": {
             "maxLength": 64,
@@ -433,7 +1834,8 @@
               "commission",
               "ships",
               "loot",
-              "research"
+              "research",
+              "storage"
             ],
             "title": "Category",
             "type": "string"
@@ -474,6 +1876,28 @@
             "minimum": 0,
             "title": "Series",
             "type": "integer"
+          },
+          "scope": {
+            "default": "series",
+            "enum": [
+              "series",
+              "consumable"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "task": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_]{0,40}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Task"
           }
         },
         "required": [
@@ -534,6 +1958,7 @@
       "mutates": false,
       "params": {
         "additionalProperties": false,
+        "description": "单资源图表统计请求参数模型。",
         "properties": {
           "instance": {
             "maxLength": 64,
@@ -579,6 +2004,7 @@
       "mutates": false,
       "params": {
         "additionalProperties": false,
+        "description": "API 入参基础模型，禁止额外字段并启用严格类型校验。",
         "properties": {},
         "title": "Params",
         "type": "object"
@@ -588,6 +2014,7 @@
       "mutates": true,
       "params": {
         "additionalProperties": false,
+        "description": "部署配置修改请求参数模型。",
         "properties": {
           "values": {
             "additionalProperties": true,
@@ -606,6 +2033,7 @@
       "mutates": false,
       "params": {
         "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
         "properties": {
           "instance": {
             "maxLength": 64,
@@ -625,6 +2053,7 @@
       "mutates": true,
       "params": {
         "additionalProperties": false,
+        "description": "开机启动设置请求参数模型。",
         "properties": {
           "instance": {
             "maxLength": 64,
@@ -664,10 +2093,100 @@
         "type": "object"
       }
     },
+    "accounts.status": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance"
+        ],
+        "title": "InstanceParams",
+        "type": "object"
+      }
+    },
+    "accounts.manage": {
+      "mutates": true,
+      "params": {
+        "additionalProperties": false,
+        "description": "独立实例密码只用于当前请求，禁止进入普通配置系统。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "create",
+              "unlock",
+              "lock",
+              "list",
+              "capture",
+              "select",
+              "enable",
+              "password",
+              "delete",
+              "bind_tpm",
+              "unbind_tpm",
+              "bind_local",
+              "unbind_local"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "password": {
+            "default": "",
+            "maxLength": 256,
+            "title": "Password",
+            "type": "string"
+          },
+          "new_password": {
+            "default": "",
+            "maxLength": 256,
+            "title": "New Password",
+            "type": "string"
+          },
+          "label": {
+            "default": "",
+            "maxLength": 64,
+            "title": "Label",
+            "type": "string"
+          },
+          "profile": {
+            "default": "",
+            "maxLength": 32,
+            "title": "Profile",
+            "type": "string"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "instance",
+          "action"
+        ],
+        "title": "AccountParams",
+        "type": "object"
+      }
+    },
     "updater.status": {
       "mutates": false,
       "params": {
         "additionalProperties": false,
+        "description": "API 入参基础模型，禁止额外字段并启用严格类型校验。",
         "properties": {},
         "title": "Params",
         "type": "object"
@@ -677,6 +2196,7 @@
       "mutates": false,
       "params": {
         "additionalProperties": false,
+        "description": "Git 提交记录查询参数模型。",
         "properties": {
           "offset": {
             "default": 0,
@@ -700,6 +2220,7 @@
       "mutates": true,
       "params": {
         "additionalProperties": false,
+        "description": "API 入参基础模型，禁止额外字段并启用严格类型校验。",
         "properties": {},
         "title": "Params",
         "type": "object"
@@ -709,6 +2230,7 @@
       "mutates": true,
       "params": {
         "additionalProperties": false,
+        "description": "API 入参基础模型，禁止额外字段并启用严格类型校验。",
         "properties": {},
         "title": "Params",
         "type": "object"
@@ -718,6 +2240,116 @@
       "mutates": true,
       "params": {
         "additionalProperties": false,
+        "description": "API 入参基础模型，禁止额外字段并启用严格类型校验。",
+        "properties": {},
+        "title": "Params",
+        "type": "object"
+      }
+    },
+    "announcement.get": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "公告查询参数模型。",
+        "properties": {
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          }
+        },
+        "title": "AnnouncementParams",
+        "type": "object"
+      }
+    },
+    "background.access": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "API 入参基础模型，禁止额外字段并启用严格类型校验。",
+        "properties": {},
+        "title": "Params",
+        "type": "object"
+      }
+    },
+    "background.resolve": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "maxLength": 2048,
+            "minLength": 8,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "BackgroundUrlParams",
+        "type": "object"
+      }
+    },
+    "background.gallery.list": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "API 入参基础模型，禁止额外字段并启用严格类型校验。",
+        "properties": {},
+        "title": "Params",
+        "type": "object"
+      }
+    },
+    "background.gallery.add": {
+      "mutates": true,
+      "params": {
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "maxLength": 2048,
+            "minLength": 8,
+            "title": "Url",
+            "type": "string"
+          },
+          "name": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "BackgroundGalleryAddParams",
+        "type": "object"
+      }
+    },
+    "background.gallery.remove": {
+      "mutates": true,
+      "params": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "BackgroundGalleryRemoveParams",
+        "type": "object"
+      }
+    },
+    "background.gallery.open": {
+      "mutates": true,
+      "params": {
+        "additionalProperties": false,
+        "description": "API 入参基础模型，禁止额外字段并启用严格类型校验。",
         "properties": {},
         "title": "Params",
         "type": "object"
@@ -727,6 +2359,7 @@
       "mutates": false,
       "params": {
         "additionalProperties": false,
+        "description": "鉴权请求参数模型。",
         "properties": {
           "password": {
             "default": "",
@@ -743,6 +2376,7 @@
       "mutates": false,
       "params": {
         "additionalProperties": false,
+        "description": "WebSocket 主题订阅请求参数模型。",
         "properties": {
           "instance": {
             "anyOf": [
@@ -762,11 +2396,12 @@
                 "instances",
                 "overview",
                 "logs",
-                "preview"
+                "preview",
+                "stock"
               ],
               "type": "string"
             },
-            "maxItems": 4,
+            "maxItems": 5,
             "title": "Topics",
             "type": "array"
           }
@@ -777,6 +2412,782 @@
         "title": "SubscribeParams",
         "type": "object"
       }
+    }
+  },
+  "schedulerModels": {
+    "ProgramDocument": {
+      "$defs": {
+        "CardNode": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "maxLength": 80,
+              "minLength": 1,
+              "title": "Id",
+              "type": "string"
+            },
+            "type": {
+              "title": "Type",
+              "type": "string"
+            },
+            "label": {
+              "default": "",
+              "title": "Label",
+              "type": "string"
+            },
+            "comment": {
+              "default": "",
+              "maxLength": 2000,
+              "title": "Comment",
+              "type": "string"
+            },
+            "params": {
+              "additionalProperties": true,
+              "title": "Params",
+              "type": "object"
+            },
+            "position": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "title": "Position",
+              "type": "object"
+            }
+          },
+          "required": [
+            "id",
+            "type"
+          ],
+          "title": "CardNode",
+          "type": "object"
+        },
+        "Connection": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "source": {
+              "title": "Source",
+              "type": "string"
+            },
+            "sourcePort": {
+              "title": "Sourceport",
+              "type": "string"
+            },
+            "target": {
+              "title": "Target",
+              "type": "string"
+            },
+            "targetPort": {
+              "default": "in",
+              "title": "Targetport",
+              "type": "string"
+            },
+            "kind": {
+              "default": "control",
+              "enum": [
+                "control",
+                "data"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "source",
+            "sourcePort",
+            "target"
+          ],
+          "title": "Connection",
+          "type": "object"
+        },
+        "PortDefinition": {
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "type": {
+              "default": "any",
+              "enum": [
+                "any",
+                "number",
+                "boolean",
+                "string",
+                "time",
+                "duration",
+                "resource",
+                "task",
+                "tasks",
+                "result",
+                "list",
+                "object"
+              ],
+              "title": "Type",
+              "type": "string"
+            },
+            "required": {
+              "default": false,
+              "title": "Required",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "title": "PortDefinition",
+          "type": "object"
+        },
+        "SubgraphDefinition": {
+          "additionalProperties": false,
+          "properties": {
+            "entry": {
+              "title": "Entry",
+              "type": "string"
+            },
+            "nodes": {
+              "items": {
+                "$ref": "#/$defs/CardNode"
+              },
+              "maxItems": 500,
+              "title": "Nodes",
+              "type": "array"
+            },
+            "edges": {
+              "items": {
+                "$ref": "#/$defs/Connection"
+              },
+              "maxItems": 2000,
+              "title": "Edges",
+              "type": "array"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "pure": {
+              "default": false,
+              "title": "Pure",
+              "type": "boolean"
+            },
+            "inputs": {
+              "items": {
+                "$ref": "#/$defs/PortDefinition"
+              },
+              "title": "Inputs",
+              "type": "array"
+            },
+            "outputs": {
+              "items": {
+                "$ref": "#/$defs/PortDefinition"
+              },
+              "title": "Outputs",
+              "type": "array"
+            }
+          },
+          "required": [
+            "entry",
+            "nodes",
+            "id",
+            "name"
+          ],
+          "title": "SubgraphDefinition",
+          "type": "object"
+        },
+        "VariableDefinition": {
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "maxLength": 80,
+              "minLength": 1,
+              "title": "Name",
+              "type": "string"
+            },
+            "type": {
+              "default": "any",
+              "enum": [
+                "any",
+                "number",
+                "boolean",
+                "string",
+                "time",
+                "duration",
+                "resource",
+                "task",
+                "tasks",
+                "result",
+                "list",
+                "object"
+              ],
+              "title": "Type",
+              "type": "string"
+            },
+            "initial": {
+              "default": null,
+              "title": "Initial"
+            },
+            "persistent": {
+              "default": false,
+              "title": "Persistent",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "title": "VariableDefinition",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "entry": {
+          "title": "Entry",
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/CardNode"
+          },
+          "maxItems": 500,
+          "title": "Nodes",
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/Connection"
+          },
+          "maxItems": 2000,
+          "title": "Edges",
+          "type": "array"
+        },
+        "schemaVersion": {
+          "const": 1,
+          "default": 1,
+          "title": "Schemaversion",
+          "type": "integer"
+        },
+        "name": {
+          "default": "自定义调度",
+          "title": "Name",
+          "type": "string"
+        },
+        "subgraphs": {
+          "items": {
+            "$ref": "#/$defs/SubgraphDefinition"
+          },
+          "maxItems": 100,
+          "title": "Subgraphs",
+          "type": "array"
+        },
+        "variables": {
+          "items": {
+            "$ref": "#/$defs/VariableDefinition"
+          },
+          "maxItems": 200,
+          "title": "Variables",
+          "type": "array"
+        },
+        "viewport": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "title": "Viewport",
+          "type": "object"
+        }
+      },
+      "required": [
+        "entry",
+        "nodes"
+      ],
+      "title": "ProgramDocument",
+      "type": "object"
+    },
+    "CardDefinition": {
+      "$defs": {
+        "PortDefinition": {
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "type": {
+              "default": "any",
+              "enum": [
+                "any",
+                "number",
+                "boolean",
+                "string",
+                "time",
+                "duration",
+                "resource",
+                "task",
+                "tasks",
+                "result",
+                "list",
+                "object"
+              ],
+              "title": "Type",
+              "type": "string"
+            },
+            "required": {
+              "default": false,
+              "title": "Required",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "title": "PortDefinition",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "pure": {
+          "default": true,
+          "title": "Pure",
+          "type": "boolean"
+        },
+        "entry": {
+          "default": false,
+          "title": "Entry",
+          "type": "boolean"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/PortDefinition"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/PortDefinition"
+          },
+          "title": "Outputs",
+          "type": "array"
+        },
+        "exits": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Exits",
+          "type": "array"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "required": [
+        "type",
+        "label",
+        "category"
+      ],
+      "title": "CardDefinition",
+      "type": "object"
+    },
+    "PortDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "default": "any",
+          "enum": [
+            "any",
+            "number",
+            "boolean",
+            "string",
+            "time",
+            "duration",
+            "resource",
+            "task",
+            "tasks",
+            "result",
+            "list",
+            "object"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "PortDefinition",
+      "type": "object"
+    },
+    "ResourceObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Limit"
+        },
+        "total": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total"
+        },
+        "observedAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observedat"
+        },
+        "source": {
+          "default": "unknown",
+          "title": "Source",
+          "type": "string"
+        },
+        "status": {
+          "default": "missing",
+          "enum": [
+            "fresh",
+            "stale",
+            "missing",
+            "unavailable"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "refreshable": {
+          "default": false,
+          "title": "Refreshable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ResourceObservation",
+      "type": "object"
+    },
+    "TaskInvocation": {
+      "additionalProperties": false,
+      "properties": {
+        "task": {
+          "title": "Task",
+          "type": "string"
+        },
+        "node": {
+          "title": "Node",
+          "type": "string"
+        },
+        "overrides": {
+          "additionalProperties": true,
+          "title": "Overrides",
+          "type": "object"
+        }
+      },
+      "required": [
+        "task",
+        "node"
+      ],
+      "title": "TaskInvocation",
+      "type": "object"
+    },
+    "TaskOutcome": {
+      "additionalProperties": false,
+      "properties": {
+        "task": {
+          "title": "Task",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "yielded",
+            "recoverable",
+            "failed",
+            "interrupted"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        },
+        "finishedAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finishedat"
+        }
+      },
+      "required": [
+        "task",
+        "status"
+      ],
+      "title": "TaskOutcome",
+      "type": "object"
+    },
+    "ProgramState": {
+      "$defs": {
+        "ResourceObservation": {
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Value"
+            },
+            "limit": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Limit"
+            },
+            "total": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Total"
+            },
+            "observedAt": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Observedat"
+            },
+            "source": {
+              "default": "unknown",
+              "title": "Source",
+              "type": "string"
+            },
+            "status": {
+              "default": "missing",
+              "enum": [
+                "fresh",
+                "stale",
+                "missing",
+                "unavailable"
+              ],
+              "title": "Status",
+              "type": "string"
+            },
+            "refreshable": {
+              "default": false,
+              "title": "Refreshable",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "title": "ResourceObservation",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "default": "idle",
+          "title": "Status",
+          "type": "string"
+        },
+        "node": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Node"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        },
+        "task": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task"
+        },
+        "deadline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deadline"
+        },
+        "trace": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Trace",
+          "type": "array"
+        },
+        "variables": {
+          "additionalProperties": true,
+          "title": "Variables",
+          "type": "object"
+        },
+        "resources": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ResourceObservation"
+          },
+          "title": "Resources",
+          "type": "object"
+        }
+      },
+      "title": "ProgramState",
+      "type": "object"
     }
   }
 }

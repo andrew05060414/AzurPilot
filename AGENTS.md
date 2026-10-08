@@ -9,6 +9,7 @@
 - 在已授权范围内，直接进行本地编辑、构建、隔离测试及失败修复，无需逐步确认。只有缺失信息会实质影响结果，或下一步超出授权范围时才询问；已有授权持续有效。
 - 真实游戏任务可能消耗资源或改变账号状态。普通开发验证优先使用测试夹具、已有截图和模拟服务；实际账号操作按用户指定的实例与任务范围执行。
 - 保留已有工作区修改。交付时说明结果、实际验证及剩余限制；遇到环境或权限阻塞，明确未完成的部分，不把初版或未验证结果当作完成。
+- 修改实现时，同一轮同步更新受影响的技能与模块文档：入口、配置、页面前置条件、游戏机制或恢复语义改变后，先以当前源码及已核实材料修正文档，再交付。可复用机制写入对应参考文档，不复制私人配置或把单次日志写成通用规则；无相关行为变化时不做无关文档改写。
 
 ## 项目与环境
 
@@ -23,10 +24,12 @@ AzurPilot 是面向安卓模拟器的碧蓝航线自动化框架，支持 CN/EN/
 | 同步 Python 依赖 | `uv sync --frozen` |
 | 安装前端锁定依赖 | `npm ci --prefix frontend` |
 | 启动 WebUI | `uv run python gui.py` |
+| 启动终端交互界面 (TUI) | `uv run python tui.py` |
 | 启动游戏调度器 | `uv run python alas.py` |
 | 启动独立 MCP SSE 服务 | `uv run python mcp_server_sse.py` |
 | Python 单个测试模块（示例） | `uv run python -m unittest tests.test_api` |
 | Python 全量单元测试 | `uv run python -m unittest discover -s tests` |
+| Python pytest 测试（含 shop_event 等） | `uv run pytest tests/shop_event` |
 | Python 基础 CI lint | `uv run ruff check . --select E9,F63,F7,F82 --ignore F821,F722` |
 | 前端类型检查 | `npm run typecheck --prefix frontend` |
 | 前端单元测试 | `npm test --prefix frontend` |
@@ -37,7 +40,7 @@ AzurPilot 是面向安卓模拟器的碧蓝航线自动化框架，支持 CN/EN/
 
 ## 按任务查阅
 
-先定位相关实现；需要背景时再打开对应文档。小范围文案或局部修改不要求通读架构。模块文档位于 [docs/modules/](docs/modules/README.md)（按模块职责组织的 20 节标准文档，入口见其索引）；目录、依赖和行为以当前代码、清单及 CI 为准。`.agent/` 仅存历史分析，已由 docs/modules/ 取代；其中旧流程或固定格式要求与本文件冲突时，以本文件为准。
+先定位相关实现；需要背景时再打开对应文档。小范围文案或局部修改不要求通读架构。模块文档位于 [docs/modules/](docs/modules/README.md)（按模块职责组织的 20 节标准文档，入口见其索引）；目录、依赖和行为以当前代码、清单及 CI 为准。
 
 | 涉及的工作 | 实现与参考入口 |
 | --- | --- |
@@ -111,15 +114,7 @@ def some_function(self, skip_first_screenshot=True):
 
 根据行为影响选择验证，不因修改一个文件就默认运行全部检查：
 
-- 纯文档改动核对事实、链接及差异即可；生成规则改动需验证对应产物。
-- Python 逻辑先运行受影响的 `unittest` 模块；跨模块、导入或运行时改动再扩大到相关集成检查、全量测试或导入冒烟。
 - 前端改动按影响选择类型检查、相关单元测试和构建；交互或布局变化还需浏览器验证。Playwright 主配置使用 `tests/serve_frontend.py` 的临时配置并禁止真实游戏进程，运行前需有最新前端构建；模拟服务测试使用独立 mock。
-- 本地隔离测试可以连续执行、修复并重跑，无需逐次确认。检查通过后，只有新的修改、失败或未解决风险才需要扩大或重复验证。
-- 游戏识别改动优先使用已有截图离线验证；模拟器实测按本次授权执行。未实测时明确说明，不能用静态检查替代实测结论。
-
-交付前审阅本次差异，重点检查需求完整性、兼容性、并发与状态、隐私及无关修改。可修复的问题直接修复；报告实际发现和验证结果，不要求每次输出固定审查模板。
-
-提交前查看全部 staged、unstaged 和 untracked 修改，区分本次变更与已有工作，按功能目的组织提交。独立的格式、依赖或工程调整应分开；实现、必要配置、生成产物和回归测试可在同一功能提交中。排除缓存、构建产物和调试残留。提交信息采用中文 Conventional Commits，例如 `fix(config): 避免热重载覆盖并发配置更新`，说明为什么修改。
 
 AI 自行创建 PR 或执行任何涉及提 PR 的操作时，必须按 [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md) 模板填写：如实勾选变更类型与代码质量确认项（未执行的检查不勾选），并在描述中说明变更原因、验证结果与相关 Issue。
 

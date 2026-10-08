@@ -1,3 +1,7 @@
+/**
+ * @fileoverview 存储项字段的内容展示与清空组件。
+ */
+
 import { Trash2 } from 'lucide-react'
 import type { Value } from '../api/types'
 import { useApp } from '../app/context'

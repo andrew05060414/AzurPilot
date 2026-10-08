@@ -246,6 +246,8 @@ Reward:
     Research:
       - Scheduler
       - Research
+    StorageStatistics:
+      - Scheduler
     Dorm:
       - Scheduler
       - Dorm
@@ -330,6 +332,10 @@ Opsi:
       - Scheduler
       - OpsiExplore
       - OpsiFleet
+    OpsiExploreCleanup:
+      - Scheduler
+      - OpsiExploreCleanup
+      - OpsiFleet
     OpsiShop:
       - Scheduler
       - OpsiShop
@@ -377,6 +383,7 @@ Opsi:
     OpsiScheduling:
       - Scheduler
       - OpsiScheduling
+      - OpsiSmartExplore
     OpsiPreventActionPointOverflow:
       - Scheduler
       - OpsiPreventActionPointOverflow

@@ -255,7 +255,10 @@ class IslandFarm(Island, WarehouseOCR, LoginHandler):
         }
 
     def check_inventory_and_prepare_lists(self):
-        """检查库存并准备需要补种的列表（按库存升序，最少的优先）"""
+        """检查库存并准备需要补种的列表。
+
+        按库存升序排序，优先补种库存最少的作物。
+        """
         for category in ['farm', 'orchard', 'nursery']:
             inventory = self.warehouse_inventory(category)
             config = self.INVENTORY_CONFIG[category]
@@ -282,11 +285,16 @@ class IslandFarm(Island, WarehouseOCR, LoginHandler):
             self.to_plant_lists[category].sort(key=lambda name: inventory.get(name, 0))
 
     def _is_orchard_crop_in_season(self, crop_name):
-        """
-        检查果园作物是否在当季（按季节配置）。
+        """检查果园作物是否在当季（按季节配置）。
 
         秋季的秋月梨/柿子属于果园季节限定作物（坠香果园），只在秋季补种；
         非季节限定的果园作物（苹果、橡胶等）始终返回 True。
+
+        Args:
+            crop_name (str): 作物内部标识名。
+
+        Returns:
+            bool: 作物是否在当季或属于非季节限定。
         """
         if not hasattr(self, 'season_config') or not self.season_config.is_seasonal_enabled:
             return True
@@ -303,9 +311,15 @@ class IslandFarm(Island, WarehouseOCR, LoginHandler):
         return True
 
     def _is_nursery_crop_in_season(self, crop_name):
-        """
-        检查苗圃作物是否在当季（按季节配置）
-        非季节限定的作物始终返回 True
+        """检查苗圃作物是否在当季（按季节配置）。
+
+        非季节限定的作物始终返回 True。
+
+        Args:
+            crop_name (str): 作物内部标识名。
+
+        Returns:
+            bool: 作物是否在当季或属于非季节限定。
         """
         if not hasattr(self, 'season_config') or not self.season_config.is_seasonal_enabled:
             return True
@@ -401,7 +415,14 @@ class IslandFarm(Island, WarehouseOCR, LoginHandler):
         self.post_get_and_close()
 
     def get_orchard_character_filter(self, product):
-        """根据小天城橡胶树开关生成果园派遣角色优先级。"""
+        """根据小天城橡胶树配置生成果园派遣角色优先级。
+
+        Args:
+            product (str): 目标作物名称。
+
+        Returns:
+            list[str]: 排序后的派遣角色优先级列表。
+        """
         character_filter = self.worker_filters.get('orchard', "WorkerJuu")
         characters = self.parse_character_filter(character_filter)
         if not self.config.IslandOrchard_AmagiChanRubber:
@@ -502,6 +523,14 @@ class IslandFarm(Island, WarehouseOCR, LoginHandler):
         return True
 
     def run(self):
+        """运行岛屿农场、果园与苗圃自动化管理主流程。
+
+        依次完成仓库库存巡检、岗位状态检查、低库存作物补种与默认作物种植，
+        并计算下次调度时间。
+
+        Raises:
+            GameBugError: 遇到游戏内部错误需要重启时抛出。
+        """
         self.island_error = False
         self.ui_ensure(page_island)
         self.check_inventory_and_prepare_lists()
@@ -568,9 +597,9 @@ class IslandFarm(Island, WarehouseOCR, LoginHandler):
                         'time_var_name': time_var_name
                     })
 
-        # 滑动到苗圃位置
+        # 滑动到苗圃位置（滑动距离不够时自动补滑，直到苗圃岗位出现）
         self.device.sleep(1)
-        self.post_manage_up_swipe(450)
+        self.post_manage_swipe_until_appear(ISLAND_NURSERY_POST1, min_swipes=1)
         self.device.sleep(0.5)  # 等待滑动动画完成
 
         # 然后遍历苗圃
@@ -665,7 +694,7 @@ class IslandFarm(Island, WarehouseOCR, LoginHandler):
             # 然后处理苗圃的播种
             category = 'nursery'
             if idle_posts[category]:
-                self.post_manage_up_swipe(450)
+                self.post_manage_swipe_until_appear(ISLAND_NURSERY_POST1, min_swipes=1)
                 self.device.sleep(0.5)
                 idle_posts_list = idle_posts[category]
                 crops_to_plant = all_plants_to_plant[category]
@@ -704,6 +733,7 @@ class IslandFarm(Island, WarehouseOCR, LoginHandler):
             from module.exception import GameBugError
             raise GameBugError("检测到岛屿ERROR1，需要重启")
     def test(self):
+        """测试农场仓库库存 OCR 识别。"""
         self.warehouse_inventory('farm')
 if __name__ == "__main__":
     az = IslandFarm('alas', task='Alas')

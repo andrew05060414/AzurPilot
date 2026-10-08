@@ -1,3 +1,7 @@
+/**
+ * @fileoverview 开发者工具的模拟状态覆盖（实例状态徽章、更新角标等）。
+ */
+
 import { useSyncExternalStore } from 'react'
 import type { Status } from '../api/types'
 
@@ -43,8 +47,3 @@ export function previewUpdate(active: boolean) {
   publish({...snapshot, updatePreview: active})
 }
 
-/** 清掉全部模拟状态。 */
-export function clearDevOverride() {
-  stopTimer()
-  publish(OFF)
-}

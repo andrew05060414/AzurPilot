@@ -18,6 +18,7 @@ from module.base.timer import Timer
 from module.base.utils import get_color, image_size, limit_in, save_image, set_template_match_non_native_720p
 from module.config.time_source import now as current_time
 from module.device.method.adb import Adb
+from module.device.method.azurpilot_android import AzurPilotAndroid
 from module.device.method.ascreencap import AScreenCap
 from module.device.method.droidcast import DroidCast
 from module.device.method.ldopengl import LDOpenGL
@@ -27,7 +28,7 @@ from module.device.method.wsa import WSA
 from module.exception import RequestHumanTakeover, ScriptError
 from module.logger import logger
 
-class Screenshot(Adb, WSA, DroidCast, AScreenCap, Scrcpy, NemuIpc, LDOpenGL):
+class Screenshot(AzurPilotAndroid, Adb, WSA, DroidCast, AScreenCap, Scrcpy, NemuIpc, LDOpenGL):
     """设备截图管理器。
 
     通过多重继承组合所有截图后端，根据用户配置的 Emulator_ScreenshotMethod
@@ -59,6 +60,7 @@ class Screenshot(Adb, WSA, DroidCast, AScreenCap, Scrcpy, NemuIpc, LDOpenGL):
                 值为对应的截图方法。
         """
         return {
+            'azurpilot_android': self.screenshot_azurpilot_android,
             'ADB': self.screenshot_adb,
             'ADB_nc': self.screenshot_adb_nc,
             'uiautomator2': self.screenshot_uiautomator2,
@@ -132,6 +134,12 @@ class Screenshot(Adb, WSA, DroidCast, AScreenCap, Scrcpy, NemuIpc, LDOpenGL):
 
         已在 MuMu 模拟器的 1600x900、1920x1080、2560x1440 和 3840x2160 分辨率下测试。
         使用三次下采样并配合轻度高斯模糊混合，最接近原生 720p 效果。
+
+        Args:
+            image (np.ndarray): 待缩放的原始截图图像。
+
+        Returns:
+            np.ndarray: 缩放并混合后的 1280x720 图像。
         """
         image = cv2.resize(image, (1280, 720), interpolation=cv2.INTER_CUBIC)
         blur = cv2.GaussianBlur(image, (0, 0), sigmaX=1.0, sigmaY=1.0)
@@ -290,6 +298,12 @@ class Screenshot(Adb, WSA, DroidCast, AScreenCap, Scrcpy, NemuIpc, LDOpenGL):
         """检查屏幕分辨率是否为 1280x720。
 
         调用前需先截取截图。
+
+        Returns:
+            bool: 尺寸符合要求或处于可兼容状态返回 True，需要重试返回 False。
+
+        Raises:
+            RequestHumanTakeover: 当分辨率不受支持时抛出。
         """
         if self._screen_size_checked:
             return True

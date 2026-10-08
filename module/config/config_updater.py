@@ -559,6 +559,7 @@ class ConfigGenerator:
 
     @staticmethod
     def generate_deploy_template():
+        """根据基础模板生成各环境（国内镜像、AidLux、Docker、Linux）的部署配置模板。"""
         template = poor_yaml_read(DEPLOY_TEMPLATE)
         cn = {
             'Repository': 'git://git.pull/AzurPilot',
@@ -602,6 +603,7 @@ class ConfigGenerator:
         update('template-linux-cn', linux, cn)
 
     def insert_package(self):
+        """将支持的模拟器包名选项插入参数定义。"""
         option = deep_get(self.argument, keys='Emulator.PackageName.option')
         option += list(VALID_PACKAGE.keys())
         option += list(VALID_CHANNEL_PACKAGE.keys())
@@ -609,6 +611,7 @@ class ConfigGenerator:
         deep_set(self.args, keys='Alas.Emulator.PackageName.option', value=option)
 
     def insert_server(self):
+        """将支持的服务器名称选项插入参数定义。"""
         option = deep_get(self.argument, keys='Emulator.ServerName.option')
         server_list = []
         for server, _list in VALID_SERVER_LIST.items():
@@ -637,6 +640,13 @@ class ConfigGenerator:
 class ConfigUpdater:
     # 格式：source, target, (可选) convert_func
     redirection = [
+        ('OpsiScheduling.OpsiSmartExplore.BuyActionPoint', 'OpsiScheduling.OpsiScheduling.BuyActionPoint'),
+        ('OpsiExplore.OpsiExplore.MeowfficerCleanup', 'OpsiExploreCleanup.Scheduler.Enable'),
+        ('OpsiExplore.OpsiFleet', 'OpsiExploreCleanup.OpsiFleet'),
+        ('OpsiExplore.OpsiExplore.MeowfficerCleanupState', 'OpsiExploreCleanup.OpsiExploreCleanup.State',
+         opsi_explore_cleanup_state_redirect),
+        # 保留旧开关的布尔值，关闭后不再保留任何推荐材料中的普通航母。
+        ('General.Enhance.SkipSingleCommonCV', 'General.Enhance.KeepCommonCV'),
         # ('OpsiDaily.OpsiDaily.BuySupply', 'OpsiShop.Scheduler.Enable'),
         # ('OpsiDaily.Scheduler.Enable', 'OpsiDaily.OpsiDaily.DoMission'),
         # ('OpsiShop.Scheduler.Enable', 'OpsiShop.OpsiShop.BuySupply'),
@@ -701,6 +711,13 @@ class ConfigUpdater:
         ('Alas.OilOverflow.Enable', 'Alas.CoinRush.AutoOnHighOil'),
         ('Alas.OilOverflow.Threshold', 'Alas.CoinRush.StartOil', oil_start_redirect),
     ]
+    # 大世界掉落截图由单一开关拆成按任务分类的 8 个开关，旧值铺给每一个，
+    # 升级后各任务的截图行为与升级前保持一致。
+    redirection += [
+        ('Alas.DropRecord.OpsiRecord',
+         tuple(f'Alas.DropRecord.{arg}' for arg in OPSI_RECORD_ARGS),
+         opsi_record_redirect),
+    ]
 
     # redirection += [
     #     (
@@ -728,6 +745,9 @@ class ConfigUpdater:
             更新后的配置字典。
         """
         new = {}
+        # 交易玩家身份不是可编辑参数，运行器迁移必须原样保留。
+        if not is_template and '_stockInstance' in old:
+            new['_stockInstance'] = old['_stockInstance']
 
         for keys, data in deep_iter(self.args, depth=3):
             # 跳过非字典项（叶子值，如字符串、数字等）

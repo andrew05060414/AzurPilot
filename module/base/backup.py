@@ -1,3 +1,8 @@
+"""数据备份与归档模块。
+
+提供数据库和用户配置的每日自动备份、压缩存档与历史备份过期清理功能。
+"""
+
 import json
 import shutil
 import sqlite3
@@ -17,16 +22,15 @@ BACKUP_KEEP_DAYS = 7
 DATABASE_FILES = (
     'azurstats_local.db',
     'cl1_data.db',
+    'storage_statistics.db',
+    'daily_summary.db',
 )
 
 
 def backup(enable=True, keep_days=BACKUP_KEEP_DAYS):
-    """
-    执行每日备份。
+    """执行每日备份。
 
-    包括：
-        - 数据库
-        - 用户配置
+    备份数据库文件与用户配置文件，并清理超期备份。
 
     Args:
         enable (bool): 是否启用备份。关闭时直接返回，既不新建备份，
@@ -65,14 +69,13 @@ def backup(enable=True, keep_days=BACKUP_KEEP_DAYS):
 
 
 def backup_database(backup_dir):
-    """
-    备份数据库。
+    """备份数据库文件。
 
     Args:
-        backup_dir (Path): 备份目录。
+        backup_dir (Path): 备份目标目录。
 
     Returns:
-        list: 备份文件信息。
+        list[dict]: 成功备份的文件信息列表。
     """
     logger.info('开始备份数据库')
 
@@ -88,10 +91,7 @@ def backup_database(backup_dir):
         target = backup_dir / name
 
         try:
-            sqlite_backup(
-                source=source,
-                target=target,
-            )
+            sqlite_backup(source=source, target=target)
 
             files.append({
                 'name': name,
@@ -106,22 +106,31 @@ def backup_database(backup_dir):
 
 
 def backup_config(backup_dir):
-    """
-    备份用户配置。
+    """备份用户配置文件。
 
-    包括：
-        - deploy.yaml
-        - 用户配置 json（排除 template*.json）
+    包括 deploy.yaml 和除 template*.json 外的所有 json 配置文件。
 
     Args:
-        backup_dir (Path): 备份目录。
+        backup_dir (Path): 备份目标目录。
 
     Returns:
-        list: 备份文件信息。
+        list[dict]: 成功备份的文件信息列表。
     """
     logger.info('开始备份用户配置')
 
     files = []
+    scheduler = CONFIG_DIR / 'scheduler'
+    if scheduler.exists():
+        from module.scheduler.store import ProgramStore
+        store = ProgramStore(CONFIG_DIR)
+        for source in scheduler.glob('*.sqlite3'):
+            relative = source.relative_to(CONFIG_DIR)
+            target = backup_dir / relative
+            try:
+                store.backup(source.stem, target)
+                files.append({'name': str(relative), 'size': target.stat().st_size})
+            except Exception as exc:
+                logger.warning(f'调度数据库备份失败：{source}，{exc}')
 
     deploy = CONFIG_DIR / 'deploy.yaml'
 
@@ -157,9 +166,9 @@ def backup_config(backup_dir):
 
     return files
 
+
 def sqlite_backup(source, target):
-    """
-    使用 SQLite 原生 backup() 接口备份数据库。
+    """使用 SQLite 原生 backup() 接口备份数据库。
 
     Args:
         source (Path): 原数据库路径。
@@ -176,12 +185,11 @@ def sqlite_backup(source, target):
 
 
 def create_backup_info(backup_dir, files):
-    """
-    创建备份信息文件。
+    """创建备份信息元数据文件。
 
     Args:
-        backup_dir (Path): 备份目录。
-        files (list): 已备份文件信息。
+        backup_dir (Path): 备份目录路径。
+        files (list): 已备份文件信息列表。
     """
     info = {
         'backup_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -199,8 +207,7 @@ def create_backup_info(backup_dir, files):
 
 
 def clean_backup(keep_days=BACKUP_KEEP_DAYS):
-    """
-    清理超过保留天数的历史备份。
+    """清理超过保留天数的历史备份目录。
 
     Args:
         keep_days (int): 历史备份保留天数。小于 1 时按 1 天处理，
@@ -229,4 +236,3 @@ def clean_backup(keep_days=BACKUP_KEEP_DAYS):
             logger.info(f'已删除过期备份：{folder.name}')
         except Exception as e:
             logger.warning(f'删除过期备份失败：{folder.name}，{e}')
-

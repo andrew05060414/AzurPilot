@@ -42,6 +42,12 @@ class AcademyPtOcr(Digit):
         """从冒号后提取数字部分。
 
         输入示例: '累计: 840' -> 提取 '840'
+
+        Args:
+            result (str): 原始识别字符串。
+
+        Returns:
+            int: 提取的数字结果。
         """
         logger.attr(self.name, result)
         try:
@@ -62,6 +68,12 @@ class DALPtOcr(Digit):
         """从 X 字符后提取数字部分。
 
         输入示例: 'X9100' -> 提取 '9100'
+
+        Args:
+            result (str): 原始识别字符串。
+
+        Returns:
+            int: 提取的数字结果。
         """
         logger.attr(self.name, result)
         try:
@@ -126,7 +138,7 @@ class Coalition(CoalitionCombat, CampaignEvent):
                 break
         else:
             logger.warning('等待PT超时，假设已达到')
-        LogRes(self.config).Pt = pt
+        LogRes(self.config).record('Pt', pt, observed=pt != 999999 and bool(getattr(ocr, 'last_valid', False)))
         self.config.update()
         return pt
 

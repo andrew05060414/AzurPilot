@@ -38,6 +38,8 @@ function createMockContext(): AppContextValue {
     setDevMode: () => {},
     theme: 'light',
     setTheme: () => {},
+    material: 'glass',
+    setMaterial: () => {},
     palette: 'ocean',
     setPalette: () => {},
     colorMode: 'auto',
@@ -50,8 +52,6 @@ function createMockContext(): AppContextValue {
     setCompactRailSide: () => {},
     compactRailWidth: 244,
     setCompactRailWidth: () => {},
-    taskNavMode: 'tree',
-    setTaskNavMode: () => {},
     language: 'zh-CN',
     setLanguage: () => {},
   }

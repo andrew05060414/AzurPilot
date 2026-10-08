@@ -1,4 +1,8 @@
-import { Component, type ReactNode } from 'react'
+/**
+ * @fileoverview 前端应用主入口，初始化主题并挂载 React 根节点。
+ */
+
+import { Component, lazy, Suspense, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createHashRouter, RouterProvider, Navigate } from 'react-router-dom'
 import { App } from './app/App'
@@ -10,11 +14,13 @@ import { TaskConfig } from './pages/TaskConfig'
 import { Statistics } from './pages/Statistics'
 import { Home } from './pages/Home'
 import { Updater } from './pages/Updater'
+import { Announcement } from './pages/Announcement'
 import { InterfaceSettings } from './pages/InterfaceSettings'
 import { RemoteAccess } from './pages/RemoteAccess'
 import { Settings } from './pages/Settings'
 import { DevControls } from './pages/DevControls'
 import { ConfigManager } from './pages/ConfigManager'
+import {StockExchangeBoundary,StockExchangeFallback} from './stock/OverviewLink'
 import { translateCurrentUi } from './i18n'
 
 /* 顶层兜底与路由级兜底共用同一页：路由渲染出错时 React Router 会先接住，
@@ -30,12 +36,17 @@ class ErrorBoundary extends Component<{children: ReactNode}, {failed: boolean}> 
     return this.props.children
   }
 }
+const SchedulerProgram = lazy(() => import('./pages/SchedulerProgram').then(module => ({default: module.SchedulerProgram})))
+const StockExchange = lazy(() => import('./pages/StockExchange').then(module => ({default: module.StockExchange})))
+
 const router = createHashRouter([
-  {path: '/', element: <App/>, errorElement: <ErrorPage/>, children: [{index: true, element: <Home/>}, {path: 'interface', element: <InterfaceSettings/>}, {path: 'remote', element: <RemoteAccess/>}, {path: 'settings', element: <Settings/>}, {path: 'updater', element: <Updater/>}, {path: 'configs', element: <ConfigManager/>}, {path: 'dev', element: <DevControls/>}]},
+  {path: '/', element: <App/>, errorElement: <ErrorPage/>, children: [{index: true, element: <Home/>}, {path: 'announcement', element: <Announcement/>}, {path: 'interface', element: <InterfaceSettings/>}, {path: 'remote', element: <RemoteAccess/>}, {path: 'settings', element: <Settings/>}, {path: 'updater', element: <Updater/>}, {path: 'configs', element: <ConfigManager/>}, {path: 'dev', element: <DevControls/>}]},
   {path: '/i/:instance', element: <App/>, errorElement: <ErrorPage/>, children: [
     {index: true, element: <Navigate to="overview" replace/>},
     {path: 'overview', element: <Overview/>}, {path: 'task/:task', element: <TaskConfig/>},
-    {path: 'logs', element: <Navigate to="../overview" replace/>}, {path: 'statistics', element: <Statistics/>}, {path: 'settings', element: <Navigate to="/settings" replace/>},
+    {path: 'stock-exchange', element: <StockExchangeBoundary><Suspense fallback={<StockExchangeFallback/>}><StockExchange/></Suspense></StockExchangeBoundary>},
+    {path: 'logs', element: <Navigate to="../overview" replace/>}, {path: 'statistics', element: <Statistics/>}, {path: 'scheduler', element: <Navigate to="../task/SchedulerProgram" replace/>}, {path: 'settings', element: <Navigate to="/settings" replace/>},
+    {path: 'task/SchedulerProgram', element: <Suspense fallback={<div>{translateCurrentUi('common.loading')}</div>}><SchedulerProgram/></Suspense>},
   ]},
   {path: '*', element: <Navigate to="/" replace/>},
 ])

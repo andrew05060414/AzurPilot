@@ -1,14 +1,20 @@
+/**
+ * @fileoverview 主页仪表盘与实例列表导航卡片视图。
+ */
+
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, ExternalLink, History, Plus, Server } from 'lucide-react'
+import { ArrowRight, ExternalLink, History, Megaphone, Plus, Server } from 'lucide-react'
 import { useApp, useConnection } from '../app/context'
+import { useAnnouncement } from '../app/announcement'
 import type { Theme } from '../app/theme'
 import type { UiTranslator } from '../i18n'
 import { CreateInstance } from '../app/App'
 import { StatusBadge } from '../components/ui'
+import { LazyMarkdown } from '../components/LazyMarkdown'
 
 /** 「切换旧版界面」快捷按钮用：恢复目标限定在现代主题里，避免来回落到别的档位。 */
-const MODERN_THEMES: readonly string[] = ['light', 'dark', 'minimal']
+const MODERN_THEMES: readonly string[] = ['light', 'dark', 'minimal', 'extreme']
 
 function getGreeting(ui: UiTranslator): string {
   const hour = new Date().getHours()
@@ -20,6 +26,7 @@ function getGreeting(ui: UiTranslator): string {
 export function Home() {
   const {instances, t, ui, theme, setTheme, resolvedMode} = useApp()
   const connection = useConnection()
+  const announcement = useAnnouncement()
   const [creating, setCreating] = useState(false)
   useEffect(() => {
     document.documentElement.classList.add('home-active')
@@ -38,14 +45,50 @@ export function Home() {
     try { previous = localStorage.getItem('azurpilot.theme-before-legacy') } catch { /* 同上。 */ }
     setTheme(previous !== null && MODERN_THEMES.includes(previous) ? previous as Theme : resolvedMode === 'dark' ? 'dark' : 'light')
   }
+  const hasAnnouncement = Boolean(announcement.data && (announcement.data.title || announcement.data.content))
   return <>
     <div className="home-editorial">
-      <aside className="home-deck">
-        <div className="home-deck-copy">
-          <p className="home-deck-eyebrow">{ui('home.commandCenter')}</p>
-          <h1 className="home-deck-greeting">{getGreeting(ui)}</h1>
-          <p className="home-deck-subtitle">{ui('home.subtitle')}</p>
-        </div>
+      <aside className={`home-deck ${hasAnnouncement ? 'home-deck-with-announcement' : ''}`}>
+        {hasAnnouncement && announcement.data ? (
+          <div className="home-deck-announcement">
+            <header className="home-deck-announcement-header">
+              <div className="home-deck-badge-group">
+                <Megaphone size={15} />
+                <span>{ui('announcement.latest')}</span>
+                {announcement.unread && <span className="tiny-dot red" title={ui('nav.newBadge')} />}
+              </div>
+              <Link to="/announcement" className="home-deck-view-all" title={ui('announcement.viewAll')}>
+                <span>{ui('announcement.viewAll')}</span>
+                <ArrowRight size={13} />
+              </Link>
+            </header>
+            <h1 className="home-deck-announcement-title">
+              <Link to="/announcement">{announcement.data.title}</Link>
+            </h1>
+            <div className="home-deck-announcement-content">
+              <LazyMarkdown content={announcement.data.content} />
+            </div>
+            {announcement.data.url && (
+              <div className="home-deck-announcement-footer">
+                <a
+                  href={announcement.data.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="home-deck-link"
+                >
+                  <ExternalLink size={13} />
+                  <span>{ui('announcement.openExternal')}</span>
+                </a>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="home-deck-copy">
+            <p className="home-deck-eyebrow">{ui('home.commandCenter')}</p>
+            <h1 className="home-deck-greeting">{getGreeting(ui)}</h1>
+            <p className="home-deck-subtitle">{ui('home.subtitle')}</p>
+          </div>
+        )}
         <div className="home-deck-foot">
           <dl className="home-stats" aria-label={ui('home.summary')}>
             <div className="home-stat"><dt>{ui('home.allInstances')}</dt><dd>{instances.length}</dd></div>
@@ -63,6 +106,8 @@ export function Home() {
           <h2>{ui('home.instances')}</h2>
           <button className="button primary" disabled={connection !== 'ready'} onClick={() => setCreating(true)}><Plus size={16}/>{ui('home.newInstance')}</button>
         </header>
+        {/* 一级面上挖出来的透明容器：不画底、不画边、不渲染材质，只为让溢出的实例卡在这里滚。 */}
+        <div className="home-scroll">
         <div className="home-instance-grid">
           {instances.map(item => {
             const task = item.status === 'running' ? item.currentTask ? t(`Task.${item.currentTask}.name`) : ui('home.waitingSchedule') : item.status === 'error' ? ui('status.error') : item.status === 'updating' ? ui('status.updating') : ui('home.notRunning')
@@ -74,6 +119,7 @@ export function Home() {
             </Link>
           })}
           {!instances.length && <button className="home-instance-empty" disabled={connection !== 'ready'} onClick={() => setCreating(true)}><Plus size={28}/><span>{ui('instance.createFirst')}</span></button>}
+        </div>
         </div>
       </section>
     </div>
