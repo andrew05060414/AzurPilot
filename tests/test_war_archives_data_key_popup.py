@@ -23,15 +23,20 @@ class FakeInfoHandler:
     use_data_key_appear = InfoHandler.use_data_key_appear
     handle_use_data_key = InfoHandler.handle_use_data_key
     handle_combat_low_emotion = InfoHandler.handle_combat_low_emotion
+    is_story_skip_popup_pending = InfoHandler.is_story_skip_popup_pending
 
-    def __init__(self, text_template=False, checkbox=False, popup=True, confirm_result=True):
+    def __init__(self, text_template=False, checkbox=False, popup=True, confirm_result=True,
+                 story_just_skipped=False):
         """
         Args:
             text_template: 黄色「档案密钥」模板是否命中。
             checkbox: 「今日不再提示」复选框是否已渲染出来。
             popup: 双按钮弹窗是否在画面上。
             confirm_result: handle_popup_confirm 是否点到确定。
+            story_just_skipped: 是否刚点过剧情跳过（story_popup_timeout 未到期）。
         """
+        self.story_popup_timeout = SimpleNamespace(
+            started=lambda: story_just_skipped, reached=lambda: False)
         self.text_template = text_template
         self.checkbox_visible = checkbox
         self.checkbox_enabled = False
@@ -167,6 +172,22 @@ class TestLowEmotionWithDataKey(unittest.TestCase):
 
         self.assertEqual(fake.clicked, ['取消'])
         self.assertEqual(len(reset), 1)
+
+    def test_story_skip_confirm_is_not_red_face_popup(self):
+        """刚点过剧情跳过时的双按钮弹窗是跳过确认框：不取消、不清零心情。
+
+        16 图进图后的潜艇支援战斗带剧情，跳过未读剧情会弹确认框，
+        曾被当成红脸弹窗取消，导致心情清零、任务延后到下次刷新。
+        """
+        fake = FakeInfoHandler(text_template=False, checkbox=False, story_just_skipped=True)
+        fake.emotion = SimpleNamespace(is_calculate=True, is_ignore=False)
+        reset = []
+        fake.emotion.emergency_reset = lambda: reset.append(None)
+
+        self.assertFalse(fake.handle_combat_low_emotion())
+
+        self.assertEqual(fake.clicked, [])
+        self.assertEqual(reset, [])
 
 
 if __name__ == '__main__':

@@ -271,6 +271,9 @@ class InfoHandler(ModuleBase):
         - calculate 模式（不含 ignore）：正常不应出现红脸弹窗（已预检），
           若出现则视为异常，取消弹窗退出关卡、心情清零、延时任务
 
+        跳过未读剧情的「是否跳过」确认框也是这两个通用按钮，calculate 模式下
+        在 story_skip() 的确认窗口期内不判定红脸，见 is_story_skip_popup_pending()。
+
         作战档案出击后的「消耗档案密钥」弹窗同样由 POPUP_CANCEL /
         POPUP_CONFIRM 这两个通用按钮组成，仅凭按钮判定会把出击被数据密钥
         弹窗拦住误判成红脸弹窗（取消弹窗、清零心情、任务延后到次日），
@@ -293,6 +296,10 @@ class InfoHandler(ModuleBase):
         # calculate 模式保底：正常不应出现红脸弹窗
         # 若出现则可能是ALAS计算错误或用户手动操作，需异常处理
         if self.emotion.is_calculate and not self.emotion.is_ignore:
+            # 刚点过剧情跳过：此时的双按钮弹窗是未读剧情的「是否跳过」确认框
+            # （如 16 图进图后的潜艇支援剧情），留给 story_skip() 点确认
+            if self.is_story_skip_popup_pending():
+                return False
             if self.handle_popup_cancel('IGNORE_LOW_EMOTION'):
                 logger.warning('[心情-保底] 计算模式下出现红脸弹窗，'
                                '可能是ALAS计算错误或用户手动操作')
@@ -318,6 +325,19 @@ class InfoHandler(ModuleBase):
             self.interval_reset(AUTO_SEARCH_MAP_OPTION_OFF)
         return result
 
+    def is_story_skip_popup_pending(self):
+        """
+        判断是否处于剧情跳过后的确认弹窗窗口期。
+
+        跳过未读剧情时游戏会弹出「是否跳过」确认框，由 POPUP_CANCEL /
+        POPUP_CONFIRM 这两个通用按钮组成；story_skip() 每次点击剧情后重置
+        story_popup_timeout，并在其到期前负责点确认。
+
+        Returns:
+            bool: 刚点过剧情、确认弹窗应交给 story_skip() 处理时返回 True。
+        """
+        return self.story_popup_timeout.started() and not self.story_popup_timeout.reached()
+
     def _emotion_emergency_exit(self):
         """
         红脸弹窗保底退出关卡。
@@ -338,9 +358,10 @@ class InfoHandler(ModuleBase):
                 logger.warning('[心情-保底] 退出关卡超时')
                 break
 
-            if self.handle_popup_cancel('IGNORE_LOW_EMOTION'):
-                continue
+            # 剧情在前：跳过未读剧情的确认框要点确认，被下面的取消点掉会回到剧情原地打转
             if self.handle_story_skip():
+                continue
+            if self.handle_popup_cancel('IGNORE_LOW_EMOTION'):
                 continue
             # 战斗准备界面：点击返回
             if self.appear(BATTLE_PREPARATION, offset=(20, 20), interval=2):
