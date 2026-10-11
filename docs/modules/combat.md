@@ -209,7 +209,7 @@ reduce(fleet_index)  ← 进入战斗后：扣 2 点（双倍经验书 4 点）�
 record()  ← 与 update 成对：新 Value + Record 时间戳写回配置，余数回扣
 ```
 
-公海舰队（`PublicEmotion_Enable` 且当前任务在 `PublicEmotion_Tasks` 列表）把上述过程收敛到一份共享情绪上，跨任务复用同一支舰队时情绪记账不重复。计算模式下若仍出现红脸弹窗，`handle_combat_low_emotion()`（处理器层）会走保底：退出关卡、`emotion.emergency_reset()` 全体清零、任务延迟到服务器刷新并抛 `ScriptEnd`。红脸弹窗只按通用的取消/确认双按钮识别，因此两类同样长相的弹窗先被排除：作战档案的数据密钥弹窗，以及刚点过剧情跳过时的「是否跳过」确认框（`is_story_skip_popup_pending()`，如 16 图进图后的潜艇支援剧情）。
+公海舰队（`PublicEmotion_Enable` 且当前任务在 `PublicEmotion_Tasks` 列表）把上述过程收敛到一份共享情绪上，跨任务复用同一支舰队时情绪记账不重复。计算模式下若仍出现红脸弹窗，`handle_combat_low_emotion()`（处理器层）会走保底：退出关卡、`emotion.emergency_reset()` 全体清零、任务延迟到服务器刷新并抛 `ScriptEnd`。红脸弹窗与撤退确认、潜艇支援耗油、跳过未读剧情（如 16 图进图后的潜艇支援剧情）等弹窗共用取消/确认双按钮，因此由 `is_low_emotion_popup()` 先确认双按钮在场，再 OCR 弹窗正文、命中各服低心情警告关键词（`LOW_EMOTION_POPUP_KEYWORDS`）才算红脸；其余双按钮弹窗不处理。正文带舰队名和舰船名、会换行，所以不用模板匹配。紧急委托刷钻与 1-1 伏击的覆写同样先过这一判定。
 
 ## 7. 调用关系
 

@@ -105,6 +105,10 @@ class GemsCampaignOverride(CampaignBase):
         Raises:
             CampaignEnd: 触发情绪撤退时抛出。
         """
+        # 只处理正文确认是低心情警告的弹窗，其余双按钮弹窗留给各自的处理器
+        if not self.is_low_emotion_popup():
+            return False
+
         if self.config.GemsFarming_IgnoreEmotionWarning or self.config.GemsFarming_ChangeVanguard == 'disabled':
             result = self.handle_popup_confirm('IGNORE_LOW_EMOTION')
             if result:
@@ -123,7 +127,7 @@ class GemsCampaignOverride(CampaignBase):
 
                 if self.handle_story_skip():
                     continue
-                if self.handle_popup_cancel('IGNORE_LOW_EMOTION'):
+                if self.is_low_emotion_popup() and self.handle_popup_cancel('IGNORE_LOW_EMOTION'):
                     continue
 
                 if self.appear(BATTLE_PREPARATION, offset=(20, 20), interval=2):

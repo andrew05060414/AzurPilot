@@ -18,6 +18,7 @@
 
 from scipy import signal
 
+import module.config.server as server
 from module.base.base import ModuleBase
 from module.base.button import Button
 from module.base.timer import Timer
@@ -26,9 +27,53 @@ from module.combat.assets import BATTLE_PREPARATION
 from module.exception import CampaignEnd, GameNotRunningError, GameTooManyClickError, ScriptEnd
 from module.handler.assets import *
 from module.logger import logger
+from module.ocr.ocr import Ocr
 from module.os_handler.assets import CLICK_SAFE_AREA as OS_CLICK_SAFE_AREA, OS_GAME_TIPS
 from module.ui.assets import BACK_ARROW
 from module.ui_white.assets import POPUP_CANCEL_WHITE, POPUP_CONFIRM_WHITE, POPUP_SINGLE_WHITE
+
+
+# 双按钮弹窗的正文区域（标题栏以下、按钮以上）
+POPUP_TEXT_AREA = (350, 228, 930, 462)
+# 红脸弹窗正文关键词，取自各服客户端文本 ship_energy_low_warn / ship_energy_low_warn_no_exp。
+# 正文里带舰队名和舰船名，长度不固定且整行居中，会换行，所以用 OCR 读关键词而不是模板匹配。
+# 只选白色字的片段：带颜色的词（舰船名、标红的「低心情状态」）会被白字提取过滤掉。
+LOW_EMOTION_POPUP_KEYWORDS = {
+    'cn': ('强制出击', '低心情', '降低好感'),
+    'tw': ('強制出擊', '低心情', '心情低落', '降低好感'),
+    'jp': ('出撃すると', '親密度', 'コンディション'),
+    'en': ('force', 'affinity', 'affection'),
+}
+POPUP_TEXT_OCR_LANG = {'cn': 'cnocr', 'tw': 'tw', 'jp': 'jp', 'en': 'cnocr'}
+
+
+def split_text_lines(letters, min_height=8, gap=3):
+    """把多行文字的图像按行切开。
+
+    OCR 模型按单行识别，弹窗正文超过一行时要先切行。
+
+    Args:
+        letters (np.ndarray): extract_letters() 的输出，文字为深色、背景为浅色的灰度图。
+        min_height (int): 低于这个高度的行当作噪点丢弃。
+        gap (int): 相邻两行之间至少空出的像素行数。
+
+    Returns:
+        list[tuple[int, int]]: 每行文字的 (起始行, 结束行)，从上到下。
+    """
+    rows = np.where((letters < 128).any(axis=1))[0]
+    lines = []
+    start = prev = None
+    for row in rows:
+        row = int(row)
+        if start is None:
+            start = row
+        elif row - prev > gap:
+            lines.append((start, prev))
+            start = row
+        prev = row
+    if start is not None:
+        lines.append((start, prev))
+    return [(top, bottom) for top, bottom in lines if bottom - top >= min_height]
 
 
 def info_letter_preprocess(image):
@@ -271,8 +316,9 @@ class InfoHandler(ModuleBase):
         - calculate 模式（不含 ignore）：正常不应出现红脸弹窗（已预检），
           若出现则视为异常，取消弹窗退出关卡、心情清零、延时任务
 
-        跳过未读剧情的「是否跳过」确认框也是这两个通用按钮，calculate 模式下
-        在 story_skip() 的确认窗口期内不判定红脸，见 is_story_skip_popup_pending()。
+        红脸弹窗和撤退确认、潜艇支援耗油、跳过未读剧情等几十种弹窗共用
+        POPUP_CANCEL / POPUP_CONFIRM，因此只有 is_low_emotion_popup() 读到
+        红脸正文时才处理，其余双按钮弹窗一律留给各自的处理器。
 
         作战档案出击后的「消耗档案密钥」弹窗同样由 POPUP_CANCEL /
         POPUP_CONFIRM 这两个通用按钮组成，仅凭按钮判定会把出击被数据密钥
@@ -293,13 +339,12 @@ class InfoHandler(ModuleBase):
         if self.handle_use_data_key():
             return True
 
+        if not self.is_low_emotion_popup():
+            return False
+
         # calculate 模式保底：正常不应出现红脸弹窗
         # 若出现则可能是ALAS计算错误或用户手动操作，需异常处理
         if self.emotion.is_calculate and not self.emotion.is_ignore:
-            # 刚点过剧情跳过：此时的双按钮弹窗是未读剧情的「是否跳过」确认框
-            # （如 16 图进图后的潜艇支援剧情），留给 story_skip() 点确认
-            if self.is_story_skip_popup_pending():
-                return False
             if self.handle_popup_cancel('IGNORE_LOW_EMOTION'):
                 logger.warning('[心情-保底] 计算模式下出现红脸弹窗，'
                                '可能是ALAS计算错误或用户手动操作')
@@ -325,18 +370,36 @@ class InfoHandler(ModuleBase):
             self.interval_reset(AUTO_SEARCH_MAP_OPTION_OFF)
         return result
 
-    def is_story_skip_popup_pending(self):
+    def popup_text(self):
         """
-        判断是否处于剧情跳过后的确认弹窗窗口期。
-
-        跳过未读剧情时游戏会弹出「是否跳过」确认框，由 POPUP_CANCEL /
-        POPUP_CONFIRM 这两个通用按钮组成；story_skip() 每次点击剧情后重置
-        story_popup_timeout，并在其到期前负责点确认。
+        读取当前双按钮弹窗的正文。
 
         Returns:
-            bool: 刚点过剧情、确认弹窗应交给 story_skip() 处理时返回 True。
+            str: 各行文字拼接后的正文，只含白色字；读不到时为空字符串。
         """
-        return self.story_popup_timeout.started() and not self.story_popup_timeout.reached()
+        body = self.image_crop(POPUP_TEXT_AREA, copy=False)
+        letters = extract_letters(body, letter=(255, 255, 255), threshold=128)
+        lines = [body[max(top - 4, 0):bottom + 5] for top, bottom in split_text_lines(letters)]
+        if not lines:
+            return ''
+        ocr = Ocr([], lang=POPUP_TEXT_OCR_LANG.get(server.server, 'cnocr'), name='POPUP_TEXT')
+        return ''.join(ocr.ocr(lines, direct_ocr=True))
+
+    def is_low_emotion_popup(self):
+        """
+        判断当前画面是否为红脸（低心情）出击警告弹窗。
+
+        先确认取消/确认双按钮都在，再用 OCR 读正文关键词，只有正文确实是
+        低心情警告才返回 True。
+
+        Returns:
+            bool: 是红脸弹窗返回 True。
+        """
+        if not self.appear(POPUP_CONFIRM, offset=self._popup_offset)                 or not self.appear(POPUP_CANCEL, offset=self._popup_offset):
+            return False
+        text = self.popup_text().replace(' ', '').lower()
+        keywords = LOW_EMOTION_POPUP_KEYWORDS.get(server.server, LOW_EMOTION_POPUP_KEYWORDS['cn'])
+        return any(keyword in text for keyword in keywords)
 
     def _emotion_emergency_exit(self):
         """
@@ -358,10 +421,10 @@ class InfoHandler(ModuleBase):
                 logger.warning('[心情-保底] 退出关卡超时')
                 break
 
-            # 剧情在前：跳过未读剧情的确认框要点确认，被下面的取消点掉会回到剧情原地打转
+            # 剧情在前：跳过未读剧情的确认框由 story_skip() 点确认
             if self.handle_story_skip():
                 continue
-            if self.handle_popup_cancel('IGNORE_LOW_EMOTION'):
+            if self.is_low_emotion_popup() and self.handle_popup_cancel('IGNORE_LOW_EMOTION'):
                 continue
             # 战斗准备界面：点击返回
             if self.appear(BATTLE_PREPARATION, offset=(20, 20), interval=2):

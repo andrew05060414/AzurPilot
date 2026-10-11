@@ -9,10 +9,12 @@
 import unittest
 from types import SimpleNamespace
 
+import numpy as np
+
 from module.exception import ScriptEnd
 from module.handler.assets import (POPUP_CANCEL, POPUP_CONFIRM, USE_DATA_KEY,
                                    USE_DATA_KEY_NOTIFIED)
-from module.handler.info_handler import InfoHandler
+from module.handler.info_handler import InfoHandler, split_text_lines
 
 
 class FakeInfoHandler:
@@ -23,20 +25,19 @@ class FakeInfoHandler:
     use_data_key_appear = InfoHandler.use_data_key_appear
     handle_use_data_key = InfoHandler.handle_use_data_key
     handle_combat_low_emotion = InfoHandler.handle_combat_low_emotion
-    is_story_skip_popup_pending = InfoHandler.is_story_skip_popup_pending
+    is_low_emotion_popup = InfoHandler.is_low_emotion_popup
 
     def __init__(self, text_template=False, checkbox=False, popup=True, confirm_result=True,
-                 story_just_skipped=False):
+                 popup_text='第一舰队中爱宕处于低心情状态，强制出击将降低好感且获得经验减半'):
         """
         Args:
             text_template: 黄色「档案密钥」模板是否命中。
             checkbox: 「今日不再提示」复选框是否已渲染出来。
             popup: 双按钮弹窗是否在画面上。
             confirm_result: handle_popup_confirm 是否点到确定。
-            story_just_skipped: 是否刚点过剧情跳过（story_popup_timeout 未到期）。
+            popup_text: OCR 读到的弹窗正文，默认是红脸弹窗原文。
         """
-        self.story_popup_timeout = SimpleNamespace(
-            started=lambda: story_just_skipped, reached=lambda: False)
+        self.popup_text_value = popup_text
         self.text_template = text_template
         self.checkbox_visible = checkbox
         self.checkbox_enabled = False
@@ -82,6 +83,9 @@ class FakeInfoHandler:
             self.clicked.append('确定')
             self.confirmed.append(name)
         return self.confirm_result
+
+    def popup_text(self):
+        return self.popup_text_value
 
     def handle_popup_cancel(self, name='', offset=None, interval=2):
         self.clicked.append('取消')
@@ -173,21 +177,55 @@ class TestLowEmotionWithDataKey(unittest.TestCase):
         self.assertEqual(fake.clicked, ['取消'])
         self.assertEqual(len(reset), 1)
 
-    def test_story_skip_confirm_is_not_red_face_popup(self):
-        """刚点过剧情跳过时的双按钮弹窗是跳过确认框：不取消、不清零心情。
+    def test_other_two_button_popup_is_not_red_face_popup(self):
+        """正文不是低心情警告的双按钮弹窗：不取消、不确认、不清零心情。
 
-        16 图进图后的潜艇支援战斗带剧情，跳过未读剧情会弹确认框，
-        曾被当成红脸弹窗取消，导致心情清零、任务延后到下次刷新。
+        16 图进图后的潜艇支援剧情，跳过未读剧情会弹确认框，曾被当成红脸
+        弹窗取消，导致心情清零、任务延后到下次刷新。
         """
-        fake = FakeInfoHandler(text_template=False, checkbox=False, story_just_skipped=True)
-        fake.emotion = SimpleNamespace(is_calculate=True, is_ignore=False)
-        reset = []
-        fake.emotion.emergency_reset = lambda: reset.append(None)
+        for is_calculate, is_ignore in ((True, False), (False, True), (True, True)):
+            for text in ('潜艇支援舰队出击消耗10点石油，是否继续?', '真的要撤退吗?', ''):
+                with self.subTest(is_calculate=is_calculate, is_ignore=is_ignore, text=text):
+                    fake = FakeInfoHandler(text_template=False, checkbox=False, popup_text=text)
+                    fake.emotion = SimpleNamespace(is_calculate=is_calculate, is_ignore=is_ignore)
+                    reset = []
+                    fake.emotion.emergency_reset = lambda: reset.append(None)
 
-        self.assertFalse(fake.handle_combat_low_emotion())
+                    self.assertFalse(fake.handle_combat_low_emotion())
 
-        self.assertEqual(fake.clicked, [])
-        self.assertEqual(reset, [])
+                    self.assertEqual(fake.clicked, [])
+                    self.assertEqual(reset, [])
+
+    def test_red_face_popup_confirmed_in_ignore_mode(self):
+        """ignore 模式下，正文确认是红脸弹窗才点确定。"""
+        fake = FakeInfoHandler(text_template=False, checkbox=False)
+        fake.emotion = SimpleNamespace(is_calculate=False, is_ignore=True)
+        fake.interval_reset = lambda button: None
+
+        self.assertTrue(fake.handle_combat_low_emotion())
+
+        self.assertEqual(fake.clicked, ['确定'])
+
+    def test_no_popup_skips_ocr(self):
+        """画面上没有双按钮弹窗时不做 OCR。"""
+        fake = FakeInfoHandler(popup=False)
+        fake.popup_text = lambda: self.fail('不应读取弹窗正文')
+
+        self.assertFalse(fake.is_low_emotion_popup())
+
+
+class TestSplitTextLines(unittest.TestCase):
+    def test_two_lines_and_noise(self):
+        """两行文字切成两段，零星噪点行被丢弃。"""
+        letters = np.full((120, 200), 255, dtype=np.uint8)
+        letters[20:42, 30:170] = 0
+        letters[54:76, 50:150] = 0
+        letters[100:102, 10:14] = 0
+
+        self.assertEqual(split_text_lines(letters), [(20, 41), (54, 75)])
+
+    def test_blank(self):
+        self.assertEqual(split_text_lines(np.full((50, 50), 255, dtype=np.uint8)), [])
 
 
 if __name__ == '__main__':
