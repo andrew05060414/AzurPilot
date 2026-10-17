@@ -19,6 +19,7 @@ Alas:
       - Enhance
       - OldRetire
       - PublicEmotion
+      - OilControl
       - YukikazeTaskManager
     Restart:
       - Scheduler
@@ -152,7 +153,6 @@ Event:
     EventShop:
       - Scheduler
       - EventShop
-      - ShopAdvanced
     WarArchives:
       - Scheduler
       - Campaign
@@ -248,6 +248,7 @@ Reward:
       - Research
     StorageStatistics:
       - Scheduler
+      - StorageStatistics
     Dorm:
       - Scheduler
       - Dorm
@@ -280,6 +281,9 @@ DailyMission:
     Daily:
       - Scheduler
       - Daily
+    LimitChallenge:
+      - Scheduler
+      - LimitChallenge
     Hard:
       - Scheduler
       - Hard
@@ -289,14 +293,12 @@ DailyMission:
     ShopFrequent:
       - Scheduler
       - GeneralShop
-      - ShopAdvanced
     ShopOnce:
       - Scheduler
       - GuildShop
       - MedalShop2
       - MeritShop
       - CoreShop
-      - ShopAdvanced
     Shipyard:
       - Scheduler
       - ShipyardDr
@@ -315,7 +317,6 @@ DailyMission:
     PrivateQuarters:
       - Scheduler
       - PrivateQuarters
-      - ShopAdvanced
 Opsi:
   menu: collapse
   page: setting
@@ -339,11 +340,9 @@ Opsi:
     OpsiShop:
       - Scheduler
       - OpsiShop
-      - ShopAdvanced
     OpsiVoucher:
       - Scheduler
       - OpsiVoucher
-      - ShopAdvanced
     OpsiDaily:
       - Scheduler
       - OpsiDaily
@@ -399,7 +398,9 @@ Island:
   page: 'setting'
   tasks:
     IslandPlan:
+      - Scheduler
       - IslandPlan
+      - IslandWalk
     IslandBusiness:
       - Scheduler
       - IslandBusiness
@@ -475,6 +476,20 @@ FleetManagement:
     FleetInfo:
       - FleetInfo
 
+# ==================== Run Params ====================
+
+RunParams:
+  menu: collapse
+  page: setting
+  tasks:
+    RunParams:
+      - Watchdog
+      - Reboot
+      - Device
+      - ScreenRecord
+      - UiWait
+      - Handover
+
 # ==================== Tool ====================
 
 Tool:
@@ -482,6 +497,8 @@ Tool:
   page: tool
   tasks:
     FleetScan: []
+    MindCalculatorScan:
+      - MindCalculator
     Daemon:
       - Daemon
     OpsiDaemon:

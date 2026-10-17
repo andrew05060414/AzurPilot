@@ -3,12 +3,13 @@
  */
 
 import type {Catalog, ProgramSaved, ProgramSimulation, ProgramValidation, RuntimeProgramState} from '../scheduler/types'
+import type {MindCalculation, MindCatalog, MindReport, MindShip} from '../mind/types'
 
 export type Scalar = string | number | boolean | null
 export type Value = Scalar | Value[] | {[key: string]: Value}
 type Values = Record<string, Record<string, Record<string, Value>>>
 export type Status = 'running' | 'stopped' | 'error' | 'updating'
-export interface Instance { name: string; status: Status; serial: string; server: string; currentTask?: string | null }
+export interface Instance { name: string; status: Status; serial: string; server: string; region?: 'cn' | 'en' | 'jp' | 'tw' | null; currentTask?: string | null }
 export interface UpdateStatus {
   state: string; localHead: string | null; upstreamHead: string | null; branch: string
   ahead: number; behind: number; available: boolean; busy: boolean; canApply: boolean; canCancel: boolean; error: string
@@ -30,6 +31,7 @@ export interface SearchContentHit {
 
 export interface SearchContentResult {
   tasks: SearchContentHit[]
+  groups: SearchContentHit[]
   options: SearchContentHit[]
 }
 
@@ -112,9 +114,6 @@ interface RemoteAccessStatus { enabled: boolean; state: string; address: string;
 export interface Settings { groups: {key: string; label: string; fields: DeployField[]}[]; notice: string; demo: boolean; remote?: RemoteAccessStatus }
 export interface ApiEvent { v: 1; type: 'event'; topic: string; seq: number; data: unknown }
 export interface ApiResponse { v: 1; type: 'response'; id: string; ok: boolean; result?: unknown; error?: {code: string; message: string; details?: unknown} }
-export interface ScriptDiagnostic { code?: string; message: string; line?: number | null; column?: number | null; severity?: 'error' | 'warning' }
-export interface ShopStrategyValidation { valid: boolean; diagnostics: ScriptDiagnostic[]; summary?: string }
-export type ShopStrategyTask = 'EventShop' | 'ShopFrequent' | 'ShopOnce' | 'PrivateQuarters' | 'OpsiShop' | 'OpsiVoucher'
 export interface Announcement {
   announcementId: string
   title: string
@@ -132,6 +131,14 @@ export interface BackgroundGalleryEntry {
 }
 
 export interface Results {
+  'mind.catalog': MindCatalog
+  'mind.report': MindReport
+  'mind.calculate': MindCalculation
+  'mind.save': MindReport
+  'mind.import': {ships: MindShip[]}
+  'mind.recognize': {ships: MindShip[]}
+  'mind.export': {filename: string; content: string}
+  'statistics.resourceFlows': ResourceFlowReport
   'stock.status': StockExchangeStatus
   'stock.rebuild': StockExchangeRebuild
   'stock.request': {status:number;data:unknown;etag:string;serverTime:number}
@@ -173,7 +180,6 @@ export interface Results {
   'instances.delete': {deleted: string}
   'config.get': Config
   'config.patch': Config
-  'shop_strategy.validate': ShopStrategyValidation
   'overview.get': Overview
   'scheduler.start': Overview
   'scheduler.stop': Overview
@@ -189,6 +195,19 @@ export interface Results {
   'settings.patch': {updated: string[]}
   'startup.get': {enabled: boolean; remember: boolean}
   'startup.set': {enabled: boolean; remember: boolean}
+}
+
+export interface ResourceFlowEntry {
+  id: number; ts: string; resource: string; amount: number; task: string; operation: string
+  evidence: 'confirmed' | 'recognition' | 'observed' | 'adjustment'; run_id: string | null
+}
+export interface ResourceFlowReport {
+  instance: string; start: string; end: string; offset: number; limit: number; total: number; throughId: number
+  resources: {key: string; label: string; group: string; current: number | null; observedAt: string | null; income: number; expense: number; adjustment: number; count: number}[]
+  tasks: string[]
+  flows: {resource: string; task: string; operation: string; evidence: ResourceFlowEntry['evidence']; income: number; expense: number; count: number}[]
+  entries: ResourceFlowEntry[]
+  oilControl: {enable: boolean; target: number}
 }
 
 export interface StockExchangeStatus {url: string; instance:string; instanceId:string; bindingKey:string; bound: boolean; boundUsername:string; authenticated:boolean; message: string; lastObservedAt: number; snapshot: {instance: string; actionPoints: number; observedAt: number} | null}

@@ -16,6 +16,9 @@ import yaml
 
 from deploy.atomic import atomic_write
 from module.api.protocol import ApiError
+from module.combat.emotion_state import EmotionRecoveryState
+from module.config.redirect_utils.utils import meta_assist_limit_redirect
+from module.config.time_source import now as current_time
 from module.config.transaction import config_transaction
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -102,6 +105,8 @@ class ConfigService:
         """
         self.root = root
         self.directory = root / 'config'
+        from module.persistence.database import get_database
+        self.database = get_database(self.directory)
         # 导入源单独一个目录：config/ 下的 *.json 都算实例，导入源不能与实例列表混在一起。
         self.import_directory = self.directory / 'import'
         self.lock = threading.RLock()
@@ -282,6 +287,19 @@ class ConfigService:
                             if 'KeepCommonCV' not in fields and isinstance(legacy, bool):
                                 merged[task][group]['KeepCommonCV'] = legacy
                             merged[task][group].pop('SkipSingleCommonCV', None)
+                        if task == 'OpsiAshBeacon' and group == 'OpsiAshBeacon':
+                            if 'AssistRequestLimit' not in fields and 'OneHitMode' in fields:
+                                merged[task][group]['AssistRequestLimit'] = meta_assist_limit_redirect(
+                                    fields['OneHitMode'])
+                            merged[task][group].pop('OneHitMode', None)
+        from module.config.redirect_utils.shop import migrate_shop_options
+
+        merged, shop_warnings = migrate_shop_options(data, merged)
+        if shop_warnings:
+            from module.logger import logger
+
+            for task, reason in shop_warnings:
+                logger.warning(f'{task}：{reason}，已暂停任务，请检查购买配置后重新启用')
         return merged, hashlib.sha256(raw).hexdigest()
 
     def schema(self, language='zh-CN'):
@@ -322,7 +340,7 @@ class ConfigService:
         data, _ = self.read(name)
         from module.runtime.game_data import INSTANCE_FIELD
         data.pop(INSTANCE_FIELD, None)
-        store = ProgramStore(self.directory)
+        store = ProgramStore(self.directory, store=self.database)
         if store.exists(name):
             data['_schedulerProgram'] = store.export(name)
         return data
@@ -355,7 +373,7 @@ class ConfigService:
             # 空占位表示新实例，首次使用时登记 UUID，禁止把复制的仪表盘当迁移来源。
             data[INSTANCE_FIELD] = None
             from module.scheduler.store import ProgramStore
-            store = ProgramStore(self.directory)
+            store = ProgramStore(self.directory, store=self.database)
             if bundle is not None:
                 try:
                     bundle = store.import_bundle(bundle)
@@ -378,53 +396,6 @@ class ConfigService:
                 raise
             return self.get(name)
 
-    @staticmethod
-    def validate_shop_strategy(script):
-        """校验受限 Lua 风格商店策略，不执行脚本。
-
-        Args:
-            script (str): 策略脚本源码。
-
-        Returns:
-            dict: 校验诊断结果。
-
-        Raises:
-            ApiError: 脚本语法不合法时抛出。
-        """
-        from module.shop_strategy import validate_strategy
-
-        result = validate_strategy(script)
-        if not result['valid']:
-            diagnostics = result.get('diagnostics', [])
-            first = diagnostics[0]['message'] if diagnostics else '脚本不符合受限策略语法'
-            raise ApiError('INVALID_PARAMS', f'高级商店策略脚本无效：{first}', diagnostics)
-        return result
-
-    def validate_shop_advanced_groups(self, data, tasks):
-        """校验最终配置快照中的高级模式与脚本组合。
-
-        ``Mode`` 与 ``Script`` 能在同一事务中一并修改，因此不能在逐字段
-        校验阶段提前判定。高级模式必须保存可执行的非空脚本；简单模式允许
-        清空脚本以恢复默认配置。
-
-        Args:
-            data (dict): 当前配置字典快照。
-            tasks (Iterable[str]): 涉及变更的商店任务名称集合。
-
-        Raises:
-            ApiError: 高级模式开启但未配置有效策略脚本时抛出。
-        """
-        for task in tasks:
-            group = data.get(task, {}).get('ShopAdvanced')
-            if not isinstance(group, dict) or group.get('Mode') != 'advanced':
-                continue
-            script = group.get('Script')
-            if not isinstance(script, str) or not script.strip():
-                raise ApiError(
-                    'INVALID_PARAMS',
-                    f'{task} 的高级模式需要先保存非空且有效的策略脚本',
-                )
-            self.validate_shop_strategy(script)
 
     def validate(self, path, value):
         """严格校验单项参数的修改路径与取值范围。
@@ -488,8 +459,6 @@ class ConfigService:
         elif isinstance(rule, str) and isinstance(value, (str, int, float)):
             if not re.fullmatch(rule, str(value)):
                 raise ApiError('INVALID_PARAMS', f'参数格式不正确：{path}')
-        if field.get('mode') == 'restricted_lua':
-            self.validate_shop_strategy(value)
         if field.get('mode') == 'yaml' or kind == 'yaml':
             try:
                 parsed = yaml.safe_load(value)
@@ -520,7 +489,7 @@ class ConfigService:
             # 无关字段的运行状态更新不应拒绝用户输入；同字段按事务顺序生效。
             data, _ = self.read(name)
             seen = set()
-            affected_shop_tasks = set()
+            edited_groups = {}
             for change in changes:
                 task, group, arg = self.validate(change.path, change.value)
                 if change.path in seen:
@@ -529,10 +498,33 @@ class ConfigService:
                 data.setdefault(task, {}).setdefault(group, {})[arg] = change.value
                 if change.path in OPSI_EXPLORE_PROGRESS:
                     self._reset_opsi_explore_progress(data, change.path)
-                self._sync_record_time(data[task][group], arg)
-                if group == 'ShopAdvanced':
-                    affected_shop_tasks.add(task)
-            self.validate_shop_advanced_groups(data, affected_shop_tasks)
+                edited_groups.setdefault((task, group), set()).add(arg)
+            # 按最终配置校准；同一批先改心情再改恢复条件，也使用最终条件。
+            now = current_time() if any(group in ('Emotion', 'PublicEmotion') and
+                                        any(arg.endswith('Value') for arg in args)
+                                        for (_, group), args in edited_groups.items()) else None
+            for (task, group), args in edited_groups.items():
+                fields = data[task][group]
+                for arg in args:
+                    self._sync_record_time(fields, arg, now if group in ('Emotion', 'PublicEmotion') else None)
+                if group in ('Emotion', 'PublicEmotion'):
+                    prefixes = ('Fleet1', 'Fleet2') if group == 'Emotion' else ('Fleet',)
+                    for prefix in prefixes:
+                        if prefix + 'Value' in args:
+                            try:
+                                fields[prefix + 'RecoveryState'] = EmotionRecoveryState.calibrate(
+                                    fields[prefix + 'Value'], now, fields[prefix + 'Recover'],
+                                    fields[prefix + 'Oath'], fields[prefix + 'Onsen']).export()
+                            except KeyError as exc:
+                                raise ApiError(
+                                    'INVALID_PARAMS', f'{task}.{group}.{exc.args[0]}: 缺少心情恢复配置'
+                                ) from None
+                            except ValueError as exc:
+                                raise ApiError(
+                                    'INVALID_PARAMS', f'{task}.{group}.{prefix}Value: {exc}'
+                                ) from None
+                        elif any(prefix + suffix in args for suffix in ('Recover', 'Oath', 'Onsen')):
+                            fields[prefix + 'RecoveryState'] = None
             atomic_write(str(self.path(name)), json.dumps(data, ensure_ascii=False, indent=2))
             return self.get(name)
 
@@ -549,7 +541,7 @@ class ConfigService:
                 storage.pop('SmartExplore', None)
 
     @staticmethod
-    def _sync_record_time(fields, arg):
+    def _sync_record_time(fields, arg, now=None):
         """把 Value 参数对应的时间戳重置为当前时间。
 
         情绪等参数由“值 + 记录时间”两个字段推算实时状态，改值不刷新时间戳时，
@@ -558,12 +550,14 @@ class ConfigService:
         Args:
             fields (dict): 当前分组配置字典。
             arg (str): 当前修改的参数名。
+            now (datetime, optional): 心情校准使用的统一精确时间，其他成对字段沿用原格式。
         """
         if not arg.endswith('Value'):
             return
         record = arg[:-len('Value')] + 'Record'
         if record in fields:
-            fields[record] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            fields[record] = (datetime.now().strftime('%Y-%m-%d %H:%M:%S') if now is None
+                              else now.isoformat(sep=' ', timespec='microseconds'))
 
     def delete(self, name, revision):
         """删除指定实例并自动创建备份。
@@ -585,7 +579,9 @@ class ConfigService:
             backup = self.directory / 'backup'
             backup.mkdir(exist_ok=True)
             target = backup / f'{name}-{datetime.now():%Y%m%d-%H%M%S-%f}.json'
-            self.path(name).replace(target)
+            import shutil
+            shutil.copy2(self.path(name), target)
             from module.scheduler.store import ProgramStore
-            ProgramStore(self.directory).archive(name, backup / target.stem)
+            ProgramStore(self.directory, store=self.database).archive(name, backup / target.stem)
+            self.path(name).unlink()
             return {'deleted': name}

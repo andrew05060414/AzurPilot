@@ -4,6 +4,15 @@
 跨平台进程清理以及在独立子进程中执行 Python 依赖同步（uv sync）。
 """
 
+# 启动器行为参数集中在 module/base/runtime_params.py(WebUI 启动器域);
+# 该模块零 import,对启动器最早期阶段无额外依赖。
+from module.base.runtime_params import (
+    DEPENDENCY_SYNC_START_RETRY_LIMIT,
+    WEBUI_READY_TIMEOUT,
+    WEBUI_RUNTIME_RETRY_LIMIT,
+    WEBUI_STABLE_RUNTIME,
+    WEBUI_START_RETRY_LIMIT,
+)
 import errno
 import os
 import queue
@@ -30,7 +39,7 @@ from deploy.uv import (
     log_command_output,
     redact_sensitive_text,
 )
-from module.logger import logger
+from module.logger import get_log_file_path, logger
 from module.runtime import worker_registry
 from module.runtime.process_control import pid_exists, stop_process, stop_process_tree
 from module.runtime.setting import (
@@ -40,11 +49,7 @@ from module.runtime.setting import (
 )
 
 
-WEBUI_READY_TIMEOUT = 120
-WEBUI_START_RETRY_LIMIT = 3
-WEBUI_RUNTIME_RETRY_LIMIT = 3
-WEBUI_STABLE_RUNTIME = 60
-DEPENDENCY_SYNC_START_RETRY_LIMIT = 3
+
 DEPENDENCY_SYNC_RESPONSE_TIMEOUT = DEPENDENCY_SYNC_TIMEOUT + 60
 
 # 退出码定义
@@ -209,17 +214,14 @@ def func(
     Raises:
         Exception: WebUI 启动失败时向外抛出。
     """
-    # 子进程的 stdout/stderr 落到独立日志。
-    from module.logger import get_log_file_path
+    # WebUI 子进程的日志只落独立文件；stdout/stderr 保持原样，任务子进程照常继承控制台。
+    from module.logger import set_console_logger, set_file_logger
     try:
-        webui_log = get_log_file_path('webui')
-        webui_log.parent.mkdir(parents=True, exist_ok=True)
-        stream = open(webui_log, 'a', encoding='utf-8', buffering=1)
-        os.dup2(stream.fileno(), 1)
-        os.dup2(stream.fileno(), 2)
-        sys.stdout = sys.stderr = stream
+        set_file_logger('webui')
+        logger.info('[GUI] WebUI 服务开始初始化，后续详细日志：%s', logger.log_file)
+        set_console_logger(False)
     except OSError:
-        pass
+        logger.warning('[GUI] WebUI 文件日志不可用，继续输出到控制台')
 
     import argparse
     import asyncio
@@ -298,8 +300,8 @@ def func(
     if State.electron:
         # https://github.com/LmeSzinc/AzurLaneAutoScript/issues/2051
         logger.info("[GUI] 检测到 Electron，移除标准输出日志处理器")
-        from module.logger import console_hdlr
-        logger.removeHandler(console_hdlr)
+        from module.logger import set_console_logger
+        set_console_logger(False)
 
     # 验证SSL配置
     if ssl_cert is None and ssl_key is not None:
@@ -313,7 +315,8 @@ def func(
             "host": host,
             "port": port,
             "factory": True,
-            "ws_max_size": 1048576,
+            # 文件接口允许 8 MiB；普通请求仍由 Session 按 1 MiB 校验。
+            "ws_max_size": 8 * 1024 * 1024,
             "ws_max_queue": 16,
         }
         if ssl:
@@ -828,6 +831,7 @@ def run_webui_supervisor() -> int:
     startup_failures = 0
     runtime_failures = 0
     force_dependency_sync = False
+    logger.info('[GUI] 检查并回收上次异常退出的 worker')
     if not _recover_orphaned_workers():
         fatal_error = FatalStartupError(
             "残留 worker 未能回收，无法保证设备控制任务唯一",
@@ -841,6 +845,8 @@ def run_webui_supervisor() -> int:
         return fatal_error.exit_code
     try:
         while not should_exit:
+            logger.info('[GUI] 检查依赖同步状态，准备 WebUI 启动环境')
+            stage_started = time.perf_counter()
             (
                 ready_to_start,
                 service,
@@ -858,11 +864,15 @@ def run_webui_supervisor() -> int:
                     exit_code=EXIT_DEPENDENCY_SYNC_FAILURE,
                 )
             force_dependency_sync = False
+            logger.info('[GUI] 依赖已就绪，耗时 %.2f 秒', time.perf_counter() - stage_started)
 
             # 首次安装前端依赖可能较慢，必须在子进程监听计时开始前完成。
+            logger.info('[GUI] 检查前端静态资源，必要时安装依赖并构建')
+            stage_started = time.perf_counter()
             from deploy.frontend import ensure_frontend
             try:
                 ensure_frontend()
+                logger.info('[GUI] 前端静态资源已就绪，耗时 %.2f 秒', time.perf_counter() - stage_started)
             except Exception as exc:
                 logger.exception_context(
                     title='React 前端构建失败',
@@ -905,6 +915,8 @@ def run_webui_supervisor() -> int:
                 time.sleep(startup_failures)
                 continue
             logger.info(f"[GUI] 启动AzurPilot Web服务 (PID: {process.pid})")
+            logger.info('[GUI] 等待 WebUI 服务完成监听（超时 %s 秒）；服务日志：%s',
+                        WEBUI_READY_TIMEOUT, get_log_file_path('webui').resolve())
 
             try:
                 ready = _wait_for_webui_ready(process, ready_event)
@@ -1064,13 +1076,29 @@ def run_webui_supervisor() -> int:
     return fatal_error.exit_code if fatal_error is not None else EXIT_SUCCESS
 
 
-if __name__ == "__main__":
-    # 先完成统计数据准备（旧加密数据自动解密，有界等待，异常环境不阻塞启动），再启动业务服务。
+def main() -> int:
+    """初始化普通业务数据并启动 WebUI，失败原因写入 GUI 日志。"""
+    # Windows 父进程保留启动日志；文件不可写时继续输出到控制台。
     try:
-        from module.statistics.opsi_secure import initialize
+        logger.set_file_logger('gui-launcher')
+    except OSError:
+        logger.warning('[GUI] 启动文件日志不可用，继续输出到控制台')
+    logger.info('[GUI] 开始检查普通业务存储；启动日志：%s', logger.log_file or '控制台')
+    try:
+        from module.persistence.database import initialize
         initialize()
-    except Exception:
-        logger.exception('[统计-运行] 启动时初始化未完成（稍后自动重试）')
+    except Exception as exc:
+        logger.error_context(
+            title='普通业务数据初始化失败',
+            reason=str(exc),
+            exc=exc,
+            impact='WebUI 尚未启动，旧数据与迁移备份保留。',
+            action='查看 GUI 日志中的异常原因，修复后重试；不要删除旧数据库或迁移标记。',
+            level=50,
+        )
+        return EXIT_STARTUP_FAILURE
+    logger.info('[GUI] 存储已就绪，继续初始化 WebUI')
+
     # 设置multiprocessing启动方式为spawn（macOS兼容性要求）
     try:
         set_start_method("spawn", force=True)
@@ -1081,7 +1109,14 @@ if __name__ == "__main__":
         logger.warning("[GUI] 无法设置spawn启动方式，可能使用fork（macOS上不推荐）")
 
     if State.deploy_config.EnableReload:
-        sys.exit(run_webui_supervisor())
+        logger.info('[GUI] 进入热重载监督模式')
+        return run_webui_supervisor()
     else:
         # 非重载模式：直接运行
+        logger.info('[GUI] 进入直接运行模式')
         func(None, None)
+        return EXIT_SUCCESS
+
+
+if __name__ == "__main__":
+    sys.exit(main())

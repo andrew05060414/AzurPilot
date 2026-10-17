@@ -54,8 +54,8 @@ module/runtime/
 ├── remote_access.py       # SSH / WebRTC 远程访问 provider
 ├── mcp_auth.py            # MCP 鉴权：凭据提取、常数时间比对、会话表、日志脱敏
 ├── password_utils.py      # 密码生成/校验、本机判定、远程访问标记头
-├── launcher.py            # LauncherControl：外部启动器命令通道（当前未接线）
-├── launcher_trust.py      # 启动器信任免密令牌（当前未接线）
+├── launcher.py            # LauncherControl：外部启动器命令通道
+├── launcher_trust.py      # 启动器信任免密令牌
 ├── discord_presence.py    # Discord Rich Presence（pypresence 异步客户端）
 └── event_calculator.py    # Wiki 活动计算器数据服务（当前无前端消费者）
 ```
@@ -374,12 +374,18 @@ macOS 同样使用该游戏密钥方案，无需账号保险库的本机提供�
 
 首次升级读取项目外 `<旧保护上下文>.game` 及对应本机密钥，认证通过后自动保存到新目录，保留原认证上下文和游戏密文，不重写历史。Linux 格式升级使用旧封装记录的主机元数据进行认证，不读取当前 `machine-id`；Windows 旧密钥仍需原用户的 DPAPI 解封。升级保留旧登记和旧密钥供恢复。`config/stock-exchange/protected-v2` 存在后，新登记缺失不能退回旧检查点；密钥、登记或受保护文件丢失/损坏均保留原文件并停止交易同步。玩家可在茗交所页面恢复备份或明确确认重建本地账户；重建新身份不能登录永久绑定原身份的远端账户。备份与部署要求见 [部署文档](../infra/deploy.md#茗交所持久化)。
 
-配置创建和删除不调用交易保护登记；新配置的 `_stockInstance` 为空占位，后续采集或交易使用时登记身份。普通 `ProgramStore` 读取跳过交易历史校验，采集行动力时尽力维护认证链，认证失败或交易历史表损坏仍提交正常资源记录和调度事务。交易历史采集显式使用 `strict_history=True`，继续拒绝损坏、回滚和跨实例历史。`stock_exchange_recovery.StockExchangeRecovery` 先返回重建范围，再在确认后保留 `config/backup/stock-rebuild-*/` 快照并重建；身份或单实例历史问题只重建当前实例，共享密钥、登记或绑定不可读时须确认所有本地账户。重建与代理请求、后台同步互斥，清除旧本地会话及补传历史，保留调度程序、变量和最新资源观察。
+配置创建和删除不创建交易保护身份；新配置的 `_stockInstance` 为空占位，后续采集或交易使用时登记。普通 `ProgramStore` 使用共享 `azurpilot.db`，`AuthenticatedHistoryStore` 单独维护原实例安全库及认证链。实际行动力采集分别写入两类存储；认证失败或安全历史表损坏只停止交易同步，普通资源观察与调度事务继续提交。交易历史采集使用安全存储的 `strict_history=True`，继续拒绝损坏、回滚和跨实例历史。
+
+删除实例先备份配置、对应调度切片和安全历史，再移除配置与普通调度状态，统计保留原实例名。可信改名同步转移普通调度状态并重新映射文档和值集合引用；普通观察值不用于重建认证链。存储约定见 [普通业务数据存储](../infra/persistence.md)。
+
+`stock_exchange_recovery.StockExchangeRecovery` 先返回重建范围，再在明确确认后保留 `config/backup/stock-rebuild-*/` 安全快照并重建；身份或单实例历史问题只重建当前实例，共享密钥、登记或绑定不可读时须确认所有本地账户。重建与代理请求、后台同步互斥，清除旧本地会话及补传历史，保留总库的调度程序、变量和最新资源观察。
+
+TUI 使用相同服务边界；配置弹窗显示时，时钟刷新查询主屏幕的 `HeaderBar`，避免把弹窗当前屏幕当作主布局。
 
 ## 14. 生命周期
 
 - **创建**：`gui.py` 父监督器 spawn 服务子进程 → uvicorn 加载 `create_app` → lifespan 启动（`manage_runtime=True`）。
-- **初始化**（`module/api/lifecycle.startup`）：`State.init()` 创建 Manager 并认领登记所有权 → `updater.event = State.manager.Event()` → 按 `CheckUpdateInterval`/`AutoRestartTime` 装载更新任务、按 `EnableRemoteAccess` 挂载保活任务 → `TaskHandler.start()` → 可选启动 OCR 服务进程 → `ProcessManager.restart_processes(runs)`（CLI `--run` 或 `Webui.Run`）拉起实例。
+- **初始化**：lifespan 先执行普通总库安装级迁移，失败停止启动；随后 `module/api/lifecycle.startup`：`State.init()` 创建 Manager 并认领登记所有权 → `updater.event = State.manager.Event()` → 按 `CheckUpdateInterval`/`AutoRestartTime` 装载更新任务、按 `EnableRemoteAccess` 挂载保活任务 → `TaskHandler.start()` → 可选启动 OCR 服务进程 → `ProcessManager.restart_processes(runs)`（CLI `--run` 或 `Webui.Run`）拉起实例。
 - **运行**：TaskHandler 线程驱动周期任务；uvicorn 事件循环承载 API 与 MCP；worker 进程各自运行调度器。
 - **更新**：见第 6 节事务；结束时 `State._restart_requested = True`，clearup 逐项回收（TaskHandler → OCR → 远程访问 → 全部 worker），全部成功才 `State.clearup()`（关闭 Manager、清除 owner），随后父监督器终止本进程并重建。
 - **销毁**：父监督器 `_stop_webui_process_tree` 先停根（WebUI 及 SyncManager 等整树），再按登记回收 worker；父进程被强杀的场景由下一次启动的孤儿恢复兜底。
@@ -409,7 +415,7 @@ macOS 同样使用该游戏密钥方案，无需账号保险库的本机提供�
 
 ## 17. 已知限制
 
-- **`launcher.py`、`launcher_trust.py`、`event_calculator.py` 当前没有生产消费者**（截至 2026-09）：三者自旧 PyWebIO 前端迁移而来，逻辑与单测完整，但新 React 前端尚未实现启动器命令通道（`/api/launcher/*` 端点已随旧前端移除）、启动器免密令牌签发（无生产代码调用 `configure`/`issue_token`）与活动计算器页面。它们是预留能力，接线前不会生效。
+- **`event_calculator.py` 当前没有生产消费者**（截至 2026-09）：自旧 PyWebIO 前端迁移而来，逻辑与单测完整，但新 React 前端尚未实现活动计算器页面。它是预留能力，接线前不会生效。启动器命令通道与免密令牌已由 `module/api/launcher_api.py` 接入 `create_app`。
 - worker 的更新退出依赖任务边界轮询（`wait_until` 每 5 秒、任务间每次循环），**正在执行的长任务会推迟更新等待**，因此事务里有 10 分钟超时强停兜底；强停可能让该实例下次启动时状态不完整。
 - `alive` 在登记不可验证时保守返回 False，配合 `start()` 的二次验证避免重复启动；但这意味着登记文件损坏期间（自愈前）实例可能显示为已停止。
 - 远程访问线程是非 daemon 线程，其退出依赖 `stop_event` 或「进程内唯一线程」检测；极端情况下（其他线程意外全部退出）可能延迟进程退出。

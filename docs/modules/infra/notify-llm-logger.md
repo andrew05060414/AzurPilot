@@ -88,7 +88,7 @@ module/
 3. 特殊渠道修正：`Custom` 渠道强制 JSON 并注入 `data.title`/`data.content`（支持 `${content}` 占位符）；go-cqhttp 把 `access_token` 映射为 `token` 并解析响应中的失败状态。
 4. 发送失败一律只记日志并返回 `False`：onepush 内部吞掉请求异常时返回 `None`，必须显式检查，否则推送不可达时日志里无失败痕迹。
 
-`notify_webui` 是独立通道：读部署配置的 `WebuiPort`（默认 25548），向本机 `/api/notify` 发 2 秒超时的 POST，异常静默。业务方几乎总是双通道一起调用——OnePush 送达手机，WebUI 送达正在看启动器的用户。
+`notify_webui` 是独立通道：读部署配置的 `WebuiPort`（默认 25548），向本机 `/api/notify` 发 2 秒超时的 POST，异常静默。业务方几乎总是双通道一起调用——OnePush 送达手机，WebUI 送达正在看页面的用户：`/api/notify` 收到后兵分两路，经 notify_hub 以 `notifications` 主题实时广播给浏览器（前端 Notification API 弹 Windows 原生通知），同时进队列供外部启动器经 `/api/notify_stream`（SSE）订阅。
 
 调度器额外套了一层**低推送量模式**：`alas.py` 的可恢复异常分支（`GameNotRunningError`、`EmulatorNotRunningError`、`GameStuckError`、`GamePageUnknownError`、未满 3 次的 `ScriptError`、`RequestHumanTakeover`、`AutoSearchSetError` 与兜底 `Exception`）统一经 `_notify_recoverable()` 发双通道；开启 `Error_LowPushMode` 时该方法是空操作，只记一条 info 日志。这些错误都会被自动重启游戏/模拟器消化，逐个推送会在无人值守时形成轰炸。需要人工介入的路径（`_check_sensitive_exit`、`ScriptError` 满 3 次退出、调度循环的任务连败判定）仍直接调用 `handle_notify`，不受该模式影响。
 
@@ -106,8 +106,8 @@ module/
 
 全局 `logging.getLogger('alas')`，级别 INFO（模块常量 `logger_debug` 默认关闭）。导入即完成初始化：stdout/stderr 重配为 UTF-8、把 `logging.basicConfig` 替换为空函数（防 cnocr 在 root logger 上重复输出）、`os.chdir` 到仓库根目录、挂控制台处理器并执行首次 `set_file_logger()`。三个 sink 各自独立：
 
-- **控制台**：`RichHandler`，本地调试用；Electron 环境下会被移除。
-- **文件**：`RichTimedRotatingHandler`，每天午夜轮转到 `./log/<日期>_<实例名>.txt`；保留份数与过期处理方式读自 `./config/<实例>.json` 的 `General.Log`，过期文件在 daemon 线程中按 `LogBackUpMethod` 移入 `./log/bak/`（压缩/复制）或删除。每个进程只挂一次（幂等），Windows 下 SyncManager/MainProcess 等辅助进程跳过。
+- **控制台**：`RichHandler`，本地调试用；Electron、TUI 与 WebUI 子进程用 `set_console_logger(False)` 关闭。
+- **文件**：`RichTimedRotatingHandler`，每天午夜轮转到 `./log/<日期>_<实例名>.txt`；保留份数与过期处理方式读自 `./config/<实例>.json` 的 `General.Log`，过期文件在 daemon 线程中按 `LogBackUpMethod` 移入 `./log/bak/`（压缩/复制）或删除。每个进程只挂一次（幂等），Windows 下 SyncManager/MainProcess 等辅助进程跳过。WebUI 子进程用 `set_file_logger('webui')` 只写 `./log/<日期>_webui.txt`，不动 stdout/stderr，任务子进程照常继承控制台。
 - **WebUI**：`set_func_logger(q.put)` 把每条日志渲染成 Rich 渲染对象塞进 multiprocessing 队列 → `ProcessManager` 消费线程存入 `renderables` 列表（上限约 400 条）→ API 的 `logs()` 方法用无色 Console 把渲染对象捕获为文本、正则提取日志级别，前端经 WebSocket `logs.get` 按游标增量拉取。
 
 高频 API 的分级语义（全项目通用约定）：

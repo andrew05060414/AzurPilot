@@ -277,45 +277,6 @@
         "type": "object"
       }
     },
-    "shop_strategy.validate": {
-      "mutates": false,
-      "params": {
-        "additionalProperties": false,
-        "description": "高级商店策略的只读语法校验请求。",
-        "properties": {
-          "instance": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Instance",
-            "type": "string"
-          },
-          "task": {
-            "enum": [
-              "EventShop",
-              "ShopFrequent",
-              "ShopOnce",
-              "PrivateQuarters",
-              "OpsiShop",
-              "OpsiVoucher"
-            ],
-            "title": "Task",
-            "type": "string"
-          },
-          "script": {
-            "maxLength": 20000,
-            "title": "Script",
-            "type": "string"
-          }
-        },
-        "required": [
-          "instance",
-          "task",
-          "script"
-        ],
-        "title": "ShopStrategyValidateParams",
-        "type": "object"
-      }
-    },
     "overview.get": {
       "mutates": false,
       "params": {
@@ -333,6 +294,340 @@
           "instance"
         ],
         "title": "InstanceParams",
+        "type": "object"
+      }
+    },
+    "mind.catalog": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance"
+        ],
+        "title": "InstanceParams",
+        "type": "object"
+      }
+    },
+    "mind.report": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "单实例操作通用入参模型。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance"
+        ],
+        "title": "InstanceParams",
+        "type": "object"
+      }
+    },
+    "mind.calculate": {
+      "mutates": false,
+      "params": {
+        "$defs": {
+          "MindShip": {
+            "additionalProperties": false,
+            "description": "可编辑的舰船字段，核对状态与排除状态独立保存。",
+            "properties": {
+              "name": {
+                "maxLength": 100,
+                "minLength": 1,
+                "title": "Name",
+                "type": "string"
+              },
+              "level": {
+                "maximum": 125,
+                "minimum": 0,
+                "title": "Level",
+                "type": "integer"
+              },
+              "rarity": {
+                "default": "",
+                "enum": [
+                  "",
+                  "N",
+                  "R",
+                  "SR",
+                  "SSR",
+                  "UR"
+                ],
+                "title": "Rarity",
+                "type": "string"
+              },
+              "base_rarity": {
+                "default": "",
+                "enum": [
+                  "",
+                  "N",
+                  "R",
+                  "SR",
+                  "SSR",
+                  "UR"
+                ],
+                "title": "Base Rarity",
+                "type": "string"
+              },
+              "excluded": {
+                "default": false,
+                "title": "Excluded",
+                "type": "boolean"
+              },
+              "review": {
+                "default": false,
+                "title": "Review",
+                "type": "boolean"
+              },
+              "source": {
+                "default": "",
+                "maxLength": 200,
+                "title": "Source",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "level"
+            ],
+            "title": "MindShip",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "ships": {
+            "items": {
+              "$ref": "#/$defs/MindShip"
+            },
+            "maxItems": 5000,
+            "title": "Ships",
+            "type": "array"
+          }
+        },
+        "required": [
+          "instance",
+          "ships"
+        ],
+        "title": "MindCalculateParams",
+        "type": "object"
+      }
+    },
+    "mind.save": {
+      "mutates": true,
+      "params": {
+        "$defs": {
+          "MindShip": {
+            "additionalProperties": false,
+            "description": "可编辑的舰船字段，核对状态与排除状态独立保存。",
+            "properties": {
+              "name": {
+                "maxLength": 100,
+                "minLength": 1,
+                "title": "Name",
+                "type": "string"
+              },
+              "level": {
+                "maximum": 125,
+                "minimum": 0,
+                "title": "Level",
+                "type": "integer"
+              },
+              "rarity": {
+                "default": "",
+                "enum": [
+                  "",
+                  "N",
+                  "R",
+                  "SR",
+                  "SSR",
+                  "UR"
+                ],
+                "title": "Rarity",
+                "type": "string"
+              },
+              "base_rarity": {
+                "default": "",
+                "enum": [
+                  "",
+                  "N",
+                  "R",
+                  "SR",
+                  "SSR",
+                  "UR"
+                ],
+                "title": "Base Rarity",
+                "type": "string"
+              },
+              "excluded": {
+                "default": false,
+                "title": "Excluded",
+                "type": "boolean"
+              },
+              "review": {
+                "default": false,
+                "title": "Review",
+                "type": "boolean"
+              },
+              "source": {
+                "default": "",
+                "maxLength": 200,
+                "title": "Source",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "level"
+            ],
+            "title": "MindShip",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "ships": {
+            "items": {
+              "$ref": "#/$defs/MindShip"
+            },
+            "maxItems": 5000,
+            "title": "Ships",
+            "type": "array"
+          },
+          "revision": {
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance",
+          "ships",
+          "revision"
+        ],
+        "title": "MindSaveParams",
+        "type": "object"
+      }
+    },
+    "mind.import": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "filename": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Filename",
+            "type": "string"
+          },
+          "content": {
+            "maxLength": 8000000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance",
+          "filename",
+          "content"
+        ],
+        "title": "MindFileParams",
+        "type": "object"
+      }
+    },
+    "mind.recognize": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "filename": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Filename",
+            "type": "string"
+          },
+          "content": {
+            "maxLength": 8000000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance",
+          "filename",
+          "content"
+        ],
+        "title": "MindFileParams",
+        "type": "object"
+      }
+    },
+    "mind.export": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "format": {
+            "default": "xlsx",
+            "enum": [
+              "json",
+              "csv",
+              "xlsx"
+            ],
+            "title": "Format",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance"
+        ],
+        "title": "MindExportParams",
         "type": "object"
       }
     },
@@ -1898,12 +2193,122 @@
             ],
             "default": null,
             "title": "Task"
+          },
+          "include_series": {
+            "default": true,
+            "title": "Include Series",
+            "type": "boolean"
           }
         },
         "required": [
           "instance"
         ],
         "title": "StatisticsReportParams",
+        "type": "object"
+      }
+    },
+    "statistics.resourceFlows": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "资源管理只读区间与明细分页，不触发设备操作。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "days": {
+            "default": 7,
+            "maximum": 365,
+            "minimum": 1,
+            "title": "Days",
+            "type": "integer"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "End"
+          },
+          "resource": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z][A-Za-z0-9_]{0,100}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resource"
+          },
+          "task": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z][A-Za-z0-9_]{0,100}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Task"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "limit": {
+            "default": 100,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "through_id": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Through Id"
+          }
+        },
+        "required": [
+          "instance"
+        ],
+        "title": "ResourceFlowsParams",
         "type": "object"
       }
     },
@@ -2397,11 +2802,12 @@
                 "overview",
                 "logs",
                 "preview",
-                "stock"
+                "stock",
+                "notifications"
               ],
               "type": "string"
             },
-            "maxItems": 5,
+            "maxItems": 6,
             "title": "Topics",
             "type": "array"
           }

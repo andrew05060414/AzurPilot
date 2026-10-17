@@ -4,6 +4,7 @@ from module.base.timer import Timer
 from module.config.time_source import now as current_time
 from module.logger import logger
 from module.retire.dock import Dock
+from module.retire.fleet_emotion import learn_fleet_emotion, screenshot_window
 from module.retire.scanner import FleetManagementScanner
 from module.ui.page import page_dock
 
@@ -12,8 +13,8 @@ class FleetManagement(Dock):
     """扫描船坞内已编入舰队的舰船，并持久化舰队信息。"""
 
     SCAN_CATEGORIES = {
-        "main": "main",
         "vanguard": "vanguard",
+        "main": "main",
         "submarine": "ss",
     }
     RESULT_PATH = "FleetInfo.FleetInfo.Result"
@@ -35,6 +36,7 @@ class FleetManagement(Dock):
                 {
                     'name': str(ship.get('name', '')),
                     'level': int(ship.get('level', 0)),
+                    'emotion': ship.get('emotion'),
                 }
                 for ship in names
             ]
@@ -69,24 +71,33 @@ class FleetManagement(Dock):
         self.ui_ensure(page_dock)
         scanner = FleetManagementScanner()
         result = {}
+        windows = {}
+        reset_first = self.dock_filter.reset_first
 
         try:
+            # 所有筛选条件已显式指定；避免后续分类先重置排序为等级。
+            self.dock_filter.reset_first = False
             self.dock_favourite_set(False, wait_loading=False)
             self.dock_sort_method_dsc_set(False, wait_loading=False)
             for category, index in self.SCAN_CATEGORIES.items():
                 logger.hr(f"舰队扫描-{category}", level=1)
                 self.dock_filter_set(
-                    sort="level",
+                    sort="mood" if category == "vanguard" else None,
                     index=index,
                     faction="all",
                     rarity="all",
                     extra="no_limit",
                     wait_loading=False,
+                    reset_index=True,
                 )
                 self._wait_dock_filter_loaded()
+                if category != 'submarine':
+                    windows[category] = screenshot_window(self.device)
                 result[category] = self._normalize_result(scanner.scan(self.device.image))
 
+            learn_fleet_emotion(self.config, result, windows, set(scanner.name_scanner.name_matcher.names))
             self._save_result(result)
         finally:
+            self.dock_filter.reset_first = reset_first
             # 扫描结束后恢复船坞默认筛选和排序状态。
             self.dock_reset()

@@ -4,6 +4,7 @@ import Ajv from 'ajv'
 import {spawnSync} from 'node:child_process'
 import {fileURLToPath} from 'node:url'
 import {createStockProxy} from './stock.mjs'
+import {resourceFlows} from './resource-flows.mjs'
 
 // 只读取公开的模板、元数据和翻译，绝不读取用户实例或部署文件。
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'))
@@ -16,132 +17,15 @@ const locales = Object.fromEntries(['zh-CN', 'zh-TW', 'en-US', 'ja-JP', 'zh-MIAO
 const ajv = new Ajv({ strict: false, useDefaults: true })
 const validators = Object.fromEntries(Object.entries(contract.methods).map(([method, entry]) => [method, ajv.compile(entry.params)]))
 const revision = values => createHash('sha256').update(JSON.stringify(values)).digest('hex')
+// 与后端按游戏包名确定地区的规则一致，开服检测配置不参与判断。
+const region = packageName => !packageName || packageName === 'auto' ? null : ({
+  en: 'en', jp: 'jp', tw: 'tw',
+  'com.YoStarEN.AzurLane': 'en', 'com.YoStarJP.AzurLane': 'jp', 'com.hkmanjuu.azurlane.gp': 'tw',
+  'com.hkmanjuu.azurlane.gp.mc': 'tw',
+})[packageName] ?? 'cn'
 const timestamp = date => date.toISOString().slice(0, 19).replace('T', ' ')
 const translate = key => key.split('.').reduce((value, part) => value?.[part], locales['zh-CN']) ?? key
 export const fail = (code, message, details = null) => { throw Object.assign(new Error(message), { code, details }) }
-
-function strategyLocation(source, index) {
-  const prefix = source.slice(0, Math.max(0, index))
-  return { line: prefix.split(/\r?\n/).length, column: prefix.length - Math.max(prefix.lastIndexOf('\n'), prefix.lastIndexOf('\r')) }
-}
-
-function invalidStrategy(source, code, message, index = 0) {
-  return { valid: false, diagnostics: [{ code, message, ...strategyLocation(source, index) }] }
-}
-
-function maskLuaStringsAndComments(source) {
-  let output = ''
-  for (let index = 0; index < source.length;) {
-    if (source.startsWith('--[[', index)) {
-      const end = source.indexOf(']]', index + 4)
-      if (end < 0) return { masked: output, error: invalidStrategy(source, 'syntax_error', '多行注释没有结束', index) }
-      const comment = source.slice(index, end + 2)
-      output += comment.replace(/[^\r\n]/g, ' ')
-      index = end + 2
-      continue
-    }
-    if (source.startsWith('--', index)) {
-      const end = source.indexOf('\n', index)
-      const comment = source.slice(index, end < 0 ? source.length : end)
-      output += comment.replace(/[^\r\n]/g, ' ')
-      index = end < 0 ? source.length : end
-      continue
-    }
-    const quote = source[index]
-    if (quote === '"' || quote === "'") {
-      const start = index++
-      output += ' '
-      let closed = false
-      while (index < source.length) {
-        const char = source[index++]
-        if (char === '\\') {
-          output += ' '
-          if (index < source.length) output += source[index++] === '\n' ? '\n' : ' '
-          continue
-        }
-        output += char === '\n' || char === '\r' ? char : ' '
-        if (char === quote) { closed = true; break }
-      }
-      if (!closed) return { masked: output, error: invalidStrategy(source, 'syntax_error', '字符串没有结束', start) }
-      continue
-    }
-    output += source[index++]
-  }
-  return { masked: output, error: null }
-}
-
-function validateMockStrategy(script) {
-  // Mock 不执行 Lua；这里只复现不会误伤有效分支策略的明显语法和白名单错误。
-  if (!script.trim()) return { valid: true, diagnostics: [] }
-  const { masked, error } = maskLuaStringsAndComments(script)
-  if (error) return error
-
-  const pairs = { '(': ')', '[': ']', '{': '}' }
-  const opening = []
-  for (let index = 0; index < masked.length; index++) {
-    const character = masked[index]
-    if (character in pairs) opening.push({ character, index })
-    else if (Object.values(pairs).includes(character)) {
-      const previous = opening.pop()
-      if (!previous || pairs[previous.character] !== character) return invalidStrategy(script, 'syntax_error', '括号或花括号不匹配', index)
-    }
-  }
-  if (opening.length) return invalidStrategy(script, 'syntax_error', '括号或花括号没有结束', opening.at(-1).index)
-
-  const forbiddenStatement = /\b(?:while|repeat|for|goto|break)\b/.exec(masked)
-  if (forbiddenStatement) return invalidStrategy(script, 'forbidden_statement', `不支持 ${forbiddenStatement[0]} 语句`, forbiddenStatement.index)
-  const namedFunction = /\bfunction\s+(?!\()/.exec(masked)
-  if (namedFunction) return invalidStrategy(script, 'forbidden_statement', '不支持具名 function 语句', namedFunction.index)
-  const forbiddenCall = /\b((?:os|io|debug|package|math|string|table|coroutine)\s*[.:]\s*[A-Za-z_]\w*|require|load|dofile|loadfile|collectgarbage|setmetatable|getmetatable|pairs|ipairs|next|type|tonumber|tostring|error|assert|pcall|xpcall)\s*\(/.exec(masked)
-  if (forbiddenCall) {
-    return invalidStrategy(script, 'forbidden_call', `不允许调用 ${forbiddenCall[1].replace(/\s/g, '')}`, forbiddenCall.index)
-  }
-  const plan = /\breturn\s+shop\s*\.\s*plan\s*(?:\(\s*)?\{/.exec(masked)
-  if (!plan) return invalidStrategy(script, 'missing_return', '必须返回 shop.plan {...}', 0)
-
-  const unknownShopField = /\bshop\s*\.\s*(?!plan\b)([A-Za-z_]\w*)/.exec(masked)
-  if (unknownShopField) return invalidStrategy(script, 'forbidden_field', `不支持 shop.${unknownShopField[1]}`, unknownShopField.index)
-  const allowedContextFields = new Set(['domain', 'currency', 'spent', 'purchased'])
-  for (const match of masked.matchAll(/\bcontext\s*\.\s*([A-Za-z_]\w*)/g)) {
-    if (!allowedContextFields.has(match[1])) return invalidStrategy(script, 'unknown_context_field', `不支持 context.${match[1]}`, match.index)
-  }
-  const allowedCandidateFields = new Set(['id', 'key', 'name', 'group', 'sub_genre', 'tier', 'price', 'cost', 'stock', 'max_quantity', 'available'])
-  for (const match of masked.matchAll(/\bitem\s*\.\s*([A-Za-z_]\w*)/g)) {
-    if (!allowedCandidateFields.has(match[1])) return invalidStrategy(script, 'unknown_candidate_field', `不支持商品字段 ${match[1]}`, match.index)
-  }
-  const allowedPipelineMethods = new Set(['where', 'score', 'order_by', 'cap', 'take'])
-  for (const match of masked.matchAll(/:\s*([A-Za-z_]\w*)\s*\(/g)) {
-    const method = match[1]
-    if (!allowedPipelineMethods.has(method)) return invalidStrategy(script, 'forbidden_call', '候选管道只允许 where、score、order_by、cap、take', match.index)
-  }
-  for (const match of masked.matchAll(/:\s*take\s*\(([^)]*)\)/g)) {
-    const rawAmount = match[1].trim()
-    if (!/^\d+$/.test(rawAmount)) return invalidStrategy(script, 'invalid_take', 'take 必须是 0 到 100 之间的整数', match.index)
-    const amount = Number(rawAmount)
-    if (amount > 100) return invalidStrategy(script, 'invalid_take', 'take 必须在 0 到 100 之间', match.index)
-  }
-  for (const match of masked.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)) {
-    const before = masked.slice(0, match.index).trimEnd().at(-1)
-    if (before === ':' || before === '.' || ['function', 'if', 'elseif'].includes(match[1])) continue
-    return invalidStrategy(script, 'forbidden_call', `不允许调用 ${match[1]}`, match.index)
-  }
-  return { valid: true, diagnostics: [] }
-}
-
-function requireValidMockStrategy(script) {
-  const result = validateMockStrategy(script)
-  if (!result.valid) fail('INVALID_PARAMS', `高级商店策略脚本无效：${result.diagnostics[0].message}`, result.diagnostics)
-}
-
-function validateMockAdvancedGroups(values, tasks) {
-  for (const task of tasks) {
-    const group = values[task]?.ShopAdvanced
-    if (group?.Mode !== 'advanced') continue
-    const script = group.Script
-    if (typeof script !== 'string' || !script.trim()) fail('INVALID_PARAMS', `${task} 的高级模式需要先保存非空且有效的策略脚本`)
-    requireValidMockStrategy(script)
-  }
-}
 
 function validateField(path, value) {
   const parts = path.split('.')
@@ -166,6 +50,17 @@ function validateField(path, value) {
 
 export function createMockState({ empty = false } = {}) {
   const instances = new Map()
+  const mindShips = new Map()
+  function mindPython(action, params) {
+    const run = spawnSync('uv', ['run', '--no-sync', 'python', '-X', 'utf8', '-m', 'dev_tools.mind_calculator_mock'], {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)), input: JSON.stringify({action, ...params}),
+      encoding: 'utf8', timeout: 30000, windowsHide: true,
+    })
+    if (run.error || run.status) fail('INTERNAL_ERROR', '计算器模拟服务运行失败')
+    const result = JSON.parse(run.stdout)
+    if (result.error) fail('INVALID_PARAMS', result.error)
+    return result
+  }
   const stock = createStockProxy(name=>{const r=get(name).values.Dashboard.ActionPoint;return r?.Total!=null&&r.Record?{instance:name,actionPoints:r.Total,observedAt:Math.floor(new Date(r.Record.replace(' ','T')+'Z').getTime()/1000)}:null})
   const programs = new Map()
   const simulations = new Map()
@@ -495,6 +390,7 @@ export function createMockState({ empty = false } = {}) {
       values.Main.Emotion.Fleet1Record = '2026-09-12 23:45:12.123456'
       values.Main.Scheduler.NextRun = '2099-01-01 12:00:00'
       values.Alas.Emulator.Serial = `127.0.0.1:${5555 + index * 2}`
+      values.Alas.Emulator.ServerName = 'cn_android-20'
       /* 四个演示实例各占一档：小狗 / 中狗 / 大狗 / 狗王，用来一次看全行动力图标的四档。 */
       const apTotal = {'demo-main': 6001, 'demo-alt': 8001, 'demo-error': 10001, 'demo-dog': 12001}[name] ?? 6001
       const dashboardDefaults = {
@@ -554,7 +450,7 @@ export function createMockState({ empty = false } = {}) {
       case 'updater.cancel': return { accepted: true }
       case 'system.ping': return { pong: true }
       case 'schema.get': return { args, menu, translations: locales[params.language] }
-      case 'instances.list': return [...instances].map(([name, item]) => ({ name, status: item.status, currentTask: item.status === 'running' ? 'Commission' : null, serial: item.values.Alas.Emulator.Serial, server: item.values.Alas.Emulator.ServerName }))
+      case 'instances.list': return [...instances].map(([name, item]) => ({ name, status: item.status, currentTask: item.status === 'running' ? item.currentTask ?? 'Commission' : null, serial: item.values.Alas.Emulator.Serial, server: item.values.Alas.Emulator.ServerName, region: region(item.values.Alas.Emulator.PackageName) }))
       case 'instances.create': {
         if (!/^[A-Za-z0-9\u3041-\u3096\u30a1-\u30fa\u30fc\u31f0-\u31ff\uff66-\uff9f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff][A-Za-z0-9_. \u3041-\u3096\u30a1-\u30fa\u30fc\u31f0-\u31ff\uff66-\uff9f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\-]{0,63}$/.test(params.name) || /^(template|deploy|backup|con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i.test(params.name)) fail('INVALID_PARAMS', '实例名称无效')
         if ([...instances.keys()].some(name => name.toLowerCase() === params.name.toLowerCase())) fail('ALREADY_EXISTS', '同名实例已存在')
@@ -597,34 +493,43 @@ export function createMockState({ empty = false } = {}) {
         programs.set(name, current); return program(name)
       }
       case 'scheduler.program.state': return {mode:program(name).mode, generation:program(name).generation, state:{status:'idle',trace:[]}}
-      case 'shop_strategy.validate': return validateMockStrategy(params.script)
       case 'config.patch': {
         const data = snapshot(name)
         const seen = new Set()
-        const affectedShopTasks = new Set()
         for (const { path, value } of params.changes) {
           const [task, group, arg] = validateField(path, value)
           if (seen.has(path)) fail('INVALID_PARAMS', '同一次保存不能重复修改同一个参数')
           seen.add(path)
-          const field = args[task][group][arg]
-          if (field.mode === 'restricted_lua') requireValidMockStrategy(value)
           data.values[task] ??= {}; data.values[task][group] ??= {}
           data.values[task][group][arg] = value
-          if (group === 'ShopAdvanced') affectedShopTasks.add(task)
         }
-        validateMockAdvancedGroups(data.values, affectedShopTasks)
         get(name).values = data.values
         log(name, `已保存 ${params.changes.length} 项配置。`)
         return snapshot(name)
       }
       case 'overview.get': return overview(name)
+      case 'mind.catalog': return mindPython('catalog', params)
+      case 'mind.calculate': return mindPython('calculate', params)
+      case 'mind.report': {
+        const range = get(name).values.MindCalculatorScan.MindCalculator
+        return {...mindPython('report', {ships: mindShips.get(name) ?? []}), instance: name, updated_at: '', min_level: range.MinLevel, max_level: range.MaxLevel}
+      }
+      case 'mind.save': {
+        const current = mindPython('report', {ships: mindShips.get(name) ?? []})
+        if (current.revision !== params.revision) fail('CONFLICT', '舰船数据已变化，请重新载入后再保存')
+        mindShips.set(name, params.ships)
+        return dispatch('mind.report', {instance: name})
+      }
+      case 'mind.import': return mindPython('import', params)
+      case 'mind.recognize': return mindPython('recognize', params)
+      case 'mind.export': return mindPython('export', {...params, ships: mindShips.get(name) ?? []})
       case 'stock.status': return stock.status(name)
       case 'stock.rebuild': return stock.rebuild(name,params)
       case 'stock.request': return stock.request(name,params)
       case 'scheduler.start': case 'tasks.run':
         if (get(name).status === 'running') fail('INSTANCE_RUNNING', '实例已在运行')
         if (method === 'tasks.run' && !['FleetScan', 'StorageStatistics'].includes(params.task) && !Object.values(menu).some(group => group.page === 'tool' && group.tasks.includes(params.task))) fail('INVALID_PARAMS', '该任务不支持单独运行')
-        get(name).status = 'running'; log(name, '模拟调度器已启动。')
+        get(name).status = 'running'; get(name).currentTask = params.task ?? 'Commission'; log(name, '模拟调度器已启动。')
         return overview(name)
       case 'scheduler.stop':
         get(name).status = 'stopped'; log(name, '模拟调度器已停止。')
@@ -698,6 +603,7 @@ export function createMockState({ empty = false } = {}) {
         }]
         return { instance: name, generatedAt: timestamp(new Date()), count: cats.length, cats: cats.slice(-(params.limit ?? 100)) }
       }
+      case 'statistics.resourceFlows': return resourceFlows(params, snapshot(name), storageCatalog, name === 'demo-alt')
       case 'statistics.report': {
         const makePoints = (res, days = 7) => {
           if (name === 'demo-alt') return []

@@ -499,7 +499,7 @@ def set_file_logger(name=None):
     pname = name
     if os.name == "nt" and automatic and name == "gui":
         pname = multiprocessing.current_process().name.replace(":", "_")
-        if pname == "MainProcess" or pname.startswith(("SyncManager-", "Process-")):
+        if pname == "MainProcess" or pname.startswith(("SyncManager-", "Process-", "dependency-sync")):
             return
 
     log_dir = Path("./log")
@@ -526,6 +526,19 @@ def set_file_logger(name=None):
 
     logger.addHandler(hdlr)
     logger.log_file = hdlr.log_file
+
+
+def set_console_logger(enabled=True):
+    """开关当前进程的控制台日志处理器；WebUI 子进程关闭后只把日志写进文件。
+
+    Args:
+        enabled (bool, optional): True 添加控制台处理器，False 移除。默认为 True。
+    """
+    if enabled:
+        if console_hdlr not in logger.handlers:
+            logger.addHandler(console_hdlr)
+    elif console_hdlr in logger.handlers:
+        logger.removeHandler(console_hdlr)
 
 
 def set_func_logger(func):

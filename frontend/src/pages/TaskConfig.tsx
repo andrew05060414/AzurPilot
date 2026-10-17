@@ -1,10 +1,10 @@
 /**
- * @fileoverview 任务参数设置与自定义策略脚本编辑页面。
+ * @fileoverview 任务参数设置页面。
  */
 
-import { Suspense, lazy, useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { CalendarClock, Clock3, ListTree, Play, RotateCcw, Search, Settings2, Ship, Terminal } from 'lucide-react'
+import { CalendarClock, Clock3, ListTree, Play, RotateCcw, Search, Settings2, Terminal } from 'lucide-react'
 import { api } from '../api/client'
 import type { Config } from '../api/types'
 import { useApp, useConnection } from '../app/context'
@@ -18,7 +18,6 @@ import { LogPanel } from '../components/LogPanel'
 import { MeowfficerScorePanel } from '../components/MeowfficerScorePanel'
 import { OpsiSimulatorPanel } from '../components/OpsiSimulatorPanel'
 import { FieldInput } from '../components/FieldInput'
-import { ShopStrategyHelp } from '../components/ShopStrategyHelp'
 import { StorageField } from '../components/StorageField'
 import { SchedulerWidget } from '../components/SchedulerWidget'
 import { TaskQueue } from '../components/TaskQueue'
@@ -27,11 +26,11 @@ import { editor, prepareValue } from '../config/editors'
 import { EditStatus } from '../components/EditStatus'
 import { AccountPanel } from '../components/AccountPanel'
 import { isFieldVisible } from './configVisibility'
+import { FleetInfoPage } from './FleetInfoPage'
 
-const RestrictedLuaEditor = lazy(() => import('../components/RestrictedLuaEditor').then(module => ({default: module.RestrictedLuaEditor})))
 export function TaskConfig() {
   const {instance = '', task = ''} = useParams()
-  const {schema, t, ui, notify, language, theme} = useApp()
+  const {schema, t, ui, notify, theme} = useApp()
   const connection = useConnection()
   const railView = useSyncExternalStore(subscribeRailView, readRailView, readRailView)
   // 只在真的切到调度器时才请求总览数据，否则这一页白拉一份队列。
@@ -41,7 +40,6 @@ export function TaskConfig() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmRun, setConfirmRun] = useState(false)
-  const [shopModeError, setShopModeError] = useState('')
 
   const queue = editor(`config:${instance}`)
   const {edits, storageError} = useSyncExternalStore(queue.subscribe, queue.getSnapshot, queue.getSnapshot)
@@ -78,7 +76,7 @@ export function TaskConfig() {
   }, [startupQueue])
 
   useEffect(() => {
-    if (connection !== 'ready') return
+    if (connection !== 'ready' || task === 'FleetInfo') return
     let active = true
     const confirmed = queue.confirmed()
     void api.request('config.get', {instance}).then(value => {
@@ -96,7 +94,6 @@ export function TaskConfig() {
     }).catch(error => { if (active) setError(error.message) })
     return () => { active = false }
   }, [connection, instance, task, startupQueue])
-  useEffect(() => { setShopModeError('') }, [instance, task])
 
   async function run() {
     setBusy(true)
@@ -137,15 +134,19 @@ export function TaskConfig() {
       if (!path || !path.startsWith(`${task}.`)) return
       if (find) window.clearInterval(find)
       let attempts = 0
+      // 卡片命中给两段路径（任务.分组），配置项命中给三段；据此选 DOM id 与滚动方式
+      const segments = path.split('.')
+      const isCard = segments.length <= 2
+      const elementId = isCard ? `group-${segments[1]}` : path
       find = window.setInterval(() => {
-        const field = document.getElementById(path)
+        const field = document.getElementById(elementId)
         attempts += 1
         if (field) {
           window.clearInterval(find)
           find = undefined
           clearSearchTarget()
           const row = field.closest('.field-row') ?? field
-          row.scrollIntoView({block: 'center'})
+          row.scrollIntoView({block: isCard ? 'start' : 'center'})
           row.classList.add('is-search-target')
           window.setTimeout(() => row.classList.remove('is-search-target'), 3000)
         } else if (attempts > 20) {
@@ -165,6 +166,7 @@ export function TaskConfig() {
     }
   }, [config, task])
 
+  if (task === 'FleetInfo') return <FleetInfoPage key={instance}/>
   if (!config) return error ? <ErrorBox message={error} retry={reload} /> : <Loading />
 
   const modal = confirmRun && (
@@ -184,9 +186,6 @@ export function TaskConfig() {
           <h2 data-text={t(`${group}._info.name`)}>{t(`${group}._info.name`)}</h2>
         </div>
       </div>
-      {group === 'ShopAdvanced' && (
-        <ShopStrategyHelp task={task} language={language}/>
-      )}
       {visible.map(([arg, field]) => {
         const path = `${task}.${group}.${arg}`
         const edit = edits[path]
@@ -194,13 +193,11 @@ export function TaskConfig() {
         const label = t(`${group}.${arg}.name`)
         const help = t(`${group}.${arg}.help`)
         const readonly = ['disabled', 'readonly'].includes(field.display ?? '') || ['storage', 'stored', 'state', 'lock'].includes(field.type)
-        const restrictedLua = field.mode === 'restricted_lua'
-        const shopMode = group === 'ShopAdvanced' && arg === 'Mode'
         // 「立刻运行」只对每个任务的调度时间有意义，其他时间字段（如仪表盘记录时间）不显示。
         const runNow = group === 'Scheduler' && arg === 'NextRun' && !readonly
         const clearProgress = path === 'OpsiExplore.OpsiExplore.ExploreProgress'
           || path === 'OpsiScheduling.OpsiSmartExplore.Progress'
-        const isMultiline = ['textarea', 'task_priority', 'yaml', 'storage'].includes(field.type) || field.mode === 'yaml' || restrictedLua
+        const isMultiline = ['textarea', 'task_priority', 'yaml', 'storage'].includes(field.type) || field.mode === 'yaml'
 
         return (
           <div className={`field-row ${isMultiline ? 'field-row-multiline' : ''}`} key={arg}>
@@ -218,22 +215,6 @@ export function TaskConfig() {
             <div className="field-control">
               {field.type === 'storage' ? (
                 <StorageField value={value} disabled={false} onClear={() => queue.change(path, {})} />
-              ) : restrictedLua ? (
-                <Suspense fallback={<div role="status">{ui('field.loadingEditor')}</div>}>
-                  <RestrictedLuaEditor
-                    id={path}
-                    value={String(value ?? '')}
-                    draftKey={`${instance}.${path}`}
-                    label={label}
-                    disabled={readonly}
-                    offline={connection !== 'ready'}
-                    onCheck={script => api.request('shop_strategy.validate', {instance, task: task as 'EventShop' | 'ShopFrequent' | 'ShopOnce' | 'PrivateQuarters' | 'OpsiShop' | 'OpsiVoucher', script})}
-                    onApply={async script => {
-                      setConfig(await api.request('config.patch', {instance, changes: [{path, value: script}]}))
-                      setShopModeError('')
-                    }}
-                  />
-                </Suspense>
               ) : (
                 <FieldInput
                   id={path}
@@ -243,18 +224,12 @@ export function TaskConfig() {
                   options={field.option}
                   disabled={readonly}
                   preserveText
-                  invalid={edit?.status === 'error' || (shopMode && !!shopModeError)}
+                  // 实测心情重新输入同一值也要提交，建立新的校准时刻。
+                  resubmitOnEdit={(group === 'Emotion' && /^Fleet[12]Value$/.test(arg)) || (group === 'PublicEmotion' && arg === 'FleetValue')}
+                  invalid={edit?.status === 'error'}
                   label={label}
                   translateOption={option => t(`${group}.${arg}.${option}`)}
                   onChange={next => {
-                    if (shopMode && next === 'advanced') {
-                      const script = String(config.values[task]?.ShopAdvanced?.Script ?? '')
-                      if (!script.trim()) {
-                        setShopModeError(ui('script.modeRequiresScript'))
-                        return
-                      }
-                    }
-                    if (shopMode) setShopModeError('')
                     const {payload, text, error} = prepareValue(next, field)
                     queue.change(path, text ?? next, payload, error)
                   }}
@@ -277,9 +252,7 @@ export function TaskConfig() {
                     onClick={() => queue.change(path, '')}><RotateCcw size={15}/></button>
                 </div>
               )}
-              {!isMultiline && (shopMode && shopModeError && !edit ? (
-                <div id={`${path}-status`} className="edit-status edit-error" role="alert">{shopModeError}</div>
-              ) : <EditStatus id={path} edit={edit} retry={queue.retry} queue={queue} />)}
+              {!isMultiline && <EditStatus id={path} edit={edit} retry={queue.retry} queue={queue} />}
             </div>
           </div>
         )
@@ -322,7 +295,13 @@ export function TaskConfig() {
     </div>
   </section>
 
-  const groupCardsBlock = <div className="config-groups">{startupPanel}{task === 'Alas' && !search && <AccountPanel key={instance} instance={instance}/>} {groupCards}</div>
+  /* 任务级说明（Task.<task>.help）：作为卡片列首卡，与参数卡同宽同层。 */
+  const taskHelp = t(`Task.${task}.help`)
+  const taskHelpBlock = taskHelp && taskHelp !== 'help' && !taskHelp.startsWith('Task.')
+    ? <section className="panel task-help-panel"><p className="task-help">{htmlToPlainText(taskHelp)}</p></section>
+    : null
+
+  const groupCardsBlock = <div className="config-groups">{taskHelpBlock}{startupPanel}{task === 'Alas' && !search && <AccountPanel key={instance} instance={instance}/>} {groupCards}</div>
   const groupNav = <nav className="group-nav">
     {visibleGroups.map(({group}) => (
       <a
@@ -385,12 +364,10 @@ export function TaskConfig() {
     {(!hasGroups || !condensed) && configToolbar}
   </>
 
-  const groupsSection = task === 'FleetInfo' ? (
-    <FleetInfo value={config.values.FleetInfo?.FleetInfo?.Result} />
-  ) : !hasGroups ? (
-    (search || !tool) && <Empty icon={<Settings2 size={30} />} title={ui(search ? 'task.noConfigFound' : 'task.noConfig')}>
+  const groupsSection = !hasGroups ? (
+    <>{taskHelpBlock}{(search || !tool) && <Empty icon={<Settings2 size={30} />} title={ui(search ? 'task.noConfigFound' : 'task.noConfig')}>
       {search ? ui('task.tryOtherKeyword') : ui('task.viewRelated')}
-    </Empty>
+    </Empty>}</>
   ) : groupCardsBlock
 
   const toolPanel = task === 'OpsiSimulator'
@@ -431,13 +408,4 @@ export function TaskConfig() {
     {toolPanel}
     {modal}
   </>
-}
-
-function FleetInfo({value}: {value: unknown}) {
-  const {ui} = useApp()
-  if (!value || (typeof value === 'object' && !Object.keys(value).length)) return <Empty icon={<Ship size={32}/>} title={ui('fleet.emptyTitle')}>{ui('fleet.emptyHint')}</Empty>
-  let fleets: Record<string, Record<string, Array<{name: string; level?: number} | string>>>
-  try {fleets = typeof value === 'string' ? JSON.parse(value) : value} catch {return <ErrorBox message={ui('fleet.invalid')}/>}
-  const columns = {vanguard: ui('fleet.vanguard'), main: ui('fleet.main'), submarine: ui('fleet.submarine')}
-  return <div className="fleet-grid">{[1, 2, 3, 4, 5, 6].map(fleet => <section className="panel" key={fleet}><div className="panel-heading"><h2>{ui('fleet.title', {number: fleet})}</h2><Ship size={18}/></div>{Object.entries(columns).map(([key, label]) => <div className="fleet-column" key={key}><h3>{label}</h3>{fleets[key]?.[fleet]?.length ? fleets[key][fleet].map((ship, index) => <div key={index}><span>{typeof ship === 'string' ? ship : ship.name}</span><small>{typeof ship !== 'string' && ship.level ? `Lv.${ship.level}` : ''}</small></div>) : <p>{ui('fleet.noRecord')}</p>}</div>)}</section>)}</div>
 }

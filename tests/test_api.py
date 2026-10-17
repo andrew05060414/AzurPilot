@@ -114,6 +114,48 @@ class ConfigApiTests(unittest.TestCase):
         with self.assertRaises(ApiError):
             self.configs.schema('../deploy')
 
+    def test_meta_assist_legacy_switch_is_migrated_before_runner_start(self):
+        path = self.configs.path('testpilot')
+        for old, expected in ((True, 0), (False, -1), (None, 0)):
+            with self.subTest(old=old):
+                data = self.configs.read_json(path)
+                fields = data['OpsiAshBeacon']['OpsiAshBeacon']
+                fields.pop('AssistRequestLimit', None)
+                fields['OneHitMode'] = old
+                path.write_text(json.dumps(data), encoding='utf-8')
+                before = path.read_bytes()
+                values, revision = self.configs.read('testpilot')
+                fields = values['OpsiAshBeacon']['OpsiAshBeacon']
+                self.assertEqual(fields['AssistRequestLimit'], expected)
+                self.assertNotIn('OneHitMode', fields)
+                self.assertEqual(path.read_bytes(), before)
+                self.configs.patch('testpilot', revision, [ConfigChange(
+                    path='OpsiAshBeacon.OpsiAshBeacon.AssistRequestLimit', value=2,
+                )])
+                saved = self.configs.read_json(path)['OpsiAshBeacon']['OpsiAshBeacon']
+                self.assertEqual(saved['AssistRequestLimit'], 2)
+                self.assertNotIn('OneHitMode', saved)
+
+    def test_meta_assist_explicit_new_limit_wins_over_legacy_switch(self):
+        path = self.configs.path('testpilot')
+        data = self.configs.read_json(path)
+        data['OpsiAshBeacon']['OpsiAshBeacon'].update(OneHitMode=False, AssistRequestLimit=3)
+        path.write_text(json.dumps(data), encoding='utf-8')
+        values, _ = self.configs.read('testpilot')
+        self.assertEqual(values['OpsiAshBeacon']['OpsiAshBeacon']['AssistRequestLimit'], 3)
+
+    def test_meta_assist_schema_accepts_only_supported_integer_values(self):
+        key = 'OpsiAshBeacon.OpsiAshBeacon.AssistRequestLimit'
+        field = self.configs.args['OpsiAshBeacon']['OpsiAshBeacon']['AssistRequestLimit']
+        self.assertEqual((field['type'], field['value']), ('input', 0))
+        for value in (-1, 0, 1, 5, 100):
+            self.assertEqual(self.configs.validate(key, value), key.split('.'))
+        for value in (-2, 1.5, True, '2', None):
+            with self.subTest(value=value), self.assertRaises(ApiError):
+                self.configs.validate(key, value)
+        with self.assertRaises(ApiError):
+            self.configs.validate('OpsiAshBeacon.OpsiAshBeacon.AssistRequestState', {})
+
     def test_rejects_path_traversal_and_reserved_names(self):
         for name in ['../template', 'a/b', 'a\\b', 'template', 'template.fpy', 'CON', 'c:foo', '']:
             with self.subTest(name=name), self.assertRaises(ApiError):
@@ -154,6 +196,26 @@ class ConfigApiTests(unittest.TestCase):
         self.assertTrue(updated['values']['Main']['Scheduler']['Enable'])
         latest = self.configs.patch('testpilot', original['revision'], [ConfigChange(path='Alas.Emulator.Serial', value='auto')])
         self.assertEqual('auto', latest['values']['Alas']['Emulator']['Serial'])
+
+    def test_event_daily_last_stage_saves_text_from_legacy_zero(self):
+        """旧数字断点可改成关卡名，刷新后保留大小写，输入 0 仍可重置。"""
+        path = self.configs.path('testpilot')
+        data = self.configs.read_json(path)
+        tasks = ('EventA', 'EventB', 'EventC', 'EventD')
+        for task in tasks:
+            data[task]['EventDaily']['LastStage'] = 0
+        path.write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
+
+        for task in tasks:
+            with self.subTest(task=task):
+                original = self.configs.get('testpilot')
+                self.assertEqual(0, original['values'][task]['EventDaily']['LastStage'])
+                for stage in ('a3', 'D3', '0'):
+                    changed = self.configs.patch('testpilot', '', [
+                        ConfigChange(path=f'{task}.EventDaily.LastStage', value=stage)])
+                    self.assertEqual(stage, changed['values'][task]['EventDaily']['LastStage'])
+                    self.assertEqual(stage, self.configs.get('testpilot')['values'][task]['EventDaily']['LastStage'])
+                    self.assertEqual(stage, self.configs.read_json(path)[task]['EventDaily']['LastStage'])
 
     def test_invalid_batch_does_not_partially_save(self):
         original = self.configs.get('testpilot')
@@ -224,51 +286,26 @@ class ConfigApiTests(unittest.TestCase):
             self.assertEqual(original, self.configs.get('testpilot'))
         self.configs.patch('testpilot', None, [ConfigChange(path='Alas.Error.OnePushConfig', value='provider: null')])
 
-    def test_restricted_lua_script_is_validated_before_config_write(self):
-        """高级策略语法错误不能写入实例配置，空脚本仍可作为默认值保存。"""
-        original = self.configs.get('testpilot')
-        path = 'EventShop.ShopAdvanced.Script'
-        valid = 'return shop.plan { candidates = candidates:take(1) }'
 
-        updated = self.configs.patch('testpilot', None, [ConfigChange(path=path, value=valid)])
-        self.assertEqual(valid, updated['values']['EventShop']['ShopAdvanced']['Script'])
-        with self.assertRaises(ApiError) as caught:
-            self.configs.patch('testpilot', None, [ConfigChange(path=path, value='return os.execute("bad")')])
-        self.assertEqual('INVALID_PARAMS', caught.exception.code)
-        self.assertIsInstance(caught.exception.details, list)
-        self.assertEqual(valid, self.configs.get('testpilot')['values']['EventShop']['ShopAdvanced']['Script'])
-        cleared = self.configs.patch('testpilot', None, [ConfigChange(path=path, value='')])
-        self.assertEqual('', cleared['values']['EventShop']['ShopAdvanced']['Script'])
-        # 空脚本是默认值；清空后内容可以回到初始快照及其内容哈希。
-        self.assertEqual(original['revision'], cleared['revision'])
-
-    def test_advanced_shop_mode_requires_final_nonempty_valid_script(self):
-        """模式和脚本按最终事务快照校验，禁止保存不可执行高级模式。"""
-        mode_path = 'EventShop.ShopAdvanced.Mode'
-        script_path = 'EventShop.ShopAdvanced.Script'
-        original = self.configs.get('testpilot')
-
-        with self.assertRaises(ApiError) as caught:
-            self.configs.patch('testpilot', None, [ConfigChange(path=mode_path, value='advanced')])
-        self.assertEqual('INVALID_PARAMS', caught.exception.code)
-        self.assertEqual(original, self.configs.get('testpilot'))
-
-        script = 'return shop.plan { candidates = candidates:take(1) }'
-        enabled = self.configs.patch('testpilot', None, [
-            ConfigChange(path=mode_path, value='advanced'),
-            ConfigChange(path=script_path, value=script),
-        ])
-        self.assertEqual('advanced', enabled['values']['EventShop']['ShopAdvanced']['Mode'])
-        self.assertEqual(script, enabled['values']['EventShop']['ShopAdvanced']['Script'])
-
-        with self.assertRaises(ApiError):
-            self.configs.patch('testpilot', None, [ConfigChange(path=script_path, value='')])
-        disabled = self.configs.patch('testpilot', None, [
-            ConfigChange(path=mode_path, value='legacy'),
-            ConfigChange(path=script_path, value=''),
-        ])
-        self.assertEqual('legacy', disabled['values']['EventShop']['ShopAdvanced']['Mode'])
-        self.assertEqual('', disabled['values']['EventShop']['ShopAdvanced']['Script'])
+    def test_retired_shop_options_are_visible_as_paused_and_saved_on_confirmation(self):
+        """只读预览不写文件，确认启用时保存已迁移的普通商店配置。"""
+        path = self.configs.path('testpilot')
+        data = self.configs.read_json(path)
+        data['EventShop']['Scheduler']['Enable'] = True
+        data['EventShop']['ShopAdvanced'] = {'Mode': 'advanced', 'Script': 'old'}
+        data['EventShop']['EventShop']['CustomFilter'] = 'Cube:5 > Oil:2'
+        path.write_text(json.dumps(data), encoding='utf-8')
+        raw = path.read_bytes()
+        preview = self.configs.get('testpilot')['values']['EventShop']
+        self.assertFalse(preview['Scheduler']['Enable'])
+        self.assertNotIn('ShopAdvanced', preview)
+        self.assertEqual('Cube > Oil', preview['EventShop']['CustomFilter'])
+        self.assertEqual(raw, path.read_bytes())
+        self.configs.patch('testpilot', None, [ConfigChange(path='EventShop.Scheduler.Enable', value=True)])
+        saved = self.configs.read_json(path)['EventShop']
+        self.assertTrue(saved['Scheduler']['Enable'])
+        self.assertNotIn('ShopAdvanced', saved)
+        self.assertTrue(self.configs.get('testpilot')['values']['EventShop']['Scheduler']['Enable'])
 
     def test_duplicate_creation_and_recoverable_deletion(self):
         created = self.configs.create('second', 'testpilot')
@@ -307,6 +344,21 @@ class SocketApiTests(unittest.TestCase):
             self.assertEqual('UNAUTHORIZED', response['error']['code'])
             self.assertTrue(self.call(ws, 'auth.login', {'password': 'test-secret'})['ok'])
             self.assertEqual('testpilot', self.call(ws, 'instances.list')['result'][0]['name'])
+
+    def test_large_calculator_file_keeps_other_message_limits(self):
+        """舰船文件可超过 1 MiB，其余方法仍受原限制约束。"""
+        import base64
+        rows = [{'name': '扩展文件舰船' * 8, 'level': 100, 'source': 'x' * 200}] * 3000
+        content = base64.b64encode(json.dumps({'ships': rows}, ensure_ascii=False).encode()).decode()
+        self.assertGreater(len(content), 1024 * 1024)
+        with self.client.websocket_connect('/api/v1/ws') as ws:
+            self.login(ws)
+            result = self.call(ws, 'mind.import', {'instance': 'testpilot', 'filename': 'ships.json', 'content': content})
+            self.assertTrue(result['ok'], result)
+            self.assertEqual(len(result['result']['ships']), 3000)
+            result = self.call(ws, 'config.get', {'instance': 'testpilot', 'padding': content})
+            self.assertEqual(result['error']['code'], 'INVALID_REQUEST')
+            self.assertIn('1 MiB', result['error']['message'])
 
     def test_update_methods_require_auth_and_validate_pagination(self):
         with self.client.websocket_connect('/api/v1/ws') as ws:
@@ -384,21 +436,6 @@ class SocketApiTests(unittest.TestCase):
             self.assertTrue(merged['ok'])
             self.assertEqual('5555', merged['result']['values']['Alas']['Emulator']['Serial'])
 
-    def test_shop_strategy_validation_returns_diagnostics_without_writing(self):
-        with self.client.websocket_connect('/api/v1/ws') as ws:
-            self.login(ws)
-            params = {
-                'instance': 'testpilot',
-                'task': 'EventShop',
-                'script': 'return shop.plan { candidates = candidates:where(function(item) return item.hidden end):take(1) }',
-            }
-            response = self.call(ws, 'shop_strategy.validate', params)
-            self.assertTrue(response['ok'])
-            self.assertFalse(response['result']['valid'])
-            diagnostic = response['result']['diagnostics'][0]
-            self.assertEqual('unknown_candidate_field', diagnostic['code'])
-            self.assertEqual(1, diagnostic['line'])
-            self.assertIsInstance(diagnostic['column'], int)
 
     def test_overview_and_scheduler_controls_accept_instance_identity(self):
         """启停实际完成后，总览响应不能因内部身份字段而失败。"""
@@ -546,6 +583,33 @@ class SocketApiTests(unittest.TestCase):
         asyncio.run(check())
 
 
+class RuntimeMetadataTests(unittest.TestCase):
+    def test_game_region_uses_package_instead_of_server_checker_setting(self):
+        """开服检测关闭或选择国服检测区，都不能决定设备实际运行的游戏地区。"""
+        emulator = {'ServerName': 'disabled', 'PackageName': 'auto'}
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        configs = SimpleNamespace(directory=Path(temporary.name), names=lambda: ['test'],
+                                  read=lambda _: ({'Alas': {'Emulator': emulator}}, ''))
+        runtime = RuntimeService(configs)
+        cases = [
+            ('auto', 'disabled', None), ('', 'disabled', None),
+            ('com.bilibili.azurlane', 'disabled', 'cn'),
+            ('com.bilibili.blhx.huawei', 'cn_channel-0', 'cn'),
+            ('com.YoStarEN.AzurLane', 'disabled', 'en'),
+            ('com.YoStarJP.AzurLane', 'cn_android-0', 'jp'),
+            ('com.hkmanjuu.azurlane.gp', 'disabled', 'tw'),
+            ('com.hkmanjuu.azurlane.gp.mc', 'disabled', 'tw'),
+        ]
+        with patch('module.api.runtime_service.ProcessManager._processes', {}):
+            for package, checker, expected in cases:
+                with self.subTest(package=package, checker=checker):
+                    emulator.update(PackageName=package, ServerName=checker)
+                    instance = runtime.instances()[0]
+                    self.assertEqual(expected, instance['region'])
+                    self.assertEqual(checker, instance['server'])
+
+
 class LogCursorTests(unittest.TestCase):
     def test_start_passes_update_stop_event_to_worker(self):
         runtime = RuntimeService(SimpleNamespace(path=lambda _: None))
@@ -572,7 +636,6 @@ class LogCursorTests(unittest.TestCase):
             self.assertEqual(1, len(second['entries']))
             self.assertEqual('ERROR', second['entries'][0]['level'])
             self.assertEqual([], runtime.logs('test', second['cursor'])['entries'])
-
 
 
 class ProducerCadenceTests(unittest.IsolatedAsyncioTestCase):
