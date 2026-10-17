@@ -295,6 +295,12 @@ class Minigame(UI):
             in: 任意页面
             out: page_game_room
         """
+        # 临时：2026-10-15 游戏客户端 bug（小游戏页按钮失效），客户端修复前跳过小游戏
+        # 移植自上游 LmeSzinc/AzurLaneAutoScript b92ebc0
+        logger.info('[小游戏] 游戏客户端修复前临时跳过')
+        self.config.task_delay(server_update=True)
+        self.config.task_stop()
+
         self.ui_ensure(page_academy)
         # page_academy -> page_game_room
         for _ in self.loop():
