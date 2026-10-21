@@ -37,5 +37,6 @@
 - **`export_api_schema.py`**: 导出后端 API 架构模型并自动生成前端 TypeScript 契约与 JSON 描述（`frontend/src/api/contract.json` 与 `frontend/src/api/generated.ts`）。
 - **`war_archives_update.py`**: 每当官方将以往活动加入常驻“作战档案（War Archives）”时，该脚本可一键将 ALAS 旧的活动代码挪并批量修正命名路径。
 - **`research_drop_import.py` / `research_drop_repair.py` / `research_drop_verify.py`**: 科研掉落统计数据的导入、结构校验与异常数据修复。
+- **`upstream_sync_check.py`**: fork 与上游（wess09/AzurPilot）同步检查，只读：报告落后提交数、试合并冲突文件、运行目录是否最新，并打印建议的合并命令。
 - **`requirements_updater.py`**: 已停用；依赖统一维护在 `pyproject.toml` 和 `uv.lock`。
 - **`Flatten_generator.py`**: 快速将直观的网格字符串转换为坐标拼接代码的小工具。
