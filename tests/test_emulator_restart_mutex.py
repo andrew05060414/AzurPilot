@@ -385,6 +385,37 @@ class TestDeepRestart(unittest.TestCase):
         platform._clean_mumu12_residue.assert_called_once()
         platform._deep_clean_mumu12.assert_not_called()
 
+    def test_start_does_not_launch_when_mumu_instance_is_still_stopping(self):
+        """关闭监视已确认超时时，不能向尚未关闭的实例发送启动。"""
+        platform = self.make_platform()
+        platform.config.EmulatorInfo_Emulator = 'MuMuPlayer12'
+        platform.emulator_instance = Mock()
+        platform.emulator_instance.emulator.path = 'F:/mumu/shell/MuMuPlayer.exe'
+        platform.emulator_instance.MuMuPlayer12_id = 0
+        platform._clean_mumu12_residue = Mock()
+        platform._mumu12_wait_stopped = Mock(return_value=False)
+
+        self.assertFalse(platform.emulator_start())
+
+        platform._emulator_function_wrapper.assert_called_once_with(platform._emulator_stop)
+        platform.emulator_start_watch.assert_not_called()
+
+    def test_start_launches_after_mumu_stop_is_confirmed(self):
+        platform = self.make_platform()
+        platform.config.EmulatorInfo_Emulator = 'MuMuPlayer12'
+        platform.emulator_instance = Mock()
+        platform.emulator_instance.emulator.path = 'F:/mumu/shell/MuMuPlayer.exe'
+        platform.emulator_instance.MuMuPlayer12_id = 0
+        platform._clean_mumu12_residue = Mock()
+        platform._mumu12_wait_stopped = Mock(return_value=True)
+
+        self.assertTrue(platform.emulator_start())
+
+        self.assertEqual(platform._emulator_function_wrapper.call_args_list, [
+            call(platform._emulator_stop), call(platform._emulator_start),
+        ])
+        platform.emulator_start_watch.assert_called_once()
+
 
 class TestDeepFlagPortability(unittest.TestCase):
     """`deep` 必须是调用链上每一层都能接的关键字参数。

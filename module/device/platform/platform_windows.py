@@ -710,7 +710,7 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             if time.monotonic() >= deadline:
                 logger.warning(
                     f'[设备-Windows] MuMuPlayer12 实例 {index} 在 '
-                    f'{stop_wait} 秒内仍未关闭，继续启动流程'
+                    f'{stop_wait} 秒内仍未关闭，本轮不启动，交由下一轮恢复'
                 )
                 return False
             time.sleep(poll_interval)
@@ -982,7 +982,8 @@ class PlatformWindows(PlatformBase, EmulatorManager):
                 self._clean_mumu12_residue(exe, index)
             # shutdown 是异步的，必须确认实例真的停了再启动，
             # 否则启动请求会被吞掉（命令报成功、实例起不来）
-            self._mumu12_wait_stopped(exe, index)
+            if not self._mumu12_wait_stopped(exe, index):
+                return False
 
         # 再启动
         if not self._emulator_function_wrapper(self._emulator_start):
