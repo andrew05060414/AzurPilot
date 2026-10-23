@@ -51,7 +51,7 @@ from module.config.config_generated import GeneratedConfig
 from module.config.time_source import now as current_time
 from module.config.utils import get_server_last_update, get_server_next_update, nearest_future
 from module.dorm.dorm import RewardDorm
-from module.exception import OilMaxed, RequestHumanTakeover
+from module.exception import GameStuckError, OilMaxed, RequestHumanTakeover
 from module.handler.assets import POPUP_CANCEL, POPUP_CONFIRM
 from module.handler.info_handler import InfoHandler
 from module.logger import logger
@@ -73,7 +73,79 @@ from module.ui_white.assets import REWARD_1_WHITE, REWARD_GOTO_COMMISSION_WHITE
 COMMISSION_SWITCH = Switch('Commission_switch', is_selector=True)
 COMMISSION_SWITCH.add_state('daily', COMMISSION_DAILY)
 COMMISSION_SWITCH.add_state('urgent', COMMISSION_URGENT)
-COMMISSION_SCROLL = Scroll(COMMISSION_SCROLL_AREA, color=(247, 211, 66), name='COMMISSION_SCROLL')
+
+
+class CommissionScroll(Scroll):
+    """委托列表滚动控制。
+
+    覆盖 set() 增加滑动进展校验与拖拽次数上限，
+    避免在滑块无法移动时单次 set() 循环触发 12 次点击击穿 GameTooManyClickError 连击保护；
+    在连续无进展或达到上限仍未到达目标位置时主动抛出 GameStuckError，交由调度器标准恢复逻辑处理。
+    """
+
+    def set(self, position, main, random_range=(-0.05, 0.05), distance_check=True, skip_first_screenshot=True):
+        logger.info(f'{self.name} set to {position}')
+        self.drag_interval.clear()
+        self.drag_timeout.reset()
+        dragged = 0
+        if position <= self.edge_threshold:
+            random_range = np.subtract(0, self.edge_add)
+        if position >= 1 - self.edge_threshold:
+            random_range = self.edge_add
+
+        prev_swipe_position = None
+        stuck_count = 0
+        max_drag_attempts = 9
+
+        while 1:
+            if skip_first_screenshot:
+                skip_first_screenshot = False
+            else:
+                main.device.screenshot()
+
+            current = self.cal_position(main)
+
+            # 先确保滑块存在且 length 有效；若滑块消失，绝不依据默认计算出的 0.0 判定到达目标（如 set_top(0)）
+            if not self.length:
+                if self.drag_timeout.reached():
+                    logger.warning(f'[委托-滚动] 滚动条消失且未确认到达目标位置: target={position:.2f}')
+                    raise GameStuckError(f'[委托] 滚动条消失且未确认到达目标位置: target={position:.2f}')
+                else:
+                    continue
+            else:
+                self.drag_timeout.reset()
+
+            if abs(position - current) < self.drag_threshold:
+                break
+
+            if self.drag_interval.reached():
+                if prev_swipe_position is not None:
+                    # 在下一次允许操作的间隔边界评估整个窗口的真实进展，避免仅看首帧误判动画未刷新
+                    if abs(current - prev_swipe_position) < 0.01:
+                        stuck_count += 1
+                    else:
+                        stuck_count = 0
+
+                if dragged >= max_drag_attempts or stuck_count >= 3:
+                    logger.warning(
+                        f'[委托-滚动] 滚动条滑动无进展或超过最大尝试次数: current={current:.2f}, target={position:.2f}, '
+                        f'dragged={dragged}, stuck_count={stuck_count}'
+                    )
+                    raise GameStuckError(
+                        f'[委托] 滚动条滑动无进展，列表未到达目标位置: current={current:.2f}, target={position:.2f}'
+                    )
+
+                prev_swipe_position = current
+                p1 = random_rectangle_point(self.position_to_screen(current), n=1)
+                p2 = random_rectangle_point(self.position_to_screen(position, random_range=random_range), n=1)
+                main.device.swipe(p1, p2, name=self.name, distance_check=distance_check)
+                self.drag_interval.reset()
+                dragged += 1
+
+        return dragged
+
+
+COMMISSION_SCROLL = CommissionScroll(COMMISSION_SCROLL_AREA, color=(247, 211, 66), name='COMMISSION_SCROLL')
 
 # 委托收益截图保留张数走 WebUI「运行参数」页（RunParams.UiWait），
 # 默认值集中在 module/base/runtime_params.py（界面等待域）。
@@ -784,7 +856,8 @@ class RewardCommission(Dock, UI, InfoHandler):
             bool: 是否成功翻页。滚动条不可见或已到底部时返回 False。
         """
         if COMMISSION_SCROLL.appear(main=self):
-            if COMMISSION_SCROLL.at_bottom(main=self):
+            # 正向确认到底或无可滚动区（滑块占满轨道几乎无法移动）
+            if COMMISSION_SCROLL.at_bottom(main=self) or (COMMISSION_SCROLL.total - COMMISSION_SCROLL.length) < 10:
                 return False
             else:
                 COMMISSION_SCROLL.next_page(main=self)
