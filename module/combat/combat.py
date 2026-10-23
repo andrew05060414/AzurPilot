@@ -33,6 +33,7 @@ from module.combat.level import Level
 from module.combat.result import CombatResult
 from module.combat.submarine import SubmarineCall
 from module.combat_ui.assets import *
+from module.exception import GameStuckError
 from module.handler.auto_search import AutoSearchHandler
 from module.logger import logger
 from module.map.assets import MAP_OFFENSIVE
@@ -736,6 +737,8 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
             if isinstance(expected_end, str):
                 if expected_end == 'in_stage' and self.handle_in_stage():
                     break
+                if expected_end == 'in_stage' and self.combat_result.defeated and self.is_in_map():
+                    raise GameStuckError('Boss战败后返回地图，交由上层恢复')
                 if expected_end == 'with_searching' and self.handle_in_map_with_enemy_searching(drop=drop):
                     break
                 if expected_end == 'no_searching' and self.handle_in_map_no_enemy_searching(drop=drop):
