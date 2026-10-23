@@ -1,5 +1,7 @@
 # 设备层 module/device
 
+> 创建日期：2026-09-21 ｜ 最后更新：2026-10-23 ｜ 版本：1.1（明确启停失败返回值）
+
 > 脚本与模拟器之间唯一的 I/O 通道：把 ADB 连接、十余种截图/控制后端、应用管理与模拟器启停整合为一个 `Device` 对象，并内置防卡死与点击频率检测。
 
 ## 1. 模块概述
@@ -205,6 +207,8 @@ flowchart TD
 所有后端的 `@retry` 都是 `retry_backend` 的 partial：最多 `RETRY_TRIES=5` 次，退避 0/0/1/3/3 秒；每轮先执行上一轮选出的恢复动作再重试。`recover(self, error, trial)` 返回下一个恢复函数，返回 `None` 表示无法自动恢复（升级为 `RequestHumanTakeover`）。`RequestHumanTakeover` 与 `EmulatorNotRunningError` 永不重试、原样上抛——前者是人工接管信号，后者是交给调度器的统一「设备离线」信号。重试耗尽的默认异常可由 `on_exhausted` 指定，截图类方法指定为 `EmulatorNotRunningError`，触控类保持 `RequestHumanTakeover`。
 
 ### 模拟器启动（Windows）
+
+Windows 平台的 `emulator_stop()` 与 `emulator_start()` 以布尔值返回启停结果；命令失败或启动监视未确认上线时返回 `False`。调度器必须消费这个结果：停止失败不继续启动，启动失败不记录“重启完成”、不清空连续失败次数或设备缓存，使下一轮能继续按失败次数延长等待，并按既有配置决定是否深度重启。旧平台未返回布尔值时保留原有语义。
 
 `emulator_start()` 是「先停后启 + 启动监视」的完整流程：停实例（MuMu12 走 MuMuManager 同步 `shutdown_player` 并轮询确认实例真正关闭）→ 清理僵死残留进程（多开时跳过）→ 按类型发启动命令（MuMu12 用 `MuMuManager api launch_player`，雷电用 `ldconsole launch --index N --mini`）→ `emulator_start_watch()` 每 0.5s 轮询「设备出现在 ADB 列表 → shell 可用 → 游戏包存在」，等待时长按 `failures` 参数从 `EMULATOR_START_WATCH_TIMEOUTS`（60→90→120→180→300s）阶梯取值。整个过程由 `emulator_op_exclusive` 装饰器持有的**类级互斥锁**保护：拿不到锁直接抛 `EmulatorOpBusy`，避免两个恢复流程一个在启动、一个在关闭互相踩踏。MuMu12 的 `deep=True` 深度重启会额外结束全部 MuMu 进程（含虚拟机服务）——这是设备较差时「连续重启都起不来」的最后一招。
 
