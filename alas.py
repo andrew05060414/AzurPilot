@@ -1190,8 +1190,10 @@ class AzurLaneAutoScript:
                     logger.warning('[AzurPilot] 游戏卡住次数过多，正在重启模拟器...')
                     if self._try_restart_emulator():
                         self.consecutive_game_stuck = 0
-                        self.config.task_call('Restart')
-                        return 'recoverable'
+                    else:
+                        logger.warning('[AzurPilot] 模拟器恢复尚未完成，保留卡死计数并安排下一轮恢复')
+                    self.config.task_call('Restart')
+                    return 'recoverable'
 
             logger.warning(f'[AzurPilot] 游戏卡住，{self.device.package} 将在10秒后重启')
             logger.warning('[AzurPilot] 如果您正在手动操作，请停止 AzurPilot')
@@ -1375,8 +1377,8 @@ class AzurLaneAutoScript:
                     f'[AzurPilot] 未处理异常连续 {self.consecutive_unexpected_error}/{limit} 次，'
                     f'重启模拟器恢复'
                 )
-                self._try_restart_emulator()
-                self.consecutive_unexpected_error = 0
+                if self._try_restart_emulator():
+                    self.consecutive_unexpected_error = 0
             else:
                 # 首次或前几次异常，先尝试重启游戏（较轻的恢复）
                 logger.warning(

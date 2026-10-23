@@ -184,6 +184,32 @@ class TestSchedulerRecovery(unittest.TestCase):
                 self.assertEqual(script.restart.call_count, 2)
                 self.assertEqual(script.failure_record['Commission'], 0)
 
+    def test_failed_emulator_recovery_keeps_unexpected_error_escalation(self):
+        script = self.make_script()
+        script.consecutive_unexpected_error = 2
+        script.commission.side_effect = RuntimeError('重复故障')
+        script._try_restart_emulator.return_value = False
+
+        self.assertEqual(script.run('Commission'), 'recoverable')
+        self.assertEqual(script.run('Commission'), 'recoverable')
+
+        self.assertEqual(script.consecutive_unexpected_error, 4)
+        self.assertEqual(script._try_restart_emulator.call_count, 2)
+        self.assertEqual(script.config.task_call.call_args_list, [call('Restart')] * 2)
+
+    def test_failed_emulator_recovery_does_not_fall_back_to_device_sleep(self):
+        script = self.make_script()
+        script.consecutive_game_stuck = 2
+        script.commission.side_effect = GameStuckError('重复故障')
+        script._try_restart_emulator.return_value = False
+
+        self.assertEqual(script.run('Commission'), 'recoverable')
+
+        self.assertEqual(script.consecutive_game_stuck, 3)
+        script._try_restart_emulator.assert_called_once_with()
+        script.config.task_call.assert_called_once_with('Restart')
+        script.device.sleep.assert_not_called()
+
     def test_script_errors_still_stop_after_three_failures_with_restarts(self):
         script = self.make_script()
         script.commission.side_effect = ScriptError('重复脚本错误')
