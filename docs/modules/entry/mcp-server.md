@@ -1,5 +1,7 @@
 # MCP SSE 服务器（mcp_server_sse.py）
 
+> 创建日期：未记录（2026-10-23补记） ｜ 最后更新：2026-10-23 ｜ 版本：1.1（只读巡检回放边界）
+
 > 把实例查询、配置修改、调度控制与设备操作共 18 个工具通过 MCP 协议（SSE 传输）暴露给外部 AI 助手，支持独立进程与挂载进 WebUI 两种运行方式。
 
 ## 1. 模块概述
@@ -374,6 +376,20 @@ MCP 客户端配置（密码可放查询参数，也可以改用请求头）：
   - 实例操作无效果：确认实例进程状态（`get_status`）、配置是否真的落盘、worker 是否支持配置热重载。
 - **测试**：`tests/test_mcp_auth.py`（鉴权与脱敏）、`tests/test_mcp_tools.py`（工具分发）、`tests/test_mcp_execution.py`（并发槽与设备子进程）、`tests/test_mcp_lifecycle.py`、`tests/test_api_mcp_integration.py`（挂载集成）、`tests/test_ci_import.py`（导入与进程隔离守卫）。
 - **导入问题**：`uv run python -m dev_tools.import_smoke_test` 与 `tests.test_ci_import` 会先暴露进程隔离被破坏的情况。
+
+### 只读维护巡检回放
+
+`dev_tools/alas_maintenance_probe.py` 是隔离的开发工具，不会启动 MCP、调度器或设备，不增加 API 方法，也不创建常驻 agent。它复用本地日志格式或调用方准备的 JSON 状态样本，输出故障时长、脱敏指纹与 `report` 标记；只有 `report=true` 才表示本次首次达到通知阈值，其他样本不应转成用户通知。
+
+```powershell
+uv run python -m dev_tools.alas_maintenance_probe --log-path log/2026-10-23_alas.txt --instance alas --timezone-offset=-04:00 --lines 500
+```
+
+日期、实例、时区须按所读日志指定；负偏移使用等号形式。日志模式是历史回放：只读指定文件，提取尾部的 ERROR/CRITICAL，不输出原文。空结果不证明当前健康；历史故障也不能直接当成现在仍在发生。文本日志中的“结束任务”无论成功失败都会出现，因此不作为恢复证据。这个适配器不能确认业务已恢复。
+
+JSON 模式使用 `timestamp`、`instance`、`status`、`error`、`current_task` 等字段；只有明确期待进展时才设置 `expected_progress=true`，不可把正常长战斗或等待排期直接判成卡死。恢复需要可信来源提供 `ordinary_task_success=true`、非 `Restart` 的 `success_task` 和新的 `success_id`；首个成功事件仅建立基线。显式错误优先于成功字段，证据不足输出 `unknown`。主动停止是结束监测，不等同于业务恢复。输入不是完整生命周期记录时，调用方须保留这个限制。
+
+未来游戏维护 agent 先只读实例状态、当前任务与日志；一个实例只允许一个恢复决策者，平时安静，持续异常才给出一次带证据的处置建议。自动启停、ADB/模拟器重启、更新代码、任务触发和材料消耗须分别获得动作范围，不能从“可读取 MCP”推导授权。该原型不执行这些操作，尚未接入 Multica 长期运行。
 
 ## 20. 相关模块
 
