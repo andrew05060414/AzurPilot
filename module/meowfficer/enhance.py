@@ -421,17 +421,3 @@ class MeowfficerEnhance(MeowfficerBase):
                 logger.warning('[指挥喵-强化] 第12只指挥喵达到30级，禁用指挥喵训练')
                 self.config.MeowfficerTrain_Enable = False
                 break
-        while 1:
-            result = self._meow_enhance()
-            if result not in ['leveled_max']:
-                break
-
-            # 仅针对满级情况递增索引
-            if self.config.MeowfficerTrain_EnhanceIndex < 12:
-                self.config.MeowfficerTrain_EnhanceIndex += 1
-                logger.info(f'[指挥喵-强化] 强化索引增加至 {self.config.MeowfficerTrain_EnhanceIndex}')
-                continue
-            else:
-                logger.warning('[指挥喵-强化] 第12只指挥喵达到30级，禁用指挥喵训练')
-                self.config.MeowfficerTrain_Enable = False
-                break
