@@ -462,11 +462,15 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             if instance.MuMuPlayer12_id is None:
                 logger.warning(f'[设备-Windows] 无法从名称 {instance.name} 获取MuMu实例索引')
             logger.info('[设备-Windows] MuMuPlayer12 关闭: 使用同步执行')
-            self.execute(
+            res = self.execute(
                 f'"{Emulator.single_to_console(exe)}" api -v {instance.MuMuPlayer12_id} shutdown_player',
                 wait=True,
                 timeout=30
             )
+            if res is None:
+                raise OSError('MuMuPlayer12 shutdown_player 命令超时')
+            if getattr(res, 'returncode', 0) != 0:
+                raise OSError(f'MuMuPlayer12 shutdown_player 命令执行失败，返回码: {res.returncode}')
         elif instance == Emulator.LDPlayerFamily:
             # ldconsole.exe quit --index 0
             self.execute(f'"{Emulator.single_to_console(exe)}" quit --index {instance.LDPlayer_id}')
@@ -1011,14 +1015,8 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             if self._emulator_function_wrapper(self._emulator_stop):
                 # 成功
                 return True
-            else:
-                # 停止失败，启动后重试
-                if self._emulator_function_wrapper(self._emulator_start):
-                    continue
-                else:
-                    return False
 
-        logger.error('[设备-Windows] 尝试3次停止模拟器失败，已停止')
+        logger.error('[设备-Windows] 尝试3次停止模拟器失败，本轮未确认停止成功')
         return False
 
 
