@@ -1,5 +1,73 @@
 import { expect, test } from '@playwright/test'
 
+test('托盘重建时直接恢复二级页面，不等待实例列表再显示首页', async ({page}) => {
+  const ids = new Set<string>()
+  let held: string | undefined
+  let release = () => {}
+  await page.routeWebSocket('**/api/v1/ws', socket => {
+    const server = socket.connectToServer()
+    socket.onMessage(message => {
+      const request = JSON.parse(String(message))
+      if (request.method === 'instances.list') ids.add(request.id)
+      server.send(message)
+    })
+    server.onMessage(message => {
+      const response = JSON.parse(String(message))
+      if (ids.has(response.id)) {
+        held = String(message)
+        release = () => socket.send(held!)
+      } else socket.send(message)
+    })
+  })
+  await page.addInitScript(() => {
+    localStorage.setItem('azurpilot.theme', 'light')
+    localStorage.setItem('azurpilot.last-path', '/i/demo-main/overview')
+    ;(window as unknown as {homeRendered: boolean}).homeRendered = false
+    new MutationObserver(() => {
+      if (document.querySelector('.home-main')) (window as unknown as {homeRendered: boolean}).homeRendered = true
+    }).observe(document, {childList: true, subtree: true})
+  })
+  await page.goto('/#/')
+  await expect.poll(() => Boolean(held)).toBe(true)
+  await expect(page).toHaveURL(/#\/i\/demo-main\/overview$/)
+  expect(await page.evaluate(() => (window as unknown as {homeRendered: boolean}).homeRendered)).toBe(false)
+  await page.screenshot({path: 'test-results/tray-restore-before-list.png'})
+  release()
+  await expect(page.locator('.overview-page')).toBeVisible()
+  await page.screenshot({path: 'test-results/tray-restore-ready.png'})
+})
+
+test('页面恢复保留显式深链接', async ({page}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('azurpilot.theme', 'light')
+    localStorage.setItem('azurpilot.last-path', '/settings')
+  })
+  await page.goto('/#/i/demo-main/overview')
+  await expect(page.locator('.overview-page')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('azurpilot.last-path'))).toBe('/i/demo-main/overview')
+  await expect(page).toHaveURL(/#\/i\/demo-main\/overview$/)
+})
+
+test('页面恢复遇到已删除实例回首页并更新记忆', async ({page}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('azurpilot.last-path', '/i/deleted-instance/overview')
+  })
+  await page.goto('/#/')
+  await expect(page.locator('.home-main')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('azurpilot.last-path'))).toBe('/')
+  await expect(page).toHaveURL(/#\/$/)
+})
+
+test('页面恢复不会在刷新首页时跳到其他页面', async ({page}) => {
+  await page.goto('/#/')
+  await expect(page.locator('.home-main')).toBeVisible()
+  await page.evaluate(() => localStorage.setItem('azurpilot.last-path', '/i/demo-main/overview'))
+  await page.reload()
+  await expect(page.locator('.home-main')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('azurpilot.last-path'))).toBe('/')
+  await expect(page).toHaveURL(/#\/$/)
+})
+
 test('统计慢请求合并更新且概览事件不重复取数', async ({page}) => {
   const ids = new Set<string>()
   const held: string[] = []

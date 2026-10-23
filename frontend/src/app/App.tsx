@@ -3,7 +3,7 @@
  */
 
 import { PasswordInput, Select } from '../components/FormControls'
-import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type MouseEvent, type ChangeEvent } from 'react'
+import { useEffect, useState, useSyncExternalStore, type FormEvent, type MouseEvent, type ChangeEvent } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { getLayout, subscribeLayout } from './layout'
 import {usesMaterial} from './theme'
@@ -36,7 +36,7 @@ import { recordDevLogoClick } from './devMode'
 import { useDevOverride } from './devOverride'
 import { useSystemNotifications } from './systemNotifications'
 import { usesLegacyLayout, usesLegacyShell, showsRightRail } from './theme'
-import { cycleTabSize, readLastPath, readTabSize, readTopbarMode, setTopbarMode, subscribeTabSize, subscribeTopbarMode, writeLastPath } from './topbarPrefs'
+import { cycleTabSize, readTabSize, readTopbarMode, setTopbarMode, subscribeTabSize, subscribeTopbarMode, writeLastPath } from './topbarPrefs'
 import { INSTANCE_NAME_PATTERN } from './instanceName'
 
 /* 旧版外壳下也要显示居中页名的顶层路由。 */
@@ -141,9 +141,6 @@ export function App() {
   const [railOpen, setRailOpen] = useState(false)
   const topbarMode = useSyncExternalStore(subscribeTopbarMode, readTopbarMode, readTopbarMode)
   const tabSize = useSyncExternalStore(subscribeTabSize, readTabSize, readTabSize)
-  /* 只区分「全新打开」与「刷新 / 后退前进」：前者才回上次选中的实例。
-     刷新时地址栏已经是用户要停留的页面，写进去就不再改。 */
-  const freshOpen = useRef((performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type === 'navigate')
   const update = useUpdater()
   const announcement = useAnnouncement()
   usePageMotion()
@@ -170,28 +167,11 @@ export function App() {
       navigate('/', {replace: true})
     }
   }, [connection, instances, instance, navigate, instancesLoaded])
-  /* 记的是「页面」而不是「实例」：上次停在主页就回主页，停在哪个实例就回哪个实例。 */
-  /* 写记忆要等「回原处」跑完：挂载时 location.pathname 还是 `/`，那时写会盖掉要恢复的页面。 */
+  /* 初始落点已在创建路由前恢复；实例列表就绪后才记录，避免失效实例覆盖有效记忆。 */
   useEffect(() => {
-    if (freshOpen.current) return
+    if (!instancesLoaded || (instance && !instances.some(item => item.name === instance))) return
     writeLastPath(location.pathname)
-  }, [location.pathname])
-  useEffect(() => {
-    if (!freshOpen.current || !instancesLoaded) return
-    freshOpen.current = false
-    const last = readLastPath()
-    if (last === location.pathname) return
-    /* 记忆里的实例可能已经被删了，这种情况回主页（新壳之外没有它的位置）。 */
-    const matched = last?.match(/^\/i\/([^/]+)/)?.[1]
-    /* 路由段是百分号编码的，含空格或中文的实例名解码后再与列表比对。 */
-    let remembered
-    try { remembered = matched ? decodeURIComponent(matched) : undefined } catch { remembered = undefined }
-    if (matched && (!remembered || !instances.some(item => item.name === remembered))) {
-      navigate('/', {replace: true})
-      return
-    }
-    if (last) navigate(last, {replace: true})
-  }, [instancesLoaded, instances, navigate])
+  }, [location.pathname, instancesLoaded, instance, instances])
   /* 点导航里当前页的链接不产生 pathname 变化，抽屉得自己关。 */
   const closeDrawer = () => setMobileOpen(false)
   useEffect(() => { setMobileOpen(false); setRailOpen(false) }, [location.pathname])

@@ -70,3 +70,10 @@ export function readLastPath(): string {
 export function writeLastPath(path: string) {
   try { localStorage.setItem(LAST_PATH_KEY, path) } catch { /* 存储不可用只影响下次启动的落点。 */ }
 }
+
+/** 托盘重建只打开根地址；在路由创建前选好落点，首帧无需绕经首页。 */
+export function initialPagePath(navigationType: PerformanceNavigationTiming['type'] | undefined, hash: string, savedPath = readLastPath()): string | undefined {
+  if (navigationType !== 'navigate' || !['', '#', '#/'].includes(hash)) return
+  // 仅接受本应用的绝对路由；明确的深链接、刷新和前进后退均保留地址栏落点。
+  if (/^\/(?!\/)/.test(savedPath)) return savedPath
+}

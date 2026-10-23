@@ -22,6 +22,7 @@ import { DevControls } from './pages/DevControls'
 import { ConfigManager } from './pages/ConfigManager'
 import {StockExchangeBoundary,StockExchangeFallback} from './stock/OverviewLink'
 import { translateCurrentUi } from './i18n'
+import { initialPagePath } from './app/topbarPrefs'
 
 /* 顶层兜底与路由级兜底共用同一页：路由渲染出错时 React Router 会先接住，
    没有 errorElement 就落到它自带的崩溃页（带堆栈），所以两级都要挂上。 */
@@ -40,6 +41,12 @@ const SchedulerProgram = lazy(() => import('./pages/SchedulerProgram').then(modu
 const StockExchange = lazy(() => import('./pages/StockExchange').then(module => ({default: module.StockExchange})))
 const MindCalculator = lazy(() => import('./pages/MindCalculator').then(module => ({default: module.MindCalculator})))
 
+const initialPath = initialPagePath((performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type, location.hash)
+if (initialPath) {
+  const url = new URL(location.href)
+  url.hash = initialPath
+  history.replaceState(history.state, '', url)
+}
 const router = createHashRouter([
   {path: '/', element: <App/>, errorElement: <ErrorPage/>, children: [{index: true, element: <Home/>}, {path: 'announcement', element: <Announcement/>}, {path: 'interface', element: <InterfaceSettings/>}, {path: 'remote', element: <RemoteAccess/>}, {path: 'settings', element: <Settings/>}, {path: 'updater', element: <Updater/>}, {path: 'configs', element: <ConfigManager/>}, {path: 'dev', element: <DevControls/>}]},
   {path: '/i/:instance', element: <App/>, errorElement: <ErrorPage/>, children: [

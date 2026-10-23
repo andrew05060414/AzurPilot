@@ -1,5 +1,7 @@
 # 前端状态机制（保存队列与连接状态）
 
+> 创建日期：2026-09-21 ｜ 最后更新：2026-10-23 ｜ 版本：1.1（补充启动页面恢复）
+
 > React 控制台的两条核心状态链：跨页面字段保存队列（EditQueue）的合并与竞态语义，以及 WebSocket 连接状态的迁移与恢复。
 
 ## 1. 模块概述
@@ -10,6 +12,12 @@
 - **连接层**（`src/api/client.ts`，约 124 行）：单例 `ApiClient` 管理 WebSocket、认证、心跳、请求超时与指数退避重连；连接状态四档 `connecting / auth / ready / offline` 驱动全局 UI。
 
 两层的交汇点是 `resumeEditors()`：连接恢复 `ready` 时，扫描 sessionStorage 里所有作用域的队列草稿并重试——**不依赖当前显示哪个页面**。
+
+### 首次打开与托盘恢复的页面落点
+
+Windows 启动器托盘化后会销毁 WebView，恢复时重新打开根地址。`src/main.tsx` 在 `createHashRouter()` 前调用 `initialPagePath()`，仅当浏览器导航类型为 `navigate` 且 hash 为空、`#` 或 `#/` 时，把本地保存的 `azurpilot.last-path` 写入当前 history 项，因此首帧不经过首页，也不依赖 `instances.list` 的响应速度。带明确路由的深链接、刷新和前进后退保留地址栏落点。
+
+实例有效性仍由 `App` 在连接 ready 且实例列表加载后确认：不存在的实例跳回首页；有效路径在列表就绪后写回记忆。读取存储失败、无记忆或记忆并非应用内绝对路径时使用根地址。该流程只改变前端启动导航，不改变游戏任务或启动器的 WebView 回收策略。
 
 ## 2. 模块职责
 
