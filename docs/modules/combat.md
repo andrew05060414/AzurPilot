@@ -10,17 +10,18 @@ S 经验结算由 `Combat.handle_exp_info()` 保留确定按钮兜底点击，�
 
 `module/combat` 回答的问题是：当几十个上层任务（主线、活动、大世界、演习、每日、raid、大舰队战……）都需要「打一场战斗」时，如何把这场战斗拆成可复用、可独立验证的能力，而不是一个几千行的上帝类。
 
-答案是**职责 mixin 组合**。`Combat` 主类通过多重继承把七个正交能力拼在一起：
+答案是**职责 mixin 组合**。`Combat` 主类通过多重继承组合各项能力：
 
 - `Level`——等级 OCR 与等级停止条件；
 - `HPBalancer`——血量读取、战前换位、低血量撤退判断；
 - `Retirement`——船坞满时的退役/强化（继承自 `module/retire`）；
+- `EquipmentConfigHandler`——演习与 META 的任务装备方案（继承自 `module/equipment`）；
 - `SubmarineCall`——战斗内的潜艇呼叫；
 - `CombatAuto`——自动/手动模式检测与切换；
 - `CombatManual`——手动模式下的预设走位；
 - `AutoSearchHandler`——自律寻敌状态检测（继承自 `module/handler`）。
 
-每个 mixin 只处理战斗的一个切面，各自只依赖 `ModuleBase` 提供的截图/点击/识别原语，因此可以单独实例化测试（潜艇进阶规则 `SubmarineAdvancedConfig` 即有独立单测 `tests/test_submarine_advanced.py`）。`Combat` 本体只保留**编排**职责：把「准备 → 执行 → 结算」三个阶段串起来，并在正确的时机调用各 mixin 的处理器。这种设计让大世界战斗（`module/os_combat`）可以重写 `combat_appear()` 但复用全部结算逻辑，让演习模块只借用 `combat_ui` 资源而不引入整个战斗流程，让潜艇规则引擎可以脱离屏幕操作单独跑测试。
+每个 mixin 只处理战斗的一个切面，复用 `ModuleBase` 提供的截图/点击/识别原语，因此可以单独实例化测试（潜艇进阶规则 `SubmarineAdvancedConfig` 即有独立单测 `tests/test_submarine_advanced.py`）。`Combat` 本体只保留**编排**职责：把「准备 → 执行 → 结算」三个阶段串起来，并在正确的时机调用各 mixin 的处理器。这种设计让大世界战斗（`module/os_combat`）可以重写 `combat_appear()` 但复用全部结算逻辑，让演习通过继承 `Combat` 复用准备与换装、同时保留自己的执行及结算循环，让潜艇规则引擎可以脱离屏幕操作单独跑测试。
 
 模块支持两种并存的战斗范式：
 
@@ -86,7 +87,7 @@ tests/test_submarine_advanced.py   # 潜艇进阶规则单测
 | `assets.py` | `module/combat` 界面的按钮/模板资源，由 `dev_tools.button_extract` 生成 |
 | `module/combat_ui/assets.py` | 战斗执行界面（暂停/退出按钮）资源，独立成包供演习等只需战斗 UI 资源的场景引用 |
 
-`module/combat_ui` 与 `module/combat` 的拆分是刻意的：战斗执行界面的暂停按钮皮肤资源被演习（`module/exercise`）与战斗流程共同使用，若放入 `combat` 会让演习被迫继承整套战斗逻辑；拆开后两边只共享生成产物。
+`module/combat_ui` 单独维护暂停/退出按钮等战斗执行界面资源。演习的血量监控可独立引用这些资源；`ExerciseCombat` 当前继承 `Combat` 复用准备及换装，同时自行实现执行和结算循环。
 
 ## 4. 核心入口
 
@@ -115,12 +116,15 @@ tests/test_submarine_advanced.py   # 潜艇进阶规则单测
 | `Level` | 等级 OCR、等级触发 | `_lv`、`_lv_before_battle`（6 位置，-1 为未检测） |
 | `HPBalancer` | HP 读取、换位、撤退判断 | `_hp`、`_hp_has_ship`（按 `fleet_current_index` 分舰队缓存） |
 | `Retirement` | 船坞满退役/强化 | `_unable_to_enhance`（强化失败转退役） |
+| `EquipmentConfigHandler` | 首次出击前应用站位装备码，任务收尾恢复 | `equipment_config`、`equipment_handle_before_flag` |
 | `SubmarineCall` | 战斗内潜艇呼叫 | `submarine_call_flag`、`submarine_advanced`（进阶规则状态） |
 | `CombatAuto` | 自动/手动切换 | `auto_mode_checked`、`auto_mode_switched` |
 | `CombatManual` | 手动预设走位 | `manual_executed` |
 | `AutoSearchHandler` | 自律寻敌识别与开关 | 来自 `module/handler/auto_search.py` |
 
 注意 `CombatAuto` 与 `CombatManual` 共用 `auto_mode_checked`/`auto_mode_switched` 字段：手动走位必须在「自动模式检查完成」之后才执行，两者是同一场战斗中的协作状态，而非各自独立。
+
+`handle_battle_preparation()` 在首次换装完成后返回 `True`，由外层获取新截图再识别和点击出击；未启用任务装备方案时沿用原点击流程。方案预检、命名装备接口兼容与保存标志的约定见 [退役与装备](game/retire-equipment.md)。
 
 ### Emotion / FleetEmotion（emotion.py)
 
@@ -210,6 +214,10 @@ flowchart TD
 
 ### 自律寻敌战斗（AutoSearchCombat）
 
+异常 Restart 的可选续接只负责返回原地图后恢复自律，不接管重启前的战斗、加载或结算。清理旧场 `CombatResult` 后，仍由普通 `auto_search_moving()` 与 `auto_search_combat()` 完成后续出击；每场在确认进入战斗后正常扣基础心情，真实结算和战败继续走原有处理器。重启前已保存的心情不回滚，旧场扣减标记也不用于免掉重启后新出击的消耗。默认关闭、地图归属与失败边界见 [战役执行](campaign.md#异常重启后续接原关卡)。
+
+恢复心情对象时保留其实际类型。`Emotion._check_fleet()` 统一计算当前实际舰队的下一场出击时间；普通任务据此延后。续接调用显式传入 `after_restart=True`，此时 `GemsEmotion.check_fleet()` 标记低心情，先撤退并交回紧急委托／三油低耗的换船编排；普通自动换队的原有延迟行为不变。
+
 游戏自己移动舰队、自己开战，脚本退居「监工」：
 
 - `auto_search_moving()`：等待期间监视石油/物资 OCR（触发 `auto_search_oil/coin_limit_triggered`）与舰队等级，处理退役、低情绪弹窗；自动搜索菜单出现则抛 `CampaignEnd`。
@@ -240,6 +248,10 @@ record()  ← 与 update 成对：同一计算时刻的 Value + 完整 Record + 
 ```
 
 公海舰队（`PublicEmotion_Enable` 且当前任务在 `PublicEmotion_Tasks` 列表）把上述过程收敛到一份共享情绪上。每次更新都读取最新共享存档，跨任务不能缓存旧的相位状态。计算模式下若仍出现红脸弹窗，`handle_combat_low_emotion()`（处理器层）会退出关卡，将对应舰队心情基准重建为 0，并按当前地图的心情消耗计算恢复时间、延后任务后自动重试；无需等待服务器刷新或人工重填校准值。红脸弹窗与撤退确认、潜艇支援耗油、跳过未读剧情（如 16 图进图后的潜艇支援剧情）等弹窗共用取消/确认双按钮，因此由 `is_low_emotion_popup()` 先确认双按钮在场，再 OCR 弹窗正文、命中各服低心情警告关键词（`LOW_EMOTION_POPUP_KEYWORDS`）才算红脸；其余双按钮弹窗不处理。正文带舰队名和舰船名、会换行，所以不用模板匹配。紧急委托刷钻与 1-1 伏击的覆写同样先过这一判定。
+
+`Emotion.MinReserve`（最少预留心情）位于无视沉船心情惩罚下方，默认 0 关闭，范围 0–150，仅在包含 `calculate` 的模式生效。它不提高平时的出击控制线：只有参与出击的舰队不足以完成下一轮并保持原控制线时，才将恢复目标提高到预留值（超过当前恢复上限则按上限，原出击需求更高时仍以需求为准）。例如控制线 30、预留 150，恢复后可以连续消耗到下一轮无法保持 30，再等待至 150。
+
+`Emotion._get_recovered()` 统一用于整图预检、自动换队预检和图内等待，沿用保守下限及批次恢复时间。隐藏的 `Emotion.RecoveryWait` 按当前任务记录需要恢复的舰队编号（公共账本记为 `Public`），提前重试或重启不能在刚够打一轮时取消预留等待；达标或关闭预留后清除对应标记。待命队不触发等待，使用公共账本的不同任务保留各自预留设置及等待状态，其他任务的实际消耗会使恢复时间重新计算。
 
 自动换队后原待命队即将参与战斗，恢复自律前调用 `Emotion.check_fleet(fleet_index)` 检查该画面编号对应账本的下一场基础消耗。忽略模式跳过，公共模式检查共享账本；检查不等待、不扣减。心情不足延后任务，未校准沿用人工接管，均先退出地图再上抛，不能开战后才发现接替队账本不可用。
 
@@ -321,6 +333,8 @@ stateDiagram-v2
 | --- | --- | --- | --- |
 | `Emotion.Mode` | 选项 | `calculate` | `calculate`（预检+等待）/ `ignore`（无视红脸直接确认）/ `calculate_ignore` |
 | `Emotion.IgnoreShipwreck` | bool | `false` | 无视沉船额外扣减（10 点） |
+| `Emotion.MinReserve` | int | 0 | 心情不足后恢复到的最少预留值，0 关闭，范围 0–150 |
+| `Emotion.RecoveryWait` | stored | null | 当前任务正在等待预留恢复的舰队编号，达标后清除 |
 | `Emotion.Fleet{1,2}Value` / `Record` | int / datetime | 119 / 2020-01-01 | 情绪现值与记账时间戳；`Record` 为隐藏项 |
 | `Emotion.Fleet{1,2}RecoveryState` / `PublicEmotion.FleetRecoveryState` | stored | null | 隐藏恢复存档；旧配置默认未校准，填写实测 Value 后建立基准 |
 | `Emotion.Fleet{1,2}Control` | 选项 | `prevent_green_face` | keep_exp_bonus(120) / prevent_green_face(40) / prevent_yellow_face(30) / prevent_red_face(2) |

@@ -274,6 +274,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": true,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -311,6 +312,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -361,6 +364,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": true,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -398,6 +402,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -448,6 +454,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": true,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -485,6 +492,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -555,6 +564,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": true,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -592,6 +602,8 @@
     "Emotion": {
       "Mode": "calculate_ignore",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -652,6 +664,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": true,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -689,6 +702,8 @@
     "Emotion": {
       "Mode": "calculate_ignore",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -749,6 +764,7 @@
       "UseClearMode": false,
       "UseFleetLock": true,
       "UseAutoSearch": false,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -786,6 +802,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -837,6 +855,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": true,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -874,6 +893,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -924,6 +945,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": true,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -961,6 +983,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1011,6 +1035,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": true,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -1048,6 +1073,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1102,6 +1129,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": false,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -1120,6 +1148,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1161,6 +1191,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": true,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -1198,6 +1229,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1244,6 +1277,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1281,6 +1316,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": false,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -1303,6 +1339,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1343,6 +1381,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": false,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -1365,6 +1404,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1436,11 +1477,12 @@
     },
     "Campaign": {
       "Name": "D3",
-      "Event": "war_archives_20240725_cn",
+      "Event": "war_archives_20251023_cn",
       "Mode": "normal",
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": true,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -1488,6 +1530,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1542,6 +1586,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": true,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -1579,6 +1624,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1633,6 +1680,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": true,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -1670,6 +1718,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1724,6 +1774,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": true,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -1761,6 +1812,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1815,6 +1868,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": true,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -1852,6 +1906,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1902,6 +1958,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": true,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -1939,6 +1996,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1992,6 +2051,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": false,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -2010,6 +2070,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -2047,6 +2109,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": false,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -2069,6 +2132,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -2216,6 +2281,8 @@
       "Collect": true,
       "Feed": true,
       "FeedFilter": "20000 > 10000 > 5000 > 3000 > 2000 > 1000",
+      "ReserveFood": false,
+      "FeedReserveState": null,
       "BuyFood": false
     },
     "BuyFurniture": {
@@ -2367,6 +2434,7 @@
       "UseClearMode": true,
       "UseFleetLock": true,
       "UseAutoSearch": true,
+      "ContinueAfterRestart": false,
       "Use2xBook": false,
       "AmbushEvade": true,
       "UseRecommendFleet": false,
@@ -2454,7 +2522,8 @@
     },
     "Hard": {
       "HardStage": "11-4",
-      "HardFleet": 1
+      "HardFleet": 1,
+      "RunAt18": false
     },
     "Storage": {
       "Storage": {}
@@ -2480,6 +2549,11 @@
       "LowHpConfirmWait": 0.1,
       "OpponentRefreshValue": 0,
       "OpponentRefreshRecord": "2020-01-01 00:00:00"
+    },
+    "Equipment": {
+      "Enable": false,
+      "ClearBeforeApply": true,
+      "Config": "flagship:\n  before: null\n  after: null\nup:\n  before: null\n  after: null\ndown:\n  before: null\n  after: null\nhead:\n  before: null\n  after: null\nmiddle:\n  before: null\n  after: null\ntail:\n  before: null\n  after: null"
     },
     "Storage": {
       "Storage": {}
@@ -2603,6 +2677,9 @@
       "Pool": "light",
       "Amount": 1,
       "UseTicket": true,
+      "TicketAmount": 1,
+      "ClearTicket": true,
+      "ClearTicketTime": "09:30",
       "UseDrill": false
     },
     "Storage": {
@@ -2694,8 +2771,7 @@
       "LauncherPush": true,
       "IndependentPush": false,
       "OpsiOnePushConfig": "provider: null",
-      "AutoSearchTimeLimit": 5,
-      "SkipStrategicSearchCheck": false
+      "AutoSearchTimeLimit": 5
     },
     "Storage": {
       "Storage": {}
@@ -2721,6 +2797,11 @@
       "EnsureFullyCollected": true,
       "AutoCollectShip": true
     },
+    "Equipment": {
+      "Enable": false,
+      "ClearBeforeApply": true,
+      "Config": "flagship:\n  before: null\n  after: null\nup:\n  before: null\n  after: null\ndown:\n  before: null\n  after: null\nhead:\n  before: null\n  after: null\nmiddle:\n  before: null\n  after: null\ntail:\n  before: null\n  after: null"
+    },
     "Storage": {
       "Storage": {}
     }
@@ -2738,6 +2819,11 @@
     },
     "OpsiAshAssist": {
       "Tier": 15
+    },
+    "Equipment": {
+      "Enable": false,
+      "ClearBeforeApply": true,
+      "Config": "flagship:\n  before: null\n  after: null\nup:\n  before: null\n  after: null\ndown:\n  before: null\n  after: null\nhead:\n  before: null\n  after: null\nmiddle:\n  before: null\n  after: null\ntail:\n  before: null\n  after: null"
     },
     "Storage": {
       "Storage": {}
@@ -3023,9 +3109,13 @@
       "MinimumActionPointReserve": 200,
       "ExecuteFixedPatrolScan": false,
       "SkipHpCheck": false,
+      "ActionPointCheckInterval": 0,
+      "SkipStrategicSearchCheck": false,
       "Cl1Filter": "ActionPoint",
       "RecordNonCL1AP": true,
-      "RecordSeaMiles": true,
+      "RecordSeaMiles": -1,
+      "SeaMilesLastRecord": null,
+      "PendingMapEvent": null,
       "DebugClip": false
     },
     "OpsiSirenBug": {
@@ -3804,8 +3894,19 @@
   "MindCalculatorScan": {
     "MindCalculator": {
       "MinLevel": 95,
-      "MaxLevel": 120,
-      "Result": {}
+      "MaxLevel": 125,
+      "Result": {},
+      "FleetTechRecord": {}
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "FleetTechScan": {
+    "FleetTech": {
+      "MinLevel": 95,
+      "MaxLevel": 125,
+      "Record": {}
     },
     "Storage": {
       "Storage": {}

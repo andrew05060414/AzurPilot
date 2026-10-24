@@ -31,7 +31,7 @@
 
 ```
 module/
-├── exercise/         # 演习 PvP：exercise.py 主任务，combat/opponent 战斗与对手选择，hp_daemon 血量监控，equipment 装备编辑
+├── exercise/         # 演习 PvP：exercise.py 主任务，combat/opponent 战斗与对手选择，hp_daemon 血量监控
 ├── gacha/            # 建造：gacha_reward.py 主任务，ui.py 建造页导航
 ├── daily/            # 每日任务：daily.py 单文件（含关卡/舰队映射与执行）
 ├── limit_challenge/  # 限界挑战：月度顺序挑战与出击去重
@@ -90,13 +90,15 @@ module/
 
 ### 演习（module/exercise）
 
-`Exercise(ExerciseCombat)` 组合对手选择（`OpponentChoose`）、血量监控（`HpDaemon`）与装备编辑（`ExerciseEquipment`）。OCR 识别剩余次数与赛季倒计时（`DatedDuration` 专修 `10d 01:30:30` 格式）。消耗策略：`aggressive` 不保留次数；其余策略保留 5 次，并在剩余时间落入将军试炼区间（`ADMIRAL_TRIAL_HOUR_INTERVAL`）或不足 6 小时时清空保留。对手刷新每日最多 5 次，计数经 `Exercise_OpponentRefreshValue/Record` 跨天持久化；选择策略含 `max_exp / easiest / easiest_else_exp / leftmost`，`easiest_else_exp` 在刷新耗尽后放弃保胜率改为冲经验。
+`Exercise(ExerciseCombat)` 组合对手选择（`OpponentChoose`）、血量监控（`HpDaemon`）与 `Combat`，复用其 `EquipmentConfigHandler` 执行 `Equipment.Config` 战前/战后装备方案。仅首次出击前换装，连续尝试沿用同一方案，任务收尾时重新选择对手进入准备页恢复装备，再返回演习页。OCR 识别剩余次数与赛季倒计时（`DatedDuration` 专修 `10d 01:30:30` 格式）。消耗策略：`aggressive` 不保留次数；其余策略保留 5 次，并在剩余时间落入将军试炼区间（`ADMIRAL_TRIAL_HOUR_INTERVAL`）或不足 6 小时时清空保留。对手刷新每日最多 5 次，计数经 `Exercise_OpponentRefreshValue/Record` 跨天持久化；选择策略含 `max_exp / easiest / easiest_else_exp / leftmost`，`easiest_else_exp` 在刷新耗尽后放弃保胜率改为冲经验。
 
 ### 建造（module/gacha）
 
 建造订单在数量面板核对、提交成功后向资源账本写入实际支付的物资、魔方或建造券，准备或提交失败不预扣；计算阶段的预计库存仍标为未观测，不作为收支。规则见 [资源管理](../webui/resource-management.md)。
 
-`RewardGacha(GachaUI, Retirement, CampaignStatus)` 执行建造完整流程：清空已有队列收菜 → OCR 金币/魔方 → 选择卡池及支付资源 → 核对数量并提交订单。开启 `Gacha_UseTicket` 后先前往活动池检查单次建造券，有券时优先使用，最多建造 `Gacha_Amount` 次；活动池不可用、无可用券或券不足时，剩余次数按 `Gacha_Pool` 建造，按实际卡池和资源上限计算可建次数（light 每次 600 物资 +1 魔方，heavy/special/event/wishing_well 每次 1500 物资 +2 魔方）。关闭用券优先功能时直接使用设定卡池。提交后游戏进入队列页，下一批订单须先返回建造页；`Gacha_UseDrill` 仅控制提交后是否使用快速完成工具收菜，不决定卡池或支付资源。收菜时新船走快速跳过并交给退役流程，资源计数写入 `LogRes` 统计。
+`RewardGacha(GachaUI, Retirement, CampaignStatus)` 执行建造完整流程：清空已有队列收菜 → OCR 金币/魔方 → 选择卡池及支付资源 → 核对数量并提交订单。`Gacha_Amount` 是每日最低建造次数；开启 `Gacha_UseTicket` 后先前往活动池检查单次建造券，通常使用 `Gacha_TicketAmount` 张，券不足时使用全部余券，该数量可以超过最低建造次数。用券后不足最低次数时，在 `Gacha_Pool` 补足，按实际卡池和资源上限计算可建次数（light 每次 600 物资 +1 魔方，heavy/special/event/wishing_well 每次 1500 物资 +2 魔方）。指定活动池且还有余券时，补足最低次数也优先用券，并按券记账。关闭用券优先功能时直接使用设定卡池；零数量批次不访问活动池或打开数量面板。
+
+开启 `Gacha_ClearTicket`（默认开启）且已启用用券后，在服务器时区的活动结束当天，达到 `Gacha_ClearTicketTime`（“清完建造券时间”，默认 `09:30`，格式为 `HH:MM`）后分批用完全部余券。若已确认需要清券但尚未到指定时间，将本次建造任务推迟到当天该时间，并通过 `task_stop()` 结束本轮，不提交普通每日建造，也不让 `run()` 的每日刷新调度覆盖清券时间；写入调度器前将服务器时间转换为本地无时区时间。每批最多 10 张，超过 10 张时强制使用快速完成工具收取中间批次以释放队列，最后一批遵循 `Gacha_UseDrill`。清券后仍补足每日最低次数，并按每日刷新时间安排下次任务。没有余券、未开启相关开关时不延迟。目前只有国服日期区域与中文起止格式经过核实；其他服务器或日期无法识别时按普通每日建造处理。日期使用校准时间源，以完整起止日期推断跨年范围并验证合法性，不把已过期活动自动视作下一年。`gacha_run_once()` 成功提交后才扣减券计数和记录实际支付资源，未使用快速完成工具时确认返回建造页；准备失败不继续普通后续批次，清券准备失败抛出 `GameStuckError` 交给上层恢复。收菜时新船走快速跳过并交给退役流程，资源计数写入 `LogRes` 统计。
 
 ### 每日任务（module/daily）
 
@@ -140,6 +142,8 @@ module/
 
 `EventStory(CampaignUI, Combat, LoginHandler)` 循环推进活动剧情：导航至剧情入口（个别活动在 `page_sp` 或有专属弹窗按钮），按首段/末段/中段/战斗中段按钮推进；遇到剧情内战斗时直接重启游戏跳过（比打完快）。完成后回主界面再进入一次以清掉残留奖励弹窗。个别活动经特判跳过（如剧情入口在小游戏内的活动）。
 
+入口页面按 `Event.Campaign.Event` 选择：`event_20251023_cn`、`event_20261022_cn` 使用 `page_sp`，其余常规活动使用 `page_event`；到达对应活动页后，通过左下角的 20241219 模式开关切换至剧情模式。SP 活动页的左上角标识为 `S.P.`，不能将其作为 `page_event` 导航，否则会反复返回主线页再点击活动入口。
+
 ### 医院活动（module/event_hospital）
 
 `Hospital(HospitalClue, HospitalCombat)`：先领每日奖励（红点检测），再进入线索系统在「地点/角色」两个标签页遍历旁白（`HospitalClue` 用颜色过滤+轮廓检测把线索列表转成按钮），每个旁白执行调查战斗；`OilExhausted` 时退出线索并延迟 2~4 小时。`HospitalEvent(Hospital, RaidRun)` 复用突袭运行框架执行活动战斗关：固定 `raid_name='raid_20250327'`，难度开关 easy/normal/hard，关闭推荐编队，停止条件与 RaidRun 一致。
@@ -169,7 +173,13 @@ module/
 
 ### 小游戏（module/minigame）
 
-`Minigame(UI)` 导航学院 → 游戏室，OCR 代币（上限 40，≤30 触发收集），代币 >0 时游玩（单次任务最多 10 局）。`MinigameRun` 是模板方法基类：子类实现 `choose_game/use_coin/play_game/exit_game/deal_specific_popup`。当前唯一实现 `NewYearChallenge` 用颜色匹配点按钮、OCR 读取得分与代币消耗。JP 服代币字体颜色不同（模块级按服务器分支定义）。
+`Minigame(MinigameUI)` 导航学院 → 游戏室，OCR 代币（上限 40，≤30 触发收集），代币 >0 时游玩（单次任务最多 10 局）。`MinigameRun(MinigameUI)` 是模板方法基类：子类实现 `choose_game/use_coin/play_game/exit_game/deal_specific_popup`。当前唯一实现 `NewYearChallenge` 用颜色匹配点按钮、OCR 读取得分与代币消耗。JP 服代币字体颜色不同（模块级按服务器分支定义）。
+
+`MinigameUI.minigame_list_appear()` 用滚动条颜色检测与左右任一列的卡片标记共同确认游戏列表；卡片标记允许纵向偏移 500px。列表可能残留 `GOTO_CHOOSE_GAME` 开始按钮，不能以该按钮消失作为列表就绪条件。进入游戏、回游戏室主页和收集代币共用此判断；选择新年挑战时先找目标卡片，再在确认列表后滚动，最后才处理主页的开始按钮。退出游戏时检测到列表即可结束，`minigame_run()` 的结束页面可以是游戏室主页或列表。
+
+`MinigameScroll` 只替换小游戏的滚动控件。位置通过 `MINIGAME_SCROLL_KNOB` 模板匹配获取，不用白色像素的平均位置，避免残留开始按钮边框干扰。轨道纵向范围为 95～655px，参考滑块中心为 164px，推算滑块长度 138px，位置按 `(当前中心 y - 164) / 422` 归一化并截断到 0～1。滑块遮挡时返回 `None`；非底部目标先在卡片区向下滑动恢复滑块，再拖到目标位置。目标在底部附近时向上滑动卡片，比较 `(300, 110, 600, 500)` 区域，相邻观察的平均绝对像素差小于 1、连续成立两次后按到底处理。这是卡片停止移动的启发式判断，不是客户端提供的底部标志。操作间隔为 1 秒，持续截图确认；最多 8 次滑动或 20 秒仍未确认时抛出 `RequestHumanTakeover`，由现有 `alas.py` 调度器保存现场并按重启敏感配置决定停止或尝试重启模拟器恢复。设备卡死、连击等异常继续向上层传播。
+
+新列表标记和滑块资源位于 `assets/cn/minigame/`，EN/JP/TW 通过生成器回退到国服资源，其他按钮保留各服务器原有资源。离线回归 `uv run python -m unittest discover -s tests -p test_minigame.py` 覆盖原生资源匹配、按钮残留下的页面导航、白色边框误定位、遮挡恢复、底部静止确认和失败上限；模拟测试不连接账号，也不代表实机验收。
 
 ### 作战委托（module/handover）
 
@@ -197,7 +207,7 @@ module/
 无独立调度任务，是被组合的能力层：
 
 - `Equipment(EquipmentCodeHandler)`：装备页导航、舰船视图滑动、装备中过滤器、按预设记录穿/卸装备（记录以 `'9'` 分隔各舰索引）。
-- `EquipmentChange`：经强化页记录舰船当前装备图标，再逐槽换装（演习、困难各自派生 `ExerciseEquipment`/`HardEquipment` 适配入口按钮）。
+- `EquipmentChange`：经强化页记录舰船当前装备图标，再逐槽换装；`HardEquipment(Equipment)` 适配困难模式预设入口，演习与 META 则通过 `EquipmentConfigHandler` 应用站位装备码。
 - `FleetEquipment`：在编队页按舰队批量穿/卸，被 `FleetSelectionMixin`（主线、宝石收割等）使用。
 - `EquipmentCodeHandler`：读取/应用游戏内 Base64 配装码，经模拟器剪贴板交换，仅支持 uiautomator2 系控制方式；可导出到配置，宝石收割（`GemsEquipmentHandler`）据此在换装舰娘时保住原装备。
 
@@ -225,3 +235,6 @@ module/
 - [战斗系统](../combat.md) —— 演习、每日、突袭、联动战斗循环的公共实现
 - [大世界辅助模块](../os/auxiliary.md) —— META 奖励的调用方（信标攻击/协助任务）
 - [处理器层](../handler.md) —— 各模块依赖的弹窗、登录与信息栏处理
+
+
+本地维护说明（2026-10-23）：已采用上游 `c9e1f27b3` 的小游戏列表识别与滚动修复，移除旧的客户端故障临时跳过分支；任务恢复为以上游页面正向识别推进。离线回归验证页面与滚动行为，真实客户端仍需单独验收。

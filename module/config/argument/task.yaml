@@ -290,6 +290,7 @@ DailyMission:
     Exercise:
       - Scheduler
       - Exercise
+      - Equipment
     ShopFrequent:
       - Scheduler
       - GeneralShop
@@ -326,9 +327,11 @@ Opsi:
     OpsiAshBeacon:
       - Scheduler
       - OpsiAshBeacon
+      - Equipment
     OpsiAshAssist:
       - Scheduler
       - OpsiAshAssist
+      - Equipment
     OpsiExplore:
       - Scheduler
       - OpsiExplore
@@ -499,6 +502,8 @@ Tool:
     FleetScan: []
     MindCalculatorScan:
       - MindCalculator
+    FleetTechScan:
+      - FleetTech
     Daemon:
       - Daemon
     OpsiDaemon:
