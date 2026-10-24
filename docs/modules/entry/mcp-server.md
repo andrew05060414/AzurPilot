@@ -389,7 +389,19 @@ uv run python -m dev_tools.alas_maintenance_probe --log-path log/2026-10-23_alas
 
 JSON 模式使用 `timestamp`、`instance`、`status`、`error`、`current_task` 等字段；只有明确期待进展时才设置 `expected_progress=true`，不可把正常长战斗或等待排期直接判成卡死。恢复需要可信来源提供 `ordinary_task_success=true`、非 `Restart` 的 `success_task` 和新的 `success_id`；首个成功事件仅建立基线。显式错误优先于成功字段，证据不足输出 `unknown`。主动停止是结束监测，不等同于业务恢复。输入不是完整生命周期记录时，调用方须保留这个限制。
 
-未来游戏维护 agent 先只读实例状态、当前任务与日志；一个实例只允许一个恢复决策者，平时安静，持续异常才给出一次带证据的处置建议。自动启停、ADB/模拟器重启、更新代码、任务触发和材料消耗须分别获得动作范围，不能从“可读取 MCP”推导授权。该原型不执行这些操作，尚未接入 Multica 长期运行。
+未来游戏维护 agent 先只读实例状态、当前任务与日志；一个实例只允许一个恢复决策者，平时安静，持续异常才给出一次带证据的处置建议。自动启停、ADB/模拟器重启、更新代码、任务触发和材料消耗须分别获得动作范围，不能从“可读取 MCP”推导授权。与 Multica 维护 Agent 的详细架构分工、自愈门禁及三方权责见 [与 Multica Agent 协作分工说明](alas-agent-division.md)。
+
+现已支持 `--live` 实况只读探测（WebUI / ADB 模拟器 / SSH 远程隧道 / 日志心跳）与可行动告警生成（`--format-alert`）：
+
+```powershell
+# 只读巡检本地实况状态并输出 JSON 摘要与告警评估
+uv run python -m dev_tools.alas_maintenance_probe --live --alas-root "D:/模拟器/AzurPilot" --timezone-offset=-04:00
+
+# 格式化输出面向人类（Andrew）的可行动告警卡片
+uv run python -m dev_tools.alas_maintenance_probe --live --alas-root "D:/模拟器/AzurPilot" --timezone-offset=-04:00 --format-alert
+```
+
+自动自愈开关遵循严格的只读安全原则，默认关闭（`auto_recovery_enabled=False`），仅在干运行（dry-run）模式下输出建议恢复动作（如重启 ADB 或调度实例），不擅自执行物理重启或写操作。
 
 ## 20. 相关模块
 
