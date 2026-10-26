@@ -22,7 +22,7 @@ from module.base.runtime_params import HANDOVER_CONFLICT_RETRY_MINUTES
 from module.base.timer import Timer
 from module.config.time_source import now as current_time
 from module.config.utils import read_run_param
-from module.exception import CampaignEnd, RequestHumanTakeover, ScriptEnd
+from module.exception import CampaignEnd, MapDetectionError, RequestHumanTakeover, ScriptEnd
 from module.handler.fast_forward import FastForwardHandler
 from module.handler.mystery import MysteryHandler
 from module.logger import logger
@@ -294,6 +294,7 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
         campaign_timer = Timer(5)
         map_timer = Timer(5)
         fleet_timer = Timer(5)
+        loading_timer = Timer(90)
         campaign_click = 0
         map_click = 0
         fleet_click = 0
@@ -437,8 +438,15 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
                         break
                 else:
                     if hasattr(self, 'is_combat_loading') and self.is_combat_loading():
-                        logger.warning('[地图-操作] 进入地图时战斗加载画面出现')
-                        break
+                        # is_combat_loading 也把已开战视为 True，这时必须交给战斗流程。
+                        if self.is_combat_executing():
+                            break
+                        if not loading_timer.started():
+                            logger.info('[地图-操作] 正在加载关卡，等待海图就绪')
+                            loading_timer.start()
+                        if loading_timer.reached():
+                            raise MapDetectionError('Map loading did not finish within 90 seconds')
+                        continue
                     if self.handle_in_map_with_enemy_searching():
                         # self.handle_map_after_combat_story()
                         break

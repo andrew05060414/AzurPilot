@@ -1,6 +1,6 @@
 # 地图系统与检测（module/map、module/map_detection）
 
-> 创建日期：未记录；最后更新：2026-10-26；版本：1.1。
+> 创建日期：未记录；最后更新：2026-10-26；版本：1.2。
 
 > 碧蓝航线棋盘式地图的两层引擎：`module/map_detection` 从截图还原「视野内有哪些格子、每个格子上是什么」，`module/map` 在全局地图模型上寻路、走格并编排战斗。
 
@@ -170,6 +170,11 @@ module/
 避免反复发送同一手势。它仍可能在地图边缘无法精确居中，因此返回不代表目标
 已经居中；调用方继续通过局部视野和已有异常恢复机制确认目标是否可操作。
 回归测试为 `uv run python -m unittest tests.test_map_camera_progress`，不连接模拟器。
+
+手动寻路关卡进入时，加载条出现不等于海图已就绪。`enter_map()` 持续截图，
+等 `handle_in_map_with_enemy_searching()` 正向确认海图后才返回；加载等待上限为
+90 秒，超过后抛出 `MapDetectionError`。自动搜索和已实际开战的画面仍交给原有
+战斗流程处理。回归入口为 `tests.test_map_entry_loading`。
 
 ## 6. 工作流程
 
