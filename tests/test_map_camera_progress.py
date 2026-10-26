@@ -7,12 +7,14 @@ from unittest.mock import Mock
 import numpy as np
 
 from module.map.camera import Camera
+from module.exception import MapDetectionError
 
 
 def camera_at(location=(3, 2)):
     camera = object.__new__(Camera)
     camera.camera = location
     camera.config = SimpleNamespace(MAP_ENSURE_EDGE_INSIGHT_CORNER='bottom')
+    camera.map = SimpleNamespace(shape=(10, 6))
     camera.view = SimpleNamespace(
         left_edge=True, right_edge=False, lower_edge=False, upper_edge=False,
         backend=SimpleNamespace(homo_loca=np.array([25., 60.])),
@@ -23,6 +25,28 @@ def camera_at(location=(3, 2)):
 
 
 class EdgeProgressTests(unittest.TestCase):
+    def test_missing_edges_and_unmatched_fleet_cannot_integrate_forever(self):
+        camera = camera_at()
+        camera.view.left_edge = False
+        camera.config.MAP_SWIPE_PREDICT = True
+        camera.config.MAP_SWIPE_PREDICT_WITH_CURRENT_FLEET = True
+        camera.config.MAP_SWIPE_PREDICT_WITH_SEA_GRIDS = False
+        camera.view.center_loca = (3, 3)
+        camera.view.shape = (8, 5)
+        camera.predict = Mock()
+        camera.show_camera = Mock()
+
+        def swipe(vector):
+            camera._prev_view = SimpleNamespace(predict_swipe=Mock(return_value=None))
+            camera._prev_swipe = vector
+            camera._update_view_data()
+            return True
+
+        camera.map_swipe = Mock(side_effect=swipe)
+        with self.assertRaisesRegex(MapDetectionError, 'Map edge not found'):
+            camera.ensure_edge_insight()
+        self.assertLessEqual(camera.map_swipe.call_count, 6)
+
     def test_real_update_preserves_fleet_match_then_anchors_bottom_edge(self):
         camera = camera_at((3, 0))
         camera.config.MAP_SWIPE_PREDICT = True

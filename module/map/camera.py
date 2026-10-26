@@ -406,6 +406,11 @@ class Camera(MapOperation):
         logger.info(f'[地图-摄像机] 确保边缘在视野内')
         record = []
         x_swipe, y_swipe = np.multiply(swipe_limit, random_direction(self.config.MAP_ENSURE_EDGE_INSIGHT_CORNER))
+        # 无舰队匹配时 camera 可能只是按请求向量推算；跨过整张地图仍无边缘，
+        # 就不能继续把这种估计当成定位成功。另留两次余量应对不足一格的滑动。
+        swipe_budget = max((int(np.ceil((size + 1) / abs(step)))
+                            for size, step in zip(self.map.shape, (x_swipe, y_swipe)) if step), default=0) + 2
+        swipe_count = 0
 
         while 1:
             if len(record) == 0:
@@ -420,6 +425,10 @@ class Camera(MapOperation):
 
             if len(record) > 0:
                 # 即使两条边缘可见也要滑动，以避免一些尴尬的相机位置。
+                if x != 0 or y != 0:
+                    swipe_count += 1
+                    if swipe_count > swipe_budget:
+                        raise MapDetectionError('Map edge not found within swipe budget')
                 prev_camera = self.camera
                 self.map_swipe((x, y))
                 # homo_loca 已对 HOMO_TILE 取模，整格滑动后也可能不变。
