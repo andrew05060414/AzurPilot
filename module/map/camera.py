@@ -420,25 +420,16 @@ class Camera(MapOperation):
 
             if len(record) > 0:
                 # 即使两条边缘可见也要滑动，以避免一些尴尬的相机位置。
-                prev_homo = self.view.backend.homo_loca
+                prev_camera = self.camera
                 self.map_swipe((x, y))
-                cur_homo = self.view.backend.homo_loca
-                if prev_homo is not None and cur_homo is not None:
-                    delta = np.subtract(cur_homo, prev_homo)
-                    base = self.view.swipe_base
-                    # 滑动后地图在对应轴上位移不足半格（地图小于视野或已到达边缘，
-                    # 游戏不再滚动），停止该轴滑动并撤销死推算的相机位移，
-                    # 避免相机坐标持续发散导致无限滑动
-                    if x != 0 and abs(delta[0]) < base[0] / 2:
-                        logger.info('[地图-摄像机] 地图横向已到达边缘，停止横向滑动')
-                        x_swipe = 0
-                        if not (self.view.left_edge or self.view.right_edge):
-                            self.camera = (self.camera[0] - x, self.camera[1])
-                    if y != 0 and abs(delta[1]) < base[1] / 2:
-                        logger.info('[地图-摄像机] 地图纵向已到达边缘，停止纵向滑动')
-                        y_swipe = 0
-                        if not (self.view.upper_edge or self.view.lower_edge):
-                            self.camera = (self.camera[0], self.camera[1] - y)
+                # homo_loca 已对 HOMO_TILE 取模，整格滑动后也可能不变。
+                # update 已通过舰队匹配和可见边缘修正相机，不能再减去请求向量。
+                if x != 0 and self.camera[0] == prev_camera[0]:
+                    logger.info('[地图-摄像机] 相机横向无进展，停止横向滑动')
+                    x_swipe = 0
+                if y != 0 and self.camera[1] == prev_camera[1]:
+                    logger.info('[地图-摄像机] 相机纵向无进展，停止纵向滑动')
+                    y_swipe = 0
 
             record.append((x, y))
 
@@ -464,13 +455,26 @@ class Camera(MapOperation):
         location = location_ensure(location)
         logger.info('[地图-摄像机] 聚焦到: %s' % location2node(location))
 
+        stagnant_swipes = 0
         while 1:
             vector = np.array(location) - self.camera
             swipe = tuple(np.min([np.abs(vector), swipe_limit], axis=0) * np.sign(vector))
+            # 目标已对准；中心微调由 focus_to_grid_center 单独负责。
+            if not any(swipe):
+                break
+            prev_camera = self.camera
             has_swiped = self.map_swipe(swipe)
 
             if not has_swiped:
                 break
+            if self.camera == prev_camera:
+                stagnant_swipes += 1
+                if stagnant_swipes >= 2:
+                    logger.warning('[地图-摄像机] 连续两次滑动无进展，终止对 %s 的聚焦'
+                                   % location2node(location))
+                    break
+            else:
+                stagnant_swipes = 0
 
     def full_scan(self, queue=None, must_scan=None, battle_count=0, mystery_count=0, siren_count=0, carrier_count=0,
                   mode='normal'):
