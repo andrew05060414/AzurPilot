@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from dev_tools.alas_maintenance_probe import (
+    sanitize_error,
     evaluate,
     read_log_tail,
     probe_webui,
@@ -280,6 +281,11 @@ class MaintenanceLiveProbeTests(unittest.TestCase):
         self.assertEqual(res_empty["device_state"], "no_devices")
 
     def test_probe_ssh_tunnel(self):
+        # 0. sanitize_error 基础单元测试
+        self.assertEqual(sanitize_error("demo-token-DO-NOT-SHARE"), "[REDACTED]")
+        self.assertEqual(sanitize_error("password=secret-val"), "[REDACTED]")
+        self.assertIn("[REDACTED]", sanitize_error("Bearer sk-token-123456"))
+
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / "deploy.yaml"
             # 1. 禁用 SSH
@@ -395,6 +401,138 @@ class MaintenanceLiveProbeTests(unittest.TestCase):
         res4 = mgr.execute_recovery(plan, dry_run=False)
         self.assertFalse(res4["executed"])
         self.assertEqual(res4["status"], "max_attempts_exceeded")
+
+    def test_live_probe_raw_log_error_redaction_and_negative_assertions(self):
+        """F1: 验证实况日志提取与告警生成对原始报错严格脱敏，不回显敏感 Token/凭据。"""
+        with tempfile.TemporaryDirectory() as d:
+            log_dir = Path(d) / "log"
+            log_dir.mkdir(parents=True, exist_ok=True)
+            today_prefix = datetime.now().strftime("%Y-%m-%d")
+            log_file = log_dir / f"{today_prefix}_alas.txt"
+            log_lines = [
+                "2026-10-24 10:00:00.000 | INFO | 调度器: 开始任务 " + chr(96) + "Sortie" + chr(96),
+                "2026-10-24 10:00:05.000 | ERROR | demo-token-DO-NOT-SHARE",
+                "2026-10-24 10:00:10.000 | ERROR | password=secret-password-123456",
+                "2026-10-24 10:00:15.000 | ERROR | Authorization: Bearer secret-bearer-token-abc",
+                "",
+            ]
+            log_file.write_text(chr(10).join(log_lines), encoding="utf-8")
+
+            # 1. 心跳探针提取测试
+            hb = probe_heartbeat_and_tasks(log_file, instance="alas")
+            self.assertEqual(hb["latest_task_status"], "error")
+            self.assertIsNotNone(hb["latest_error"])
+            self.assertNotIn("demo-token-DO-NOT-SHARE", hb["latest_error"])
+            self.assertNotIn("secret-password-123456", hb["latest_error"])
+            self.assertNotIn("secret-bearer-token-abc", hb["latest_error"])
+            self.assertIn("[REDACTED]", hb["latest_error"])
+
+            # 2. 实况聚合摘要 JSON 序列化负向断言
+            summary = read_live_summary(alas_root=d, instance="alas", check_ssh=False)
+            self.assertTrue(summary["stalled"])
+            self.assertIn("task_error", summary["stalled_reasons"])
+            serialized_json = json.dumps(summary, ensure_ascii=False)
+            self.assertNotIn("demo-token-DO-NOT-SHARE", serialized_json)
+            self.assertNotIn("secret-password-123456", serialized_json)
+            self.assertNotIn("secret-bearer-token-abc", serialized_json)
+
+            # 3. 可行动告警生成与 Markdown 格式化负向断言
+            alert = generate_actionable_alert(summary, threshold_seconds=300)
+            self.assertIsNotNone(alert)
+            self.assertNotIn("demo-token-DO-NOT-SHARE", alert["phenomenon"])
+            self.assertNotIn("secret-password-123456", alert["phenomenon"])
+            self.assertNotIn("secret-bearer-token-abc", alert["phenomenon"])
+
+            formatted_md = format_actionable_alert_markdown(alert)
+            self.assertNotIn("demo-token-DO-NOT-SHARE", formatted_md)
+            self.assertNotIn("secret-password-123456", formatted_md)
+            self.assertNotIn("secret-bearer-token-abc", formatted_md)
+            self.assertIn("[REDACTED]", formatted_md)
+
+    @patch("dev_tools.alas_maintenance_probe.probe_ssh_tunnel")
+    @patch("dev_tools.alas_maintenance_probe.probe_adb_emulator")
+    @patch("dev_tools.alas_maintenance_probe.probe_webui")
+    def test_read_live_summary_webui_outage_stalls_and_reports_degraded(
+        self, mock_webui, mock_adb, mock_ssh
+    ):
+        """F2: 验证 ADB 在线但 WebUI 探针异常/无日志时，准确报 degraded 并触发告警，防止误判 healthy。"""
+        mock_webui.return_value = {
+            "available": False,
+            "url": "http://127.0.0.1:25548/healthz",
+            "status_code": None,
+            "detail": "connection_failed: ConnectionRefusedError",
+        }
+        mock_adb.return_value = {
+            "online": True,
+            "serial": "127.0.0.1:16448",
+            "device_state": "device",
+            "devices_found": [{"serial": "127.0.0.1:16448", "state": "device"}],
+        }
+        mock_ssh.return_value = {"enabled": False, "server": None, "user": None, "reachable": None}
+
+        with tempfile.TemporaryDirectory() as d:
+            summary = read_live_summary(alas_root=d, instance="alas", check_ssh=True)
+            self.assertTrue(summary["stalled"])
+            self.assertEqual(summary["state"], "degraded")
+            self.assertIn("webui_unavailable", summary["stalled_reasons"])
+            self.assertFalse(summary["webui"]["available"])
+
+            # 告警卡片验证
+            alert = generate_actionable_alert(summary, threshold_seconds=300)
+            self.assertIsNotNone(alert)
+            self.assertEqual(alert["severity"], "CRITICAL")
+            self.assertIn("WebUI 服务无响应", alert["phenomenon"])
+
+            md = format_actionable_alert_markdown(alert)
+            self.assertIn("WebUI 服务无响应", md)
+            self.assertNotIn("【状态正常】", md)
+
+    @patch("dev_tools.alas_maintenance_probe.probe_ssh_tunnel")
+    @patch("dev_tools.alas_maintenance_probe.probe_adb_emulator")
+    @patch("dev_tools.alas_maintenance_probe.probe_webui")
+    def test_read_live_summary_distinguishes_intentional_stopped_state(
+        self, mock_webui, mock_adb, mock_ssh
+    ):
+        """F2: 区分主动下线/已停止状态与真实异常。"""
+        mock_webui.return_value = {"available": False, "status_code": None, "detail": "connection_failed"}
+        mock_adb.return_value = {"online": False, "device_state": "no_devices", "devices_found": []}
+        mock_ssh.return_value = {"enabled": False, "reachable": None}
+
+        with tempfile.TemporaryDirectory() as d:
+            # 显式 desired_running=False 表明实例主动关停
+            summary = read_live_summary(alas_root=d, instance="alas", desired_running=False)
+            self.assertFalse(summary["stalled"])
+            self.assertEqual(summary["state"], "stopped")
+            self.assertEqual(summary["stalled_reasons"], [])
+
+            alert = generate_actionable_alert(summary)
+            self.assertIsNone(alert)
+
+    @patch("dev_tools.alas_maintenance_probe.probe_ssh_tunnel")
+    @patch("dev_tools.alas_maintenance_probe.probe_adb_emulator")
+    @patch("dev_tools.alas_maintenance_probe.probe_webui")
+    def test_read_live_summary_ssh_unreachable_triggers_alert(
+        self, mock_webui, mock_adb, mock_ssh
+    ):
+        """F2: 验证 SSH 隧道启用但不可达时触发告警并标记 degraded。"""
+        mock_webui.return_value = {"available": True, "status_code": 200, "url": "http://127.0.0.1:25548/healthz"}
+        mock_adb.return_value = {"online": True, "serial": "127.0.0.1:16448", "device_state": "device"}
+        mock_ssh.return_value = {
+            "enabled": True,
+            "server": "remote.nanoda.work:1022",
+            "reachable": False,
+            "detail": "ssh_port_unreachable: TimeoutError",
+        }
+
+        with tempfile.TemporaryDirectory() as d:
+            summary = read_live_summary(alas_root=d, instance="alas", check_ssh=True)
+            self.assertTrue(summary["stalled"])
+            self.assertEqual(summary["state"], "degraded")
+            self.assertIn("ssh_unreachable", summary["stalled_reasons"])
+
+            alert = generate_actionable_alert(summary)
+            self.assertIsNotNone(alert)
+            self.assertIn("SSH 隧道不可达", alert["phenomenon"])
 
 
 if __name__ == "__main__":

@@ -65,6 +65,55 @@ def _fingerprint(instance: str, status: str, error: str | None, current_task: st
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
+SENSITIVE_PATTERNS: tuple[tuple[re.Pattern, str], ...] = (
+    # 凭据、私钥、Token、密码等敏感键值或独立复合标识（如 demo-token-DO-NOT-SHARE）
+    (
+        re.compile(
+            r"""(?i)\b[a-z0-9._%+-]*?(?:token|secret|password|passwd|api_key|apikey|credential|session_id|bearer|auth|private)[a-z0-9._%+-]*\b"""
+            r"""(?:[=:\s]+[^\s,;'"<>\[\]{}()]+)?"""
+        ),
+        "[REDACTED]",
+    ),
+    # 标准 Bearer 格式
+    (
+        re.compile(r"""(?i)\b(bearer)\s+[^\s,;'"<>\[\]{}()]+"""),
+        r"\1 [REDACTED]",
+    ),
+    # 包含账号密码的 URL (http://user:pass@host)
+    (
+        re.compile(r"""(?i)(https?://)[^\s:@]+:[^\s:@]+@"""),
+        r"\1***:***@",
+    ),
+    # Query String 凭据 (?token=xxx, &key=xxx)
+    (
+        re.compile(r"""(?i)([?&](?:key|token|auth|secret|password|api_key)=)[^&\s"']+"""),
+        r"\1***",
+    ),
+    # 本地包含用户名的用户目录路径脱敏
+    (
+        re.compile(r"""(?i)([a-z]:\\users\\)[^\\]+(\\)""", re.IGNORECASE),
+        r"\1<user>\2",
+    ),
+    (
+        re.compile(r"""(?i)(/home/)[^/]+(/)"""),
+        r"\1<user>\2",
+    ),
+)
+
+
+def sanitize_error(text: str | None) -> str | None:
+    """对原始日志中的错误信息做深度脱敏与清洗，严防凭据或原始私密日志回显。"""
+    if not text:
+        return text
+    clean = str(text).strip()
+    for pattern, replacement in SENSITIVE_PATTERNS:
+        clean = pattern.sub(replacement, clean)
+    clean = re.sub(r"(\[REDACTED\]\s*)+", "[REDACTED] ", clean).strip()
+    if len(clean) > 200:
+        clean = clean[:197] + "..."
+    return clean
+
+
 def evaluate(samples: list[dict[str, Any]], threshold_seconds: int = 300) -> list[dict[str, Any]]:
     """按实例各自的时间线评估故障 episode；不执行恢复操作。"""
     if threshold_seconds <= 0:
@@ -420,14 +469,14 @@ def probe_heartbeat_and_tasks(
             err_m = pat.search(line_clean)
             if err_m:
                 latest_task_status = "error"
-                latest_error = err_m.group(0).strip()
+                latest_error = sanitize_error(err_m.group(0).strip())
                 if last_timestamp:
                     latest_error_time = last_timestamp.isoformat()
                 break
 
         if match and match["level"] in {"ERROR", "CRITICAL"}:
             latest_task_status = "error"
-            latest_error = match["message"].strip()
+            latest_error = sanitize_error(match["message"].strip())
             if last_timestamp:
                 latest_error_time = last_timestamp.isoformat()
 
@@ -457,11 +506,15 @@ def read_live_summary(
     threshold_seconds: int = 300,
     timezone_offset: str = "+00:00",
     check_ssh: bool = True,
+    desired_running: bool | None = None,
 ) -> dict[str, Any]:
     """汇总 WebUI / ADB / SSH / 心跳状态为统一只读摘要。"""
-    root = Path(alas_root) if alas_root else Path(".")
-    if not (root / "config").exists() and Path("D:/模拟器/AzurPilot").exists():
-        root = Path("D:/模拟器/AzurPilot")
+    if alas_root:
+        root = Path(alas_root)
+    else:
+        root = Path(".")
+        if not (root / "config").exists() and Path("D:/模拟器/AzurPilot").exists():
+            root = Path("D:/模拟器/AzurPilot")
 
     now_iso = datetime.now(timezone.utc).isoformat()
     webui = probe_webui(webui_url)
@@ -484,17 +537,58 @@ def read_live_summary(
 
     stalled = False
     stalled_reasons: list[str] = []
+
+    if desired_running is False:
+        overall_state = "stopped"
+        fingerprint = _fingerprint(
+            instance,
+            overall_state,
+            "explicit_not_desired_running",
+            heartbeat.get("current_task"),
+        )
+        return {
+            "timestamp": now_iso,
+            "instance": instance,
+            "state": overall_state,
+            "fingerprint": fingerprint,
+            "stalled": False,
+            "stalled_reasons": [],
+            "webui": webui,
+            "emulator": adb,
+            "ssh": ssh,
+            "heartbeat": heartbeat,
+        }
+
     if not adb["online"]:
         stalled = True
         stalled_reasons.append("emulator_offline")
+    if not webui["available"]:
+        stalled = True
+        stalled_reasons.append("webui_unavailable")
+    if ssh.get("enabled") and ssh.get("reachable") is False:
+        stalled = True
+        stalled_reasons.append("ssh_unreachable")
     if heartbeat["latest_task_status"] == "error":
         stalled = True
         stalled_reasons.append("task_error")
     if heartbeat["elapsed_seconds"] is not None and heartbeat["elapsed_seconds"] > threshold_seconds:
         stalled = True
         stalled_reasons.append("heartbeat_expired")
+    elif desired_running is True and heartbeat["elapsed_seconds"] is None:
+        stalled = True
+        stalled_reasons.append("heartbeat_absent")
 
-    overall_state = "stalled" if stalled else "healthy"
+    if stalled:
+        if "webui_unavailable" in stalled_reasons and adb["online"] and heartbeat["latest_task_status"] != "error":
+            overall_state = "degraded"
+        elif "ssh_unreachable" in stalled_reasons and len(stalled_reasons) == 1:
+            overall_state = "degraded"
+        else:
+            overall_state = "stalled"
+    elif heartbeat["latest_task_status"] == "idle" and heartbeat["elapsed_seconds"] is None:
+        overall_state = "idle"
+    else:
+        overall_state = "healthy"
     fingerprint = _fingerprint(
         instance,
         overall_state,
@@ -530,6 +624,7 @@ def generate_actionable_alert(summary: dict[str, Any], threshold_seconds: int = 
     hb = summary.get("heartbeat", {})
     emu = summary.get("emulator", {})
     webui = summary.get("webui", {})
+    ssh = summary.get("ssh", {})
     fingerprint = summary.get("fingerprint", "unknown")
 
     detected_at = summary.get("timestamp", datetime.now(timezone.utc).isoformat())
@@ -549,9 +644,22 @@ def generate_actionable_alert(summary: dict[str, Any], threshold_seconds: int = 
         recommended_actions.append(f"在终端运行 `adb connect {serial}` 或通过托盘重新连接模拟器。")
         suggested_auto_action = "restart_adb"
 
+    if "webui_unavailable" in reasons or not webui.get("available"):
+        severity = "CRITICAL"
+        status_code = webui.get("status_code")
+        detail = webui.get("detail", "unknown")
+        phenomenon_items.append(
+            f"WebUI 服务无响应：无法访问健康探针（{webui.get('url', 'http://127.0.0.1:25548/healthz')}，"
+            f"状态码: {status_code or '连接失败'}，详情: {detail}）。"
+        )
+        recommended_actions.append("检查 ALAS 后端 Python 进程或 Launcher 是否存活，确认端口 25548 是否处于监听状态。")
+        recommended_actions.append("若 WebUI 进程已崩溃退出，通过托盘右键重新启动 AzurPilot / Alas Launcher。")
+        if not suggested_auto_action:
+            suggested_auto_action = "restart_instance"
+
     if "task_error" in reasons:
         current_task = hb.get("current_task") or "未知任务"
-        err_msg = hb.get("latest_error") or "游戏状态无法推进"
+        err_msg = sanitize_error(hb.get("latest_error")) or "游戏状态无法推进"
         phenomenon_items.append(f"任务卡死/执行异常：任务 `{current_task}` 持续受阻，报错信息：`{err_msg}`。")
         recommended_actions.append(f"打开 ALAS WebUI ({webui.get('url', 'http://127.0.0.1:25548')}) 确认当前画面是否卡在弹窗或未识别界面。")
         recommended_actions.append("若画面正常但无法点击，在 WebUI 中手动点击「停止」，等待 5 秒后再次点击「启动」。")
@@ -565,6 +673,20 @@ def generate_actionable_alert(summary: dict[str, Any], threshold_seconds: int = 
         recommended_actions.append("若调度器进程死锁，通过托盘右键退出 AzurPilot 并重新打开 Launcher。")
         if not suggested_auto_action:
             suggested_auto_action = "restart_instance"
+
+    if "ssh_unreachable" in reasons or (ssh.get("enabled") and ssh.get("reachable") is False):
+        if severity != "CRITICAL":
+            severity = "WARNING"
+        server = ssh.get("server", "unknown")
+        phenomenon_items.append(f"RemoteAccess SSH 隧道不可达：远程服务器 `{server}` 端口连接超时或拒绝。")
+        recommended_actions.append(f"检查远程服务器 `{server}` 的网络连通性与 SSH 服务状态。")
+        recommended_actions.append("若使用了内网穿透（如 frp/cloudflared/quick-tunnel），检查对应穿透客户端是否在线。")
+
+    if "heartbeat_absent" in reasons:
+        if severity != "CRITICAL":
+            severity = "WARNING"
+        phenomenon_items.append("心跳日志缺失：实例预期运行，但未检索到今日运行日志或有效心跳记录。")
+        recommended_actions.append("确认 ALAS 日志目录与实例名配置，检查调度器是否已成功拉起。")
 
     if not phenomenon_items:
         phenomenon_items.append(f"检测到未明确归类的持续停滞状态（原因: {reasons}）。")
@@ -656,12 +778,12 @@ class AutoRecoveryManager:
                 "reason": "emulator_offline",
                 "detail": "重启 ADB 服务以尝试重新恢复模拟器连接",
             }
-        if "task_error" in reasons or "heartbeat_expired" in reasons:
+        if "webui_unavailable" in reasons or "task_error" in reasons or "heartbeat_expired" in reasons or "heartbeat_absent" in reasons:
             return {
                 "action": "restart_instance",
                 "instance": instance,
-                "reason": "task_stalled_or_heartbeat_dead",
-                "detail": "停止并重启当前卡死的 ALAS 调度实例",
+                "reason": "webui_unavailable" if "webui_unavailable" in reasons else "task_stalled_or_heartbeat_dead",
+                "detail": "停止并重启当前异常或卡死的 ALAS 调度实例",
             }
         return None
 
@@ -735,6 +857,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--alas-root", type=Path, help="ALAS 安装/运行根目录")
     parser.add_argument("--webui-url", default="http://127.0.0.1:25548", help="WebUI 基础 URL")
     parser.add_argument("--format-alert", action="store_true", help="若存在告警则输出格式化 Markdown 告警文本")
+    parser.add_argument("--desired-running", dest="desired_running", default=None, type=lambda v: str(v).lower() in ("true", "1", "yes") if str(v).lower() not in ("none", "null") else None, help="指示实例是否预期处于运行状态（默认自动探测）")
 
     effective_argv = list(sys.argv[1:] if argv is None else argv)
     for i, arg in enumerate(effective_argv):
@@ -753,11 +876,16 @@ def main(argv: list[str] | None = None) -> int:
                 webui_url=args.webui_url,
                 threshold_seconds=args.threshold_seconds,
                 timezone_offset=args.timezone_offset,
+                desired_running=args.desired_running,
             )
             alert = generate_actionable_alert(summary, threshold_seconds=args.threshold_seconds)
             if args.format_alert:
                 if alert:
                     print(format_actionable_alert_markdown(alert))
+                elif summary.get("state") == "stopped":
+                    print(f"【实例已停止】实例 `{inst}` 已主动停止或非预期运行状态，无需告警。")
+                elif summary.get("state") == "idle":
+                    print(f"【实例就绪】实例 `{inst}` 当前空闲就绪，无执行中任务。")
                 else:
                     print(f"【状态正常】实例 `{inst}` 无活跃告警，心跳与模拟器状态正常。")
                 return 0
