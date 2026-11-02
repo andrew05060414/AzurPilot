@@ -326,7 +326,7 @@ stateDiagram-v2
 | `GameBugError` | 客户端 bug | 重启游戏 | `'recoverable'` |
 | `GamePageUnknownError` | 页面无法识别 | 先查服务器：可用则重启游戏；维护中则阻塞等待，等完返回 | `'recoverable'` / `False` |
 | `ScriptError` | 代码 bug | 连续 3 次内注入 `Restart` 重试；达到 3 次退出 | `'recoverable'` / `exit(1)` |
-| `EmulatorNotRunningError` | 模拟器离线 | `_try_restart_emulator()`（永不放弃，超阈值只加长间隔）+ `Restart` | `'recoverable'` |
+| `EmulatorNotRunningError` | 模拟器离线 | `_try_restart_emulator()`（永不放弃，超阈值只加长间隔；等待结束后先用 `_emulator_responsive()` 检查 ADB，已在线则跳过停止与启动）+ `Restart` | `'recoverable'` |
 | `RequestHumanTakeover` | 严重到无法安全自动判断 | 也先尝试重启模拟器自动恢复，不再直接终止 | `'recoverable'` |
 | `MindCalculatorScanError` | 船坞扫描识别或三排定位无法确认 | 记录具体原因、异常和错误截图，保留旧清单并结束当前工具任务；不重启模拟器 | `False` |
 | `AutoSearchSetError` | 自动搜索设置失败 | 重启游戏 | `'recoverable'` |

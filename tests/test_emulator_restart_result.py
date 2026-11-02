@@ -69,3 +69,30 @@ class TestEmulatorRestartResult(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+    def test_already_online_emulator_is_not_stopped(self):
+        """等待期间用户手动启动了模拟器：不能再把它关掉。"""
+        self.script.consecutive_adb_offline = 5
+        self.script._emulator_responsive = Mock(return_value=True)
+
+        self.assertTrue(self.script._try_restart_emulator())
+
+        self.device.emulator_stop.assert_not_called()
+        self.device.emulator_start.assert_not_called()
+        self.assertEqual(self.script.consecutive_adb_offline, 0)
+        self.assertNotIn('device', self.script.__dict__)
+
+    def test_unresponsive_emulator_still_goes_through_restart(self):
+        self.script._emulator_responsive = Mock(return_value=False)
+
+        self.assertTrue(self.script._try_restart_emulator())
+
+        self.device.emulator_stop.assert_called_once()
+        self.device.emulator_start.assert_called_once()
+
+    def test_responsive_check_treats_errors_as_offline(self):
+        self.script.config.Emulator_Serial = '127.0.0.1:16448'
+        with patch('adbutils.AdbClient', side_effect=OSError('refused')):
+            self.assertFalse(self.script._emulator_responsive())
+        self.script.config.Emulator_Serial = 'auto'
+        self.assertFalse(self.script._emulator_responsive())

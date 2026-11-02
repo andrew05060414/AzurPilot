@@ -88,3 +88,18 @@ class TestMuMuStopResult(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+    def test_mumu12_stop_skips_shutdown_when_instance_already_off(self):
+        """实例已关闭时 shutdown_player 返回非 0，不能让「先停后启」在这里中断。"""
+        self.platform.execute = Mock(return_value=CompletedProcess(args='shutdown', returncode=-2))
+        self.platform._mumu12_instances = Mock(return_value={'0': {'is_process_started': False}})
+        res = self.platform._emulator_function_wrapper(self.platform._emulator_stop)
+        self.assertTrue(res)
+        self.platform.execute.assert_not_called()
+
+    def test_mumu12_stop_still_shuts_down_running_instance(self):
+        self.platform.execute = Mock(return_value=CompletedProcess(args='shutdown', returncode=0))
+        self.platform._mumu12_instances = Mock(return_value={'0': {'is_process_started': True}})
+        res = self.platform._emulator_function_wrapper(self.platform._emulator_stop)
+        self.assertTrue(res)
+        self.platform.execute.assert_called_once()

@@ -432,6 +432,28 @@ class AzurLaneAutoScript:
             return False
         return self.consecutive_adb_offline >= threshold
 
+    def _emulator_responsive(self, timeout=5):
+        """判断配置的模拟器此刻是否已在线并能响应 ADB。
+
+        重启流程在「连续失败」后会先等待最长 300 秒，再无条件停止模拟器；
+        这期间用户手动启动的模拟器会被当成故障实例关掉。真正卡死的实例
+        连 `echo` 都回不了，仍会走原有的重启流程。任何异常都按「不在线」处理。
+
+        Returns:
+            bool: True 表示能连上并在 timeout 秒内执行了 shell 命令。
+        """
+        try:
+            serial = str(self.config.Emulator_Serial)
+            if ':' not in serial:
+                return False
+            from adbutils import AdbClient
+            client = AdbClient('127.0.0.1', 5037)
+            client.connect(serial, timeout=timeout)
+            return client.device(serial).shell('echo ok', timeout=timeout).strip() == 'ok'
+        except Exception as e:
+            logger.info(f'[AzurPilot] 模拟器在线检查未通过: {type(e).__name__}')
+            return False
+
     def _try_restart_emulator(self):
         """
         尝试重启模拟器。永不放弃，一直重试。
@@ -457,6 +479,14 @@ class AzurLaneAutoScript:
                 f'等待 {wait_seconds} 秒后继续重试（永不放弃）'
             )
             time.sleep(wait_seconds)
+
+        # 等待期间用户可能已手动把模拟器开起来了：已在线就不要再关它。
+        if self._emulator_responsive():
+            logger.info('[AzurPilot] 模拟器已在线并能响应 ADB（可能已被手动启动），跳过本轮重启')
+            if 'device' in self.__dict__:
+                del_cached_property(self, 'device')
+            self.consecutive_adb_offline = 0
+            return True
 
         logger.hr('[AzurPilot] 正在重启模拟器', level=1)
         try:

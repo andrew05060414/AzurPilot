@@ -461,6 +461,15 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             # 使用同步执行等待关闭完成，避免异步执行导致的实例查找失败
             if instance.MuMuPlayer12_id is None:
                 logger.warning(f'[设备-Windows] 无法从名称 {instance.name} 获取MuMu实例索引')
+            # 实例本来就没在运行时，shutdown_player 会返回非 0（日志里为 -2），
+            # 按失败处理会让 emulator_start 的「先停后启」在这里中断，永远走不到 launch_player。
+            # 先查状态：已关闭就视为停止成功；查询不可用时保持原行为。
+            if instance.MuMuPlayer12_id is not None:
+                info = self._mumu12_instances(exe)
+                entry = info.get(str(instance.MuMuPlayer12_id)) if info else None
+                if isinstance(entry, dict) and not entry.get('is_process_started'):
+                    logger.info(f'[设备-Windows] MuMuPlayer12 实例 {instance.MuMuPlayer12_id} 已处于关闭状态，跳过关闭命令')
+                    return
             logger.info('[设备-Windows] MuMuPlayer12 关闭: 使用同步执行')
             res = self.execute(
                 f'"{Emulator.single_to_console(exe)}" api -v {instance.MuMuPlayer12_id} shutdown_player',
