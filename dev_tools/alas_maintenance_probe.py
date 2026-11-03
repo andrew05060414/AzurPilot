@@ -574,19 +574,26 @@ def read_live_summary(
     if heartbeat["elapsed_seconds"] is not None and heartbeat["elapsed_seconds"] > threshold_seconds:
         stalled = True
         stalled_reasons.append("heartbeat_expired")
-    elif desired_running is True and heartbeat["elapsed_seconds"] is None:
+    elif heartbeat["elapsed_seconds"] is None:
+        # 没有任何可解析的日志/心跳证据（log_not_found 或 no_log_lines_parsed），
+        # 在未显式声明 desired_running=False（主动停止）之前不得判定为健康，
+        # 必须作为「心跳缺失」纳入停滞判定，驱动可行动告警而不是误报 healthy。
         stalled = True
         stalled_reasons.append("heartbeat_absent")
 
     if stalled:
-        if "webui_unavailable" in stalled_reasons and adb["online"] and heartbeat["latest_task_status"] != "error":
+        # heartbeat_absent 单独出现时只是弱信号（可能是刚启动、尚未产生日志），
+        # 不应把它与真正的 webui/ssh 故障混为一谈去升级为 stalled；
+        # 用 hard_reasons 过滤掉它后再套用既有的 degraded/stalled 判定规则。
+        hard_reasons = [r for r in stalled_reasons if r != "heartbeat_absent"]
+        if not hard_reasons:
             overall_state = "degraded"
-        elif "ssh_unreachable" in stalled_reasons and len(stalled_reasons) == 1:
+        elif "webui_unavailable" in hard_reasons and adb["online"] and heartbeat["latest_task_status"] != "error":
+            overall_state = "degraded"
+        elif "ssh_unreachable" in hard_reasons and len(hard_reasons) == 1:
             overall_state = "degraded"
         else:
             overall_state = "stalled"
-    elif heartbeat["latest_task_status"] == "idle" and heartbeat["elapsed_seconds"] is None:
-        overall_state = "idle"
     else:
         overall_state = "healthy"
     fingerprint = _fingerprint(
@@ -857,7 +864,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--alas-root", type=Path, help="ALAS 安装/运行根目录")
     parser.add_argument("--webui-url", default="http://127.0.0.1:25548", help="WebUI 基础 URL")
     parser.add_argument("--format-alert", action="store_true", help="若存在告警则输出格式化 Markdown 告警文本")
-    parser.add_argument("--desired-running", dest="desired_running", default=None, type=lambda v: str(v).lower() in ("true", "1", "yes") if str(v).lower() not in ("none", "null") else None, help="指示实例是否预期处于运行状态（默认自动探测）")
+    parser.add_argument("--desired-running", dest="desired_running", default=None, type=lambda v: str(v).lower() in ("true", "1", "yes") if str(v).lower() not in ("none", "null") else None, help="指示实例是否预期处于运行状态；默认不传时按「预期运行」评估，"
+         "缺少心跳/日志证据会被判为心跳缺失而非健康（仅 --desired-running false 代表主动停止，不参与停滞判定）")
 
     effective_argv = list(sys.argv[1:] if argv is None else argv)
     for i, arg in enumerate(effective_argv):

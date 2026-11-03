@@ -369,11 +369,48 @@ class MaintenanceLiveProbeTests(unittest.TestCase):
         mock_adb.return_value = {"online": True, "serial": "127.0.0.1:16448", "device_state": "device"}
         mock_ssh.return_value = {"enabled": True, "server": "remote.nanoda.work:1022", "reachable": True}
         with tempfile.TemporaryDirectory() as d:
+            # healthy 判定必须有真实心跳证据支撑：日志里要有近期时间戳与成功信号，
+            # 不能只靠 WebUI/ADB/SSH 均正常就放行（见 F2 回归测试）。
+            log_dir = Path(d) / "log"
+            log_dir.mkdir(parents=True, exist_ok=True)
+            today_prefix = datetime.now().strftime("%Y-%m-%d")
+            log_file = log_dir / f"{today_prefix}_test.txt"
+            now = datetime.now(timezone.utc)
+            log_file.write_text(
+                now.strftime("%Y-%m-%d %H:%M:%S.000") + " | INFO | 调度器: 开始任务 `Commission`\n"
+                + now.strftime("%Y-%m-%d %H:%M:%S.000")
+                + " | INFO | 调度器: 任务 `Commission` 成功\n",
+                encoding="utf-8",
+            )
             summary = read_live_summary(alas_root=d, instance="test", check_ssh=True)
             self.assertEqual(summary["instance"], "test")
             self.assertEqual(summary["state"], "healthy")
             self.assertFalse(summary["stalled"])
             self.assertEqual(summary["webui"]["status_code"], 200)
+
+    @patch("dev_tools.alas_maintenance_probe.probe_ssh_tunnel")
+    @patch("dev_tools.alas_maintenance_probe.probe_adb_emulator")
+    @patch("dev_tools.alas_maintenance_probe.probe_webui")
+    def test_read_live_summary_no_log_evidence_is_not_healthy(self, mock_webui, mock_adb, mock_ssh):
+        """F2 回归：alas_root 为空目录、没有任何日志时，不能因为 ADB/WebUI 都在线就误报 healthy。"""
+        mock_webui.return_value = {"available": True, "url": "http://127.0.0.1:25548/healthz", "status_code": 200}
+        mock_adb.return_value = {"online": True, "serial": "127.0.0.1:16448", "device_state": "device"}
+        mock_ssh.return_value = {"enabled": False, "server": None, "user": None, "reachable": None}
+
+        with tempfile.TemporaryDirectory() as d:
+            summary = read_live_summary(alas_root=d, instance="alas", check_ssh=False)
+            self.assertEqual(summary["heartbeat"]["detail"], "log_not_found")
+            self.assertIsNone(summary["heartbeat"]["elapsed_seconds"])
+            self.assertNotEqual(summary["state"], "healthy")
+            self.assertTrue(summary["stalled"])
+            self.assertIn("heartbeat_absent", summary["stalled_reasons"])
+
+            alert = generate_actionable_alert(summary, threshold_seconds=300)
+            self.assertIsNotNone(alert)
+            self.assertIn("心跳日志缺失", alert["phenomenon"])
+
+            md = format_actionable_alert_markdown(alert)
+            self.assertNotIn("【状态正常】", md)
 
     def test_auto_recovery_cooldown_and_max_attempts(self):
         cfg_enabled = AutoRecoveryConfig(auto_recovery_enabled=True, max_attempts=2, cooldown_seconds=60)
