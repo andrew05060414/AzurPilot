@@ -1,35 +1,19 @@
-"""托盘「暂停 / 继续」调度器端点的单元测试。"""
-import asyncio
-import json
+"""托盘「暂停 / 继续任务」经启动器 WS 的回归测试，配置使用临时目录。"""
+import tempfile
 import unittest
 from types import SimpleNamespace
-from unittest import mock
+from unittest.mock import patch
 
-from module.api import launcher_api
-from module.runtime.launcher_trust import LauncherTrust
+from starlette.testclient import TestClient
 
-SECRET = 'tray-secret'
-
-
-class FakeRequest:
-    """只带处理器会读到的属性的请求替身。"""
-
-    def __init__(self, method='GET', body=None, secret=SECRET, host='127.0.0.1'):
-        self.method = method
-        self.client = SimpleNamespace(host=host)
-        self.headers = {'host': '127.0.0.1:27548'}
-        if secret is not None:
-            self.headers['x-webui-launcher-secret'] = secret
-        self._body = body
-
-    async def json(self):
-        if self._body is None:
-            raise ValueError('not json')
-        return self._body
+from module.api.app import create_app
+from module.runtime.launcher import LauncherService
+from tests.test_api import fixture
+from tests.test_launcher_api import HEADERS, HELLO, call
 
 
 class FakeRuntime:
-    """记录 start / stop 调用，并维护一份假的运行集合。"""
+    """记录 start / stop 调用，维护一份假的运行集合。"""
 
     def __init__(self, running, names):
         self.running = set(running)
@@ -45,64 +29,64 @@ class FakeRuntime:
         self.running.add(name)
 
 
-class TestSchedulerEndpoint(unittest.TestCase):
+class LauncherSchedulerTests(unittest.TestCase):
     def setUp(self):
-        launcher_api._trust = LauncherTrust(SECRET)
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        with patch.dict('os.environ', {'AP_WEBUI_TRUST_SECRET': 'test-secret'}):
+            self.app = create_app(root=fixture(self.temp.name), password='private-password',
+                                  manage_runtime=False, mount_mcp=False)
+        self.service = self.app.state.gateway.router.launcher
         self.runtime = FakeRuntime(running=['alas'], names=['alas', 'alt'])
-        launcher_api.configure_runtime(self.runtime)
-        launcher_api._paused = []
-        patcher = mock.patch.object(launcher_api, '_running_names', lambda: sorted(self.runtime.running))
+        self.service.runtime = self.runtime
+        patcher = patch.object(LauncherService, '_running_names', staticmethod(lambda: sorted(self.runtime.running)))
         patcher.start()
         self.addCleanup(patcher.stop)
+        self.client = TestClient(self.app, base_url='http://127.0.0.1:25548', client=('127.0.0.1', 50000))
 
-    def tearDown(self):
-        launcher_api._trust = None
-        launcher_api.configure_runtime(None)
-        launcher_api._paused = []
+    def session(self):
+        ws = self.client.websocket_connect('/api/v2/launcher/ws', headers=HEADERS)
+        return ws
 
-    def call(self, request):
-        response = asyncio.run(launcher_api.scheduler(request))
-        return response.status_code, json.loads(bytes(response.body))
-
-    def test_requires_launcher_secret(self):
-        """没有或带错信任密钥一律 403，网页跨站请求无法暂停调度器。"""
-        for secret in (None, 'wrong'):
-            status, _ = self.call(FakeRequest(method='POST', body={'action': 'pause'}, secret=secret))
-            self.assertEqual(status, 403)
+    def test_requires_handshake(self):
+        with self.session() as ws:
+            reply = call(ws, 'scheduler.pause')
+            self.assertFalse(reply['ok'])
+            self.assertEqual(reply['error']['code'], 'UNAUTHORIZED')
         self.assertEqual(self.runtime.calls, [])
 
-    def test_remote_request_rejected(self):
-        status, _ = self.call(FakeRequest(host='10.0.0.2'))
-        self.assertEqual(status, 403)
-
-    def test_invalid_action(self):
-        status, _ = self.call(FakeRequest(method='POST', body={'action': 'reboot'}))
-        self.assertEqual(status, 400)
-
     def test_pause_then_resume_restores_same_instances(self):
-        """暂停记住正在跑的实例，继续只恢复这些实例。"""
-        status, payload = self.call(FakeRequest(method='POST', body={'action': 'pause'}))
-        self.assertEqual(status, 200)
-        self.assertEqual(payload['running'], [])
-        self.assertEqual(payload['paused'], ['alas'])
+        with self.session() as ws:
+            self.assertTrue(call(ws, 'session.hello', HELLO)['ok'])
+            state = call(ws, 'scheduler.state')
+            self.assertEqual(state['result']['running'], ['alas'])
 
-        status, payload = self.call(FakeRequest(method='POST', body={'action': 'resume'}))
-        self.assertEqual(status, 200)
-        self.assertEqual(payload['running'], ['alas'])
-        self.assertEqual(payload['paused'], [])
+            paused = call(ws, 'scheduler.pause')
+            self.assertTrue(paused['ok'], paused)
+            self.assertEqual(paused['result']['running'], [])
+            self.assertEqual(paused['result']['paused'], ['alas'])
+
+            resumed = call(ws, 'scheduler.resume')
+            self.assertEqual(resumed['result']['running'], ['alas'])
+            self.assertEqual(resumed['result']['paused'], [])
         self.assertEqual(self.runtime.calls, [('stop', 'alas'), ('start', 'alas')])
 
-    def test_resume_without_memory_starts_all(self):
-        """后端重启后没有暂停记录，继续就启动全部实例。"""
+    def test_resume_without_memory_starts_all_instances(self):
         self.runtime.running.clear()
-        status, payload = self.call(FakeRequest(method='POST', body={'action': 'resume'}))
-        self.assertEqual(status, 200)
-        self.assertEqual(payload['running'], ['alas', 'alt'])
+        with self.session() as ws:
+            self.assertTrue(call(ws, 'session.hello', HELLO)['ok'])
+            resumed = call(ws, 'scheduler.resume')
+        self.assertEqual(resumed['result']['running'], ['alas', 'alt'])
 
-    def test_get_reports_state(self):
-        status, payload = self.call(FakeRequest())
-        self.assertEqual(status, 200)
-        self.assertEqual(payload['running'], ['alas'])
+    def test_errors_are_reported_per_instance(self):
+        def broken(name):
+            raise RuntimeError('boom')
+        self.runtime.stop = broken
+        with self.session() as ws:
+            self.assertTrue(call(ws, 'session.hello', HELLO)['ok'])
+            reply = call(ws, 'scheduler.pause')
+        self.assertTrue(reply['ok'])
+        self.assertEqual(reply['result']['errors'], ['alas: boom'])
 
 
 if __name__ == '__main__':
