@@ -102,7 +102,11 @@ class ServerChecker:
                     f'Response is {getattr(response, "text", "")}'
                 )
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
-            logger.error(e)
+            # API 临时不可用（如 Cloudflare 521）会回退到游戏网关，网关可用时不算错误。
+            if isinstance(e, ServerApiUnavailableError):
+                logger.warning(e)
+            else:
+                logger.error(e)
             if self._load_gateway_server():
                 return
 
