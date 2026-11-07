@@ -35,7 +35,8 @@ class TestLauncherRoutes(unittest.TestCase):
         """端点路径是外部启动器二进制写死的对接面，改名即断连。"""
         paths = {route.path for route in launcher_api.routes()}
         self.assertEqual(paths, {'/api/launcher/status', '/api/launcher/startup', '/api/launcher/stream',
-                                 '/api/launcher/report', '/api/launcher/trusted-login', '/launcher-login'})
+                                 '/api/launcher/report', '/api/launcher/trusted-login', '/api/launcher/scheduler',
+                                 '/launcher-login'})
 
 
 class TestLocalOnlyEndpoints(unittest.TestCase):

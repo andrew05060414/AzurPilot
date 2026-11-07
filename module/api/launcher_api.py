@@ -9,6 +9,7 @@ import json
 import os
 import time
 
+from starlette.concurrency import run_in_threadpool
 from starlette.responses import HTMLResponse, JSONResponse, StreamingResponse
 from starlette.routing import Route
 
@@ -24,6 +25,11 @@ _secret_failures: list[float] = []
 #: 命令流空闲多久发一次保活帧（秒）。
 STREAM_IDLE_TIMEOUT = 30
 
+#: 托盘「暂停 / 继续」用到的运行时服务，由 create_app 登记。
+_runtime = None
+#: 托盘暂停时正在运行的实例；继续时按它恢复，为空则启动全部实例。
+_paused: list[str] = []
+
 
 def configure_trust(webui_key: str | None) -> None:
     """登记启动器信任密钥与当前 WebUI 密码；未带密钥启动时免密通道整体关闭。
@@ -32,6 +38,12 @@ def configure_trust(webui_key: str | None) -> None:
         webui_key: 当前有效的 WebUI 访问密码。
     """
     launcher_trust.configure(os.environ.get(launcher_trust.TRUST_SECRET_ENV), webui_key)
+
+
+def configure_runtime(runtime) -> None:
+    """登记托盘暂停 / 继续调度器所用的 RuntimeService。"""
+    global _runtime
+    _runtime = runtime
 
 
 def _forbidden(message: str, status_code: int = 403) -> JSONResponse:
@@ -151,6 +163,71 @@ def _login_denied() -> HTMLResponse:
                         status_code=403)
 
 
+def _running_names() -> list[str]:
+    """当前在运行的实例名。"""
+    from module.runtime.process_manager import ProcessManager
+    return sorted({manager.config_name for manager in ProcessManager.running_instances()})
+
+
+def _scheduler_state() -> dict:
+    """托盘菜单需要的调度器状态。"""
+    return {"success": True, "running": _running_names(), "paused": list(_paused)}
+
+
+def _scheduler_action(action: str) -> dict:
+    """在线程池里执行暂停或继续，返回最新状态；单个实例失败不影响其余实例。"""
+    global _paused
+    errors = []
+    if action == "pause":
+        names = _running_names()
+        for name in names:
+            try:
+                _runtime.stop(name)
+            except Exception as exc:
+                errors.append(f"{name}: {exc}")
+        if names:
+            _paused = names
+    else:
+        running = set(_running_names())
+        names = [name for name in (_paused or _runtime.configs.names()) if name not in running]
+        for name in names:
+            try:
+                _runtime.start(name)
+            except Exception as exc:
+                errors.append(f"{name}: {exc}")
+        _paused = []
+    result = _scheduler_state()
+    if errors:
+        result.update(success=False, error="；".join(errors))
+    return result
+
+
+async def scheduler(request):
+    """GET / POST /api/launcher/scheduler — 托盘菜单查询、暂停或继续调度器。
+
+    只认本机连接且带启动器信任密钥的请求，网页无法跨站触发。POST 报文为
+    ``{"action": "pause" | "resume"}``：暂停会停止所有运行中的实例并记住它们，
+    继续时重新启动这些实例。
+    """
+    if not is_local_request(request):
+        return _forbidden("调度器控制只允许本机连接")
+    if not launcher_trust.check_secret(request.headers.get("x-webui-launcher-secret")):
+        return _forbidden("信任密钥无效")
+    if _runtime is None:
+        return _forbidden("调度器控制未启用", 503)
+    if request.method == "GET":
+        return JSONResponse(await run_in_threadpool(_scheduler_state))
+    try:
+        data = await request.json()
+    except Exception:
+        return _forbidden("请求体不是有效 JSON", 400)
+    action = data.get("action") if isinstance(data, dict) else None
+    if action not in ("pause", "resume"):
+        return _forbidden("action 必须是 pause 或 resume", 400)
+    result = await run_in_threadpool(_scheduler_action, action)
+    return JSONResponse(result, status_code=200 if result.get("success") else 500)
+
+
 def routes() -> list[Route]:
     """启动器通道的本地回环路由。"""
     return [Route("/api/launcher/status", status),
@@ -158,4 +235,5 @@ def routes() -> list[Route]:
             Route("/api/launcher/stream", stream),
             Route("/api/launcher/report", report, methods=["POST"]),
             Route("/api/launcher/trusted-login", trusted_login, methods=["POST"]),
+            Route("/api/launcher/scheduler", scheduler, methods=["GET", "POST"]),
             Route("/launcher-login", login_seed)]

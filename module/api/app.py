@@ -55,6 +55,7 @@ def create_app(*, root: Path = ROOT, password=None, manage_runtime=True, mount_m
             State.deploy_config.Password = password
     gateway = Gateway(Router(configs, runtime), password)
     launcher_api.configure_trust(password)
+    launcher_api.configure_runtime(runtime)
 
     @asynccontextmanager
     async def lifespan(application):
