@@ -23,7 +23,7 @@ import numpy as np
 from module.base.timer import Timer
 from module.base.utils import area_offset
 from module.combat.assets import GET_ITEMS_1, GET_ITEMS_1_RYZA
-from module.exception import CampaignEnd, GameNotRunningError, MapDetectionError
+from module.exception import CampaignEnd, GameNotRunningError, GameStuckError, MapDetectionError
 from module.handler.assets import AUTO_SEARCH_MENU_CONTINUE, GAME_TIPS, GET_MISSION
 from module.logger import logger
 from module.map.assets import MAP_PREPARATION, MAP_PREPARATION_HARD
@@ -557,13 +557,17 @@ class Camera(MapOperation):
     def convert_global_to_local(self, location):
         """将全局地图网格坐标转换为局部视图网格对象。
 
-        如果当前局部视图不包含该位置，则将相机聚焦到该位置后重新转换。
+        如果当前局部视图不包含该位置，则将相机聚焦到该位置后重新转换；
+        聚焦停滞后仍不在视野内时，校准边缘再聚焦一次。
 
         Args:
             location (tuple[int, int] | str): 全局坐标或节点名。
 
         Returns:
             Grid: 局部视图中的对应网格实例。
+
+        Raises:
+            GameStuckError: 校准后滑动仍无法让目标进入视野（画面不随滑动变化）。
         """
         location = location_ensure(location)
 
@@ -580,7 +584,18 @@ class Camera(MapOperation):
             logger.warning('[地图-摄像机] 全局转局部坐标失败')
             self.focus_to(location)
             local = np.array(location) - self.camera + self.view.center_loca
+            if local in self.view:
+                return self.view[local]
+
+        # focus_to 连续无进展会提前结束；相机可能只是推算值，先用边缘重新定位。
+        logger.warning('[地图-摄像机] 聚焦后 %s 仍不在视野内，校准边缘后重试' % location2node(location))
+        self.ensure_edge_insight(skip_first_update=False)
+        self.focus_to(location)
+        local = np.array(location) - self.camera + self.view.center_loca
+        if local in self.view:
             return self.view[local]
+        # 实机现场是画面不随滑动变化，交给调度器按游戏卡住重启，而不是 KeyError。
+        raise GameStuckError('Map swipe has no effect, unable to focus to %s' % location2node(location))
 
     def convert_local_to_global(self, location):
         """将当前局部视图网格坐标转换为全局地图网格对象。
