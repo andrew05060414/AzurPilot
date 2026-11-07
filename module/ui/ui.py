@@ -27,7 +27,7 @@ from module.base.button import Button
 from module.base.decorator import run_once
 from module.base.timer import Timer
 from module.combat.assets import GET_ITEMS_1, GET_ITEMS_2, GET_SHIP
-from module.exception import (GameNotRunningError, GamePageUnknownError,
+from module.exception import (GameNotRunningError, GamePageUnknownError, GameStuckError,
                               RequestHumanTakeover)
 from module.exercise.assets import EXERCISE_PREPARATION
 from module.handler.assets import (AUTO_SEARCH_MENU_EXIT, BATTLE_PASS_NEW_SEASON, BATTLE_PASS_NOTICE, GAME_TIPS,
@@ -45,6 +45,10 @@ from module.ui.assets import *
 from module.ui.page import Page, page_academy, page_campaign, page_event, page_main, page_main_white, page_sp, \
     page_tactical
 from module.ui_white.assets import *
+
+
+# ui_goto 同一次导航允许的连续超时次数，超过后抛出 GameStuckError。
+UI_GOTO_TIMEOUT_LIMIT = 3
 
 
 class UI(InfoHandler):
@@ -331,6 +335,10 @@ class UI(InfoHandler):
         logger.hr(f"UI 导航到 {destination}")
         # 导航超时计时器：长时间无法识别页面时触发恢复
         nav_timeout = Timer(30, count=60).start()
+        # 同一次导航连续超时的次数。目标页面检测失效（如模板与当前渲染不符）时，
+        # 原逻辑会无限重试，曾在一个任务里循环 2 小时直到监护强制终止；
+        # 超过上限后交给上层的卡死恢复，由任务失败计数决定延后。
+        nav_timeout_count = 0
         while 1:
             GOTO_MAIN.clear_offset()
             if skip_first_screenshot:
@@ -371,7 +379,12 @@ class UI(InfoHandler):
 
             # 导航超时：当前页面无法识别，调用 ui_get_current_page 触发恢复
             if nav_timeout.reached():
-                logger.warning(f'[UI] 导航到 {destination} 超时，尝试检测当前页面并恢复')
+                nav_timeout_count += 1
+                logger.warning(f'[UI] 导航到 {destination} 超时（第 {nav_timeout_count} 次），尝试检测当前页面并恢复')
+                if nav_timeout_count >= UI_GOTO_TIMEOUT_LIMIT:
+                    Page.clear_connection()
+                    raise GameStuckError(
+                        f'[UI] 导航到 {destination} 连续超时 {nav_timeout_count} 次，目标页面可能无法识别')
                 Page.clear_connection()
                 current = self.ui_get_current_page(
                     skip_first_screenshot=True,
