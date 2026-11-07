@@ -232,6 +232,10 @@ Error:
   LlmModel:
     value: "mimo-v2.5-pro"
     valuetype: str
+  VlmRecover: false
+  VlmModel:
+    value: ""
+    valuetype: str
 Watchdog:
   CheckInterval:
     value: 30

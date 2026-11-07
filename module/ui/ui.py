@@ -45,6 +45,7 @@ from module.ui.assets import *
 from module.ui.page import Page, page_academy, page_campaign, page_event, page_main, page_main_white, page_sp, \
     page_tactical
 from module.ui_white.assets import *
+from module.vlm_recover import VlmRecover
 
 
 class UI(InfoHandler):
@@ -242,6 +243,8 @@ class UI(InfoHandler):
         orientation_timer = Timer(5)
 
         timeout = Timer(10, count=20).start()
+        # 可选：现有兜底都无效时，让 VLM 在白名单内挑一个安全动作，每次故障最多几次
+        vlm = VlmRecover(self.config)
         while 1:
             if skip_first_screenshot:
                 skip_first_screenshot = False
@@ -250,8 +253,8 @@ class UI(InfoHandler):
             else:
                 self.device.screenshot()
 
-            # 超时退出
-            if timeout.reached():
+            # 超时退出；VLM 还有额度时先走完已知页面检测和现有兜底，再交给 VLM
+            if timeout.reached() and not vlm.available:
                 break
 
             # 已知页面检测
@@ -280,6 +283,11 @@ class UI(InfoHandler):
 
             app_check()
             minicap_check()
+            if timeout.reached():
+                if vlm.try_recover(self.device):
+                    timeout.reset()
+                    continue
+                break
             # 持续检查屏幕旋转
             if orientation_timer.reached():
                 self.device.get_orientation()

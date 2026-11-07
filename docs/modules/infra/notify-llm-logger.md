@@ -40,6 +40,7 @@ module/
 │   ├── __init__.py       # 延迟导入转发，避免未用通知时加载 onepush
 │   └── notify.py         # handle_notify（OnePush）、notify_webui（本地端口）
 ├── llm.py                # analyze_exception：OpenAI 兼容错误分析
+├── vlm_recover.py        # 未知页面时让视觉模型在白名单内挑动作脱困（默认关闭）
 ├── logger.py             # 全局 logger、Rich 处理器、hr/attr/error_context
 ├── logger.pyi            # logger 扩展方法的类型提示
 ├── server_status.py      # 游戏网关直连协议层（TCP 10018/10019 + 原始 HTTP）
@@ -50,9 +51,20 @@ module/
 | --- | --- |
 | notify/notify.py | 解析 YAML 推送配置，经 onepush 发往外部渠道；或 POST 到本地 WebUI 端口 |
 | llm.py | 堆栈 + 日志尾部喂给 LLM，MD5 去重缓存，全程静默降级 |
+| vlm_recover.py | 截图缩小成 JPEG 发给视觉模型，只接受白名单动作和安全区域内的坐标，失败一律 none |
 | logger.py | logging.getLogger('alas') 挂三个 Rich 处理器，并 monkey-patch 辅助方法 |
 | server_status.py | 无状态协议工具：向各地区游戏网关查询服务器原始状态 |
 | server_checker.py | 公共状态 API 优先、网关兜底、退避重试的检查器 |
+
+### VLM 页面恢复（module/vlm_recover.py）
+
+接入点在 `module/ui/ui.py` 的 `ui_get_current_page`：已知页面检测、`GOTO_MAIN`、`ui_additional` 都无效且 10 秒窗口到期后，才请求一次 VLM；动作执行后回到循环顶部重新截图识别，循环内不 `sleep`。
+
+- 白名单只有 `back` / `home` / `close` / `tap_blank` / `none`，没有确认、购买、开始类动作；模型回复先做 JSON 解析，动作名必须精确匹配。
+- 坐标先从缩略图（宽 640）换算回 1280×720，再要求落在各动作的安全区域内：`back` 左上角 (0,0,200,110)，`home` 右上角 (950,0,1280,110)，`close` 顶部条带或右侧上半列，`tap_blank` 顶部中间 (300,0,900,60)。`home` / `close` 不给坐标直接放弃，`back` / `tap_blank` 缺坐标用默认点。区域都避开屏幕中下部的确认按钮。
+- 开关关闭、未填 API Key、20 秒超时、解析失败、白名单外动作、坐标越界一律返回 none，不抛异常；返回 none 后立即交回原有流程（重启游戏）。
+- 限制：同一次故障最多 3 次请求；全局 10 分钟内最多 6 次。日志 `[VLM]` 记录模型给的理由。
+- 隐私与成本：开启后截图会发往用户配置的第三方服务，默认关闭；默认的 `Error_LlmModel` 不一定支持图片，需自行填 `Error_VlmModel`。
 
 ## 4. 核心入口
 
@@ -163,6 +175,8 @@ module/
 | `Alas.Error.LlmApiKey` | 文本 | 空 | OpenAI 兼容 API Key，缺失时仅告警不分析 |
 | `Alas.Error.LlmApiBase` | 文本 | `https://api.xiaomimimo.com/v1` | API 基地址，可指向任意 OpenAI 兼容服务 |
 | `Alas.Error.LlmModel` | 字符串 | `mimo-v2.5-pro` | 模型名 |
+| `Alas.Error.VlmRecover` | checkbox | false | 启用 VLM 页面恢复：`ui_get_current_page` 认不出页面、10 秒窗口到期时请求视觉模型，复用 `Error_LlmApiKey` / `Error_LlmApiBase` |
+| `Alas.Error.VlmModel` | 字符串 | 空 | 视觉模型名，必须支持图片输入；为空则用 `Error_LlmModel` |
 | `Alas.Error.SaveError` / `SaveErrorRetentionDays` / `SaveErrorBackUpMethod` / `SaveErrorZipMethod` | checkbox / 数值 / 选项 | true / 30 / zip / zip | 错误现场保存；过期天数（0 = 不清理）、过期处理方式（delete/copy/zip）与压缩格式，备份落 `log/error/<实例>/bak/`；LLM 分析在保存流程最前执行 |
 | `Alas.Emulator.ServerName` | 选项 | `disabled` | 服务器检查目标；disabled 跳过检查 |
 | `Secretary.Secretary.Notify` / `OnePushConfig` | checkbox / YAML | true / `provider: null` | 秘书舰推送，专用配置留空回退全局 OnePushConfig |

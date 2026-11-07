@@ -136,6 +136,8 @@ class GeneratedConfig:
     Error_LlmApiKey = None
     Error_LlmApiBase = 'https://api.xiaomimimo.com/v1'
     Error_LlmModel = 'mimo-v2.5-pro'
+    Error_VlmRecover = False
+    Error_VlmModel = None
 
     # 配置组 `Watchdog`
     Watchdog_CheckInterval = 30
