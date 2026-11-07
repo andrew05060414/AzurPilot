@@ -1,5 +1,6 @@
 """调度器单实例锁：同一配置只允许一个调度器进程运行。"""
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -12,9 +13,16 @@ from alas import AzurLaneAutoScript
 from module.runtime import scheduler_lock
 from module.runtime.scheduler_lock import (
     SchedulerLockConflict,
+    _lock_file_is_current,
     acquire_scheduler_lock,
     release_scheduler_lock,
 )
+
+
+class TestSchedulerLockLocation(unittest.TestCase):
+    def test_lock_dir_is_outside_cleanable_cache(self):
+        self.assertEqual(scheduler_lock.SCHEDULER_LOCK_DIR, Path('./config/.locks/scheduler'))
+        self.assertNotIn('cache', scheduler_lock.SCHEDULER_LOCK_DIR.parts)
 
 
 class TestSchedulerLock(unittest.TestCase):
@@ -65,6 +73,46 @@ class TestSchedulerLock(unittest.TestCase):
         child.kill()
         child.wait(timeout=10)
         release_scheduler_lock(acquire_scheduler_lock('alas', timeout=5))
+
+    def test_replaced_lock_file_is_reacquired(self):
+        # 模拟首次加锁后路径已被替换：应丢弃句柄并重新取锁，而不是直接返回
+        with patch.object(scheduler_lock, '_lock_file_is_current', side_effect=[False, True]) as check:
+            handle = acquire_scheduler_lock('alas', timeout=1)
+        self.assertEqual(check.call_count, 2)
+        with self.assertRaises(SchedulerLockConflict):
+            acquire_scheduler_lock('alas', timeout=0.2)
+        release_scheduler_lock(handle)
+
+    @unittest.skipIf(os.name == 'nt', 'Windows 下已打开的锁文件不能被删除')
+    def test_lock_file_removed_after_locking_is_recreated(self):
+        lock_path = Path(self.tmp.name) / 'alas.lock'
+        real_try_lock = scheduler_lock._try_lock
+        removed = []
+
+        def lock_then_remove(handle):
+            real_try_lock(handle)
+            if not removed:
+                removed.append(True)
+                lock_path.unlink()
+
+        with patch.object(scheduler_lock, '_try_lock', side_effect=lock_then_remove):
+            handle = acquire_scheduler_lock('alas', timeout=1)
+        self.assertEqual(len(removed), 1)
+        # 返回的句柄必须是路径上现存的文件，且之后的竞争者会被正确拒绝
+        self.assertEqual(os.fstat(handle.fileno()).st_ino, os.stat(lock_path).st_ino)
+        with self.assertRaises(SchedulerLockConflict):
+            acquire_scheduler_lock('alas', timeout=0.2)
+        release_scheduler_lock(handle)
+
+    @unittest.skipIf(os.name == 'nt', 'Windows 下 _lock_file_is_current 恒为 True')
+    def test_identity_check_detects_replaced_or_missing_file(self):
+        lock_path = Path(self.tmp.name) / 'alas.lock'
+        with open(lock_path, 'a+b') as handle:
+            self.assertTrue(_lock_file_is_current(handle, lock_path))
+            lock_path.unlink()
+            self.assertFalse(_lock_file_is_current(handle, lock_path))
+            lock_path.write_bytes(b'\0')
+            self.assertFalse(_lock_file_is_current(handle, lock_path))
 
 
 class TestLoopUsesSchedulerLock(unittest.TestCase):

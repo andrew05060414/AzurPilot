@@ -26,6 +26,7 @@ config/*.json
 !config/template*.json
 
 config/scheduler/
+config/.locks/
 config/stock-exchange/
 config/opsi_secure/
 
