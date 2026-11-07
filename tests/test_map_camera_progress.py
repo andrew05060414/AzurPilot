@@ -7,7 +7,7 @@ from unittest.mock import Mock
 import numpy as np
 
 from module.map.camera import Camera
-from module.exception import MapDetectionError
+from module.exception import GameStuckError, MapDetectionError
 
 
 def camera_at(location=(3, 2)):
@@ -159,6 +159,55 @@ class FocusProgressTests(unittest.TestCase):
         camera.focus_to((9, 2), swipe_limit=(2, 2))
         self.assertEqual(camera.camera, (9, 2))
         self.assertEqual(camera.map_swipe.call_count, 3)
+
+
+class FakeView(SimpleNamespace):
+    def __contains__(self, item):
+        return tuple(item) in self.grids
+
+    def __getitem__(self, item):
+        return self.grids[tuple(item)]
+
+
+def camera_with_view(location, grids):
+    camera = camera_at(location)
+    camera.view = FakeView(**vars(camera.view), center_loca=(3, 3),
+                           grids={g: 'grid%s%s' % g for g in grids})
+    return camera
+
+
+# 透视视野的角落格子不一定被识别，实机崩溃的 (8, 5) 就不在 view.grids 中。
+VIEW_9X6 = [(x, y) for x in range(9) for y in range(6) if (x, y) != (8, 5)]
+
+
+class ConvertGlobalToLocalTests(unittest.TestCase):
+    def test_frozen_swipes_raise_recoverable_stuck_instead_of_key_error(self):
+        # 实机 12-4：相机 A6，聚焦 F8 时画面不随滑动变化，原先 view[(8, 5)] 抛 KeyError。
+        camera = camera_with_view((0, 5), VIEW_9X6)
+        camera.map_swipe = Mock(return_value=True)
+        with self.assertRaisesRegex(GameStuckError, 'F8'):
+            camera.convert_global_to_local((5, 7))
+        camera.update.assert_called()
+        # 两轮 focus_to 各两次 + 边缘校准；不能无限滑动触发 MAP_SWIPE 点击保护。
+        self.assertLessEqual(camera.map_swipe.call_count, 7)
+
+    def test_edge_calibration_recovers_misestimated_camera(self):
+        camera = camera_with_view((0, 5), VIEW_9X6)
+        camera.map_swipe = Mock(return_value=True)
+
+        def recalibrate():
+            # 边缘校准发现相机其实已在 F7 附近。
+            camera.camera = (5, 6)
+        camera.update = Mock(side_effect=recalibrate)
+        camera.view.left_edge = True
+        camera.view.lower_edge = True
+        self.assertEqual(camera.convert_global_to_local((5, 7)), 'grid34')
+
+    def test_target_in_view_needs_no_swipe(self):
+        camera = camera_with_view((3, 3), VIEW_9X6)
+        camera.map_swipe = Mock()
+        self.assertEqual(camera.convert_global_to_local((4, 3)), 'grid43')
+        camera.map_swipe.assert_not_called()
 
 
 if __name__ == '__main__':
