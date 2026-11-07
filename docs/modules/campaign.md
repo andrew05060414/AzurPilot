@@ -113,7 +113,7 @@ OSMapOperation
 | `CampaignUI` | `ensure_campaign_ui()` 把 UI 收敛到目标关卡页并设置 `ENTRANCE`；`campaign_set_chapter()` 按主线 → 20260326 → 20241219 → 普通 event → SP 的优先级尝试路由；模块级 `MODE_SWITCH_*` / `ASIDE_SWITCH_*` 开关单例 |
 | `CampaignOcr` | `campaign_match_multi()` 用通关图标模板定位所有入口，OCR 读取关卡名；`_campaign_separate_name()` 拆分章节与序号；多数票决定 `campaign_chapter` |
 | `CampaignStatus` | `get_oil()` / `get_coin()` / `get_event_pt()` OCR，写入 `LogRes` 仪表盘；JP 服数字颜色不同、PT 需要反色预处理（`PtOcr`） |
-| `CampaignEvent` | 活动结束 `_disable_tasks()`（cross_set 联动禁用 + GemsFarming 回退 2-4）、PT/时间限制、任务均衡器、`ui_goto_event/sp/coalition` 路由与活动可用性检查、突袭/活动互斥 |
+| `CampaignEvent` | 活动结束 `_disable_tasks()`（cross_set 联动禁用 + GemsFarming 回退 2-4）、PT/时间限制、任务均衡器、`ui_goto_event/sp/coalition` 路由与活动可用性检查、突袭/活动互斥；横幅导航（出击菜单 → 滑动横幅 → 目标活动）另有 120 秒总超时，点击/滑动不会重置它 |
 | `CampaignRun` | `handle_stage_name()` 关卡名流水线 → `load_campaign()` 动态导入 → 多轮循环与九类停止条件 |
 | `GemsFarming` / `Ambush11` | 在 `load_campaign()` 里动态构造 `GemsCampaign(覆写类, module.Campaign)`，注入专用情绪管理与低情绪撤退 |
 | `FleetSelectionMixin` | 低耗任务共用的船坞选船：普通稀有度 CV/DD 模板匹配、`ShipScanner` 等级/情绪/编队过滤、困难模式换用准备界面按钮 |

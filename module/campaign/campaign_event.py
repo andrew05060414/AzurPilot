@@ -20,6 +20,7 @@
 import os
 import re
 from datetime import datetime
+from time import monotonic
 
 from module.base.timer import Timer
 from module.campaign.campaign_status import CampaignStatus
@@ -35,6 +36,8 @@ from module.war_archives.assets import WAR_ARCHIVES_CAMPAIGN_CHECK
 
 EVENT_PT_TASKS = EVENTS + RAIDS + COALITIONS + GEMS_FARMINGS + HOSPITAL
 LEGACY_EVENT_TIME_LIMIT = datetime(2020, 1, 1, 0, 0)
+# 横幅导航总超时（秒）。从进入函数起算，点击/滑动不重置，防止局部计时器被反复重置后永不超时。
+CAMPAIGN_BANNER_GOTO_GLOBAL_TIMEOUT = 120
 
 
 class CampaignEvent(CampaignStatus):
@@ -297,7 +300,10 @@ class CampaignEvent(CampaignStatus):
         wrong_pages = self._campaign_banner_wrong_pages(destination)
         pending_swipe = False
         swipe_count = 0
+        # 局部计时器会被点击/滑动重置，只防单步卡住
         timeout = Timer(40, count=80).start()
+        # 总超时只在入口计算一次，任何重置都不影响它
+        global_deadline = monotonic() + CAMPAIGN_BANNER_GOTO_GLOBAL_TIMEOUT
 
         while 1:
             if skip_first_screenshot:
@@ -313,6 +319,9 @@ class CampaignEvent(CampaignStatus):
 
             if timeout.reached():
                 logger.warning('[活动战役] 从出击菜单进入活动超时')
+                return False
+            if monotonic() >= global_deadline:
+                logger.warning(f'[活动战役] 从出击菜单进入活动总超时（{CAMPAIGN_BANNER_GOTO_GLOBAL_TIMEOUT} 秒，不随点击重置）')
                 return False
 
             # 点进了突袭/联动等错误活动，返回后准备切横幅
