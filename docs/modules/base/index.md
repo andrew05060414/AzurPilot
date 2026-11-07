@@ -127,6 +127,8 @@ module/base/
 
 `button` 属性的动态性是点击正确性的关键：模板匹配类按钮位置不固定，`match()` 找到实际位置后写入 `_button_offset`，之后 `Device.click()` 从 `button.button`（而非原始 `_button`）内取随机点，点击就落在真实位置上。`load_offset()` 则用于把一个按钮的检测偏移复制给另一按钮（如滑动后整组 UI 平移的场景）。
 
+**多尺度补救（仅 `Button.match`，含 GIF 各帧）**：同一页面可能有“模拟器原生 720p”与“1080p 缩放到 720p”两种渲染，文字整体相差约 1%~3% 缩放，整行文字的相似度会掉到 0.7 左右。常规匹配失败但最高相似度仍 ≥ `TEMPLATE_MULTISCALE_MIN_SIMILARITY`（0.6）时，才把模板按 `TEMPLATE_MULTISCALE_RATIOS`（0.97 / 0.985 / 1.015 / 1.03）缩放重试，任一比例超过原阈值即成功，`_button_offset` 按模板中心对齐折算。缩放模板缓存在 `Button._scaled_templates`，`resource_release()` 时清空；缩放后大于搜索区域的比例跳过；标准差低于 `TEMPLATE_MULTISCALE_MIN_STD`（5）的近纯色模板不补救（缩放后仍是纯色，`TM_CCOEFF_NORMED` 会退化成 1.0 误判）。长边低于 `TEMPLATE_MULTISCALE_MIN_SIZE`（64 像素）的小图标不补救（缩放不足 2 像素，只是重采样，会让相似形状如各种返回箭头误中）；缩放后相似度须比原尺寸高出 `TEMPLATE_MULTISCALE_MIN_GAIN`（0.05）才算成功。正常命中和远低于下限的失败不触发，零额外开销。`Template.match` 在整屏搜索，不接入该补救；两种渲染的新差异优先靠它兼容，不再为同一资源做多帧 GIF。
+
 `ButtonGrid` 用 `origin + delta` 描述规则网格（商店货架、仓库格子），按下标 `(x, y)` 即取对应 `Button`，免去为每个格子写常量。
 
 ### Resource 与 release_resources（resource.py）
