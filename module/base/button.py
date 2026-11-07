@@ -52,6 +52,8 @@ class Button(Resource):
         self.image = None
         self.image_binary = None
         self.image_luma = None
+        # 多尺度补救用的缩放模板缓存，键为 (帧序号, 比例)，值为缩放后的模板
+        self._scaled_templates = {}
 
         if self.file:
             self.resource_add(key=self.file)
@@ -200,6 +202,7 @@ class Button(Resource):
         self.image = None
         self.image_binary = None
         self.image_luma = None
+        self._scaled_templates = {}
         self._match_init = False
         self._match_binary_init = False
         self._match_luma_init = False
@@ -228,18 +231,90 @@ class Button(Resource):
         image = crop(image, offset + self.area, copy=False)
 
         if self.is_gif:
-            for template in self.image:
+            near = []
+            for index, template in enumerate(self.image):
                 res = cv2.matchTemplate(template, image, cv2.TM_CCOEFF_NORMED)
                 _, sim, _, point = cv2.minMaxLoc(res)
                 self._button_offset = area_offset(self._button, offset[:2] + np.array(point))
                 if sim > similarity:
+                    return True
+                if sim >= TEMPLATE_MULTISCALE_MIN_SIMILARITY:
+                    near.append((index, sim))
+            # 常规匹配全部失败，对接近失败的帧做多尺度补救
+            for index, base_sim in near:
+                if self._match_multiscale(index, image, offset, similarity, base_sim):
                     return True
             return False
         else:
             res = cv2.matchTemplate(self.image, image, cv2.TM_CCOEFF_NORMED)
             _, sim, _, point = cv2.minMaxLoc(res)
             self._button_offset = area_offset(self._button, offset[:2] + np.array(point))
-            return sim > similarity
+            if sim > similarity:
+                return True
+            if sim >= TEMPLATE_MULTISCALE_MIN_SIMILARITY:
+                return self._match_multiscale(0, image, offset, similarity, sim)
+            return False
+
+    def _scaled_template(self, index, ratio):
+        """获取缩放后的模板，结果缓存在 self._scaled_templates。
+
+        Args:
+            index (int): 模板帧序号，非 GIF 为 0。
+            ratio (float): 缩放比例。
+
+        Returns:
+            np.ndarray: 缩放后的模板。
+        """
+        key = (index, ratio)
+        template = self._scaled_templates.get(key)
+        if template is None:
+            source = self.image[index] if self.is_gif else self.image
+            template = resize_template(source, ratio)
+            self._scaled_templates[key] = template
+        return template
+
+    def _match_multiscale(self, index, image, offset, similarity, base_sim):
+        """多尺度补救：常规匹配接近失败时，把模板按少量比例缩放后重试。
+
+        任一比例的相似度超过阈值即成功，并按模板中心对齐修正 self._button_offset。
+        缩放后的模板大于搜索区域时跳过该比例。
+
+        Args:
+            index (int): 模板帧序号，非 GIF 为 0。
+            image: 已按 offset 裁剪的搜索区域。
+            offset (np.ndarray): 检测区域偏移量 (x1, y1, x2, y2)。
+            similarity (float): 相似度阈值。
+            base_sim (float): 原尺寸模板的最高相似度。
+
+        Returns:
+            bool: 补救成功返回 True。
+        """
+        source = self.image[index] if self.is_gif else self.image
+        # 近乎纯色的模板，缩放后仍是纯色，TM_CCOEFF_NORMED 会退化成 1.0 误判，不做补救
+        if source.std() < TEMPLATE_MULTISCALE_MIN_STD:
+            return False
+        src_h, src_w = source.shape[:2]
+        # 1%~3% 的缩放在小图标上不足 2 像素，只是亚像素重采样，会让相似形状（如各种返回箭头）误中，只补救大模板（整行文字）
+        if max(src_h, src_w) < TEMPLATE_MULTISCALE_MIN_SIZE:
+            return False
+        img_h, img_w = image.shape[:2]
+        best = None
+        for ratio in TEMPLATE_MULTISCALE_RATIOS:
+            template = self._scaled_template(index, ratio)
+            tpl_h, tpl_w = template.shape[:2]
+            if tpl_h > img_h or tpl_w > img_w:
+                continue
+            res = cv2.matchTemplate(template, image, cv2.TM_CCOEFF_NORMED)
+            _, sim, _, point = cv2.minMaxLoc(res)
+            # 缩放后必须明显好于原尺寸，只是刚好越过阈值的属于噪声
+            if sim > similarity and sim - base_sim >= TEMPLATE_MULTISCALE_MIN_GAIN and (best is None or sim > best[0]):
+                # 缩放后左上角会漂移，改按中心对齐折算回原模板尺寸的左上角
+                shift = np.array(((src_w - tpl_w) / 2, (src_h - tpl_h) / 2))
+                best = (sim, np.round(np.array(point) + shift).astype(int))
+        if best is None:
+            return False
+        self._button_offset = area_offset(self._button, offset[:2] + best[1])
+        return True
 
     def match_binary(self, image, offset=30, similarity=0.85):
         """通过二值化模板匹配检测按钮。部分按钮的位置可能不固定。

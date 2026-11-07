@@ -579,6 +579,15 @@
         "type": "input",
         "value": "mimo-v2.5-pro",
         "valuetype": "str"
+      },
+      "VlmRecover": {
+        "type": "checkbox",
+        "value": false
+      },
+      "VlmModel": {
+        "type": "input",
+        "value": "",
+        "valuetype": "str"
       }
     },
     "DailySummary": {

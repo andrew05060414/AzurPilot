@@ -854,6 +854,14 @@
     "LlmModel": {
       "name": "LLM 模型选择 ∩",
       "help": "填写已购买服务支持的模型名称，请以 https://platform.deepseek.com/ 或 https://platform.xiaomimimo.com/ 平台展示为准喵。"
+    },
+    "VlmRecover": {
+      "name": "启用 VLM 页面恢复喵",
+      "help": "页面认不出、现有兜底也没用的时候，把截图发给上面配置的 LLM 服务，让能看图的模型从「返回、主页、关闭、点击空白」里挑一个动作脱困，每次故障最多试 3 次喵。所选模型需要支持图片输入，截图会发往第三方服务。默认关闭。"
+    },
+    "VlmModel": {
+      "name": "VLM 模型",
+      "help": "视觉模型名称，需支持图片输入；留空则使用上面的「LLM 模型」喵。"
     }
   },
   "Watchdog": {

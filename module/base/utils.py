@@ -15,6 +15,16 @@ REGEX_NODE = re.compile(r'(-?[A-Za-z]+)(-?\d+)')
 TEMPLATE_MATCH_NON_NATIVE_720P = False
 TEMPLATE_MATCH_NON_NATIVE_720P_THRESHOLD = 0.75
 TEMPLATE_MATCH_NON_NATIVE_720P_RESOLUTION = (1280, 720)
+# 多尺度补救：同一页面存在“模拟器原生 720p”与“1080p 缩放到 720p”两种渲染，
+# 文字整体相差约 1%~3% 缩放。常规匹配“接近失败”（最高相似度 ≥ 下限）时，才按下列比例缩放模板重试。
+TEMPLATE_MULTISCALE_RATIOS = (0.97, 0.985, 1.015, 1.03)
+TEMPLATE_MULTISCALE_MIN_SIMILARITY = 0.6
+# 模板像素标准差低于此值视为纯色，不做多尺度补救
+TEMPLATE_MULTISCALE_MIN_STD = 5.0
+# 模板长边低于此像素数不做补救：小图标缩放 1%~3% 不足 2 像素，只会让相似形状误中
+TEMPLATE_MULTISCALE_MIN_SIZE = 64
+# 缩放后的相似度至少比原尺寸高这么多才算补救成功
+TEMPLATE_MULTISCALE_MIN_GAIN = 0.05
 
 
 def set_template_match_non_native_720p(enabled, resolution=(1280, 720)):
@@ -44,6 +54,20 @@ def lower_template_match_similarity(similarity):
     if TEMPLATE_MATCH_NON_NATIVE_720P:
         return min(similarity, TEMPLATE_MATCH_NON_NATIVE_720P_THRESHOLD)
     return similarity
+
+
+def resize_template(template, ratio):
+    """按比例缩放模板图像。缩小用 INTER_AREA，放大用 INTER_LINEAR。
+
+    Args:
+        template (np.ndarray): 模板图像。
+        ratio (float): 缩放比例。
+
+    Returns:
+        np.ndarray: 缩放后的模板。
+    """
+    interpolation = cv2.INTER_AREA if ratio < 1 else cv2.INTER_LINEAR
+    return cv2.resize(template, None, fx=ratio, fy=ratio, interpolation=interpolation)
 
 
 def random_normal_distribution_int(a, b, n=3):

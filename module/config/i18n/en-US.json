@@ -854,6 +854,14 @@
     "LlmModel": {
       "name": "LLM model",
       "help": "Enter a model name supported by your purchased service, as shown on https://platform.deepseek.com/ or https://platform.xiaomimimo.com/."
+    },
+    "VlmRecover": {
+      "name": "Enable VLM page recovery",
+      "help": "When the page cannot be recognized and the built-in fallbacks fail, send a screenshot to the LLM service configured above and let a vision model pick one action from a whitelist (back, home, close, tap blank area). At most 3 attempts per incident. The selected model must accept image input; screenshots are sent to a third-party service. Disabled by default."
+    },
+    "VlmModel": {
+      "name": "VLM model",
+      "help": "Vision model name; must accept image input. Leave empty to use the LLM model above."
     }
   },
   "Watchdog": {

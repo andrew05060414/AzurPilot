@@ -99,7 +99,7 @@ module/ui/
 | --- | --- |
 | `ui_page_appear(page)` | 用 `check_button` 判断页面；`page_main` 用更小 offset，EN 服学院有额外按钮特判 |
 | `is_in_main()` | 主界面新旧主题任一命中即为真，全框架统一用这个判断而非直接比对页面 |
-| `ui_get_current_page()` | 10 秒窗口内遍历全部页面找特征按钮；找不到先点 `GOTO_MAIN`/`RPG_HOME`、跑 `ui_additional`，仍失败则 `LoginHandler` 重启游戏递归重试；`recover_unknown=False` 时改为抛 `GamePageUnknownError` |
+| `ui_get_current_page()` | 10 秒窗口内遍历全部页面找特征按钮；找不到先点 `GOTO_MAIN`/`RPG_HOME`、跑 `ui_additional`，仍失败时若启用了 `Error_VlmRecover`，先交给 VLM 白名单恢复（每次故障最多 3 次），再由 `LoginHandler` 重启游戏递归重试；`recover_unknown=False` 时改为抛 `GamePageUnknownError` |
 | `ui_goto(destination)` | 每次 `init_connection` 重建 parent 链 → 截图循环里对每个可见页面点「通往 parent 的按钮」→ 30 秒无进展则降级到 `ui_get_current_page` 重新定位再续导航 |
 | `ui_ensure(destination)` | 先定位再决定是否导航；`page_main`/`page_main_white` 互为等价目标 |
 | `ui_ensure_index(...)` | OCR 识别当前索引后 `multi_click` 一次性翻多页（`fast=True`），索引不连续时逐页点 |
@@ -156,7 +156,7 @@ flowchart TD
 
 ### 未知页面恢复链
 
-`ui_get_current_page` 的恢复动作按代价递增排列：点 `GOTO_MAIN`（任何右上角有 HOME 的页面都能走）→ `ui_additional` 清弹窗 → 检查游戏进程与屏幕旋转 → 全部失败后 `app_stop()` + `app_start()` + 登录流程，再递归定位一次。日志中那段针对「未知页面」的嘲讽文案（`杂鱼大叔~`）是刻意的用户提示，标识「自动恢复已到极限，请检查模拟器画面」。
+`ui_get_current_page` 的恢复动作按代价递增排列：点 `GOTO_MAIN`（任何右上角有 HOME 的页面都能走）→ `ui_additional` 清弹窗 → 检查游戏进程与屏幕旋转 → （可选，默认关闭）10 秒窗口到期后，VLM 看截图从「返回/主页/关闭/点击空白」白名单里挑一个动作，点击后重新截图识别，每次故障最多 3 次 → 全部失败后 `app_stop()` + `app_start()` + 登录流程，再递归定位一次。日志中那段针对「未知页面」的嘲讽文案（`杂鱼大叔~`）是刻意的用户提示，标识「自动恢复已到极限，请检查模拟器画面」。
 
 ### 弹窗巡检的层次
 
@@ -218,7 +218,7 @@ Page 定义（导入期）：page_xxx = Page(CHECK) → link() 声明边 → all
 
 | 异常 | 原因 | 处理 |
 | --- | --- | --- |
-| `GamePageUnknownError` | `recover_unknown=False` 且页面无法识别 | 上抛给调度器，按可恢复错误处理 |
+| `GamePageUnknownError` | `recover_unknown=False` 且页面无法识别（VLM 额度用完后才抛） | 上抛给调度器，按可恢复错误处理 |
 | `GameNotRunningError` | 导航中发现游戏进程已退出 | 上抛，由设备/调度层重启恢复 |
 | `RequestHumanTakeover` | 大世界舰队准备弹窗连续点击超过 5 次 | 直接终止任务请求人工介入（熔断器） |
 | `ScriptError` | `Switch.add_state('unknown')`、`Setting` 默认项不在选项中等定义错误 | 开发期立即暴露 |
