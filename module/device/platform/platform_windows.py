@@ -479,6 +479,17 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             if res is None:
                 raise OSError('MuMuPlayer12 shutdown_player 命令超时')
             if getattr(res, 'returncode', 0) != 0:
+                # 查询与关闭之间实例可能刚好自己退出（shutdown 是异步的），
+                # 返回码同样是 -2；复查一次，确认已关闭就按停止成功处理。
+                if instance.MuMuPlayer12_id is not None:
+                    info = self._mumu12_instances(exe)
+                    entry = info.get(str(instance.MuMuPlayer12_id)) if info else None
+                    if isinstance(entry, dict) and not entry.get('is_process_started'):
+                        logger.info(
+                            f'[设备-Windows] shutdown_player 返回码 {res.returncode}，'
+                            f'但实例 {instance.MuMuPlayer12_id} 已确认关闭，视为停止成功'
+                        )
+                        return
                 raise OSError(f'MuMuPlayer12 shutdown_player 命令执行失败，返回码: {res.returncode}')
         elif instance == Emulator.LDPlayerFamily:
             # ldconsole.exe quit --index 0

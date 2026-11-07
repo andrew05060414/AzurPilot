@@ -23,6 +23,8 @@ class TestMuMuStopResult(unittest.TestCase):
         self.instance.MuMuPlayer12_id = 0
         self.instance.emulator = SimpleNamespace(path='F:/MuMu/shell/MuMuPlayer.exe')
         self.platform.emulator_instance = self.instance
+        # 默认按旧版 MuMu（无 info 子命令）处理，避免测试真去调用 MuMuManager
+        self.platform._mumu12_instances = Mock(return_value=None)
 
     def test_mumu12_stop_success_when_returncode_zero(self):
         self.platform.execute = Mock(return_value=CompletedProcess(args='shutdown', returncode=0))
@@ -85,10 +87,6 @@ class TestMuMuStopResult(unittest.TestCase):
         res = self.platform._emulator_function_wrapper(self.platform._emulator_stop)
         self.assertTrue(res)
 
-
-if __name__ == '__main__':
-    unittest.main()
-
     def test_mumu12_stop_skips_shutdown_when_instance_already_off(self):
         """实例已关闭时 shutdown_player 返回非 0，不能让「先停后启」在这里中断。"""
         self.platform.execute = Mock(return_value=CompletedProcess(args='shutdown', returncode=-2))
@@ -103,3 +101,30 @@ if __name__ == '__main__':
         res = self.platform._emulator_function_wrapper(self.platform._emulator_stop)
         self.assertTrue(res)
         self.platform.execute.assert_called_once()
+
+    def test_mumu12_stop_nonzero_but_instance_closed_counts_as_stopped(self):
+        """查询时还在跑、关闭命令执行前自己退出了：返回 -2 也算停止成功。"""
+        self.platform.execute = Mock(return_value=CompletedProcess(args='shutdown', returncode=4294967294))
+        self.platform._mumu12_instances = Mock(side_effect=[
+            {'0': {'is_process_started': True}},
+            {'0': {'is_process_started': False}},
+        ])
+        res = self.platform._emulator_function_wrapper(self.platform._emulator_stop)
+        self.assertTrue(res)
+
+    def test_emulator_start_launches_when_instance_already_off(self):
+        """实机 10-27～11-02 的循环：实例已关闭时「先停后启」必须走到 launch_player。"""
+        self.platform._mumu12_instances = Mock(return_value={'0': {'is_process_started': False}})
+        self.platform.execute = Mock(return_value=CompletedProcess(args='shutdown', returncode=4294967294))
+        self.platform._clean_mumu12_residue = Mock()
+        self.platform._emulator_start = Mock()
+        self.platform.emulator_start_watch = Mock(return_value=True)
+
+        self.assertTrue(self.platform.emulator_start())
+
+        self.platform._emulator_start.assert_called_once()
+        self.platform.execute.assert_not_called()
+
+
+if __name__ == '__main__':
+    unittest.main()

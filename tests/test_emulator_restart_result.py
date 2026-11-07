@@ -66,10 +66,6 @@ class TestEmulatorRestartResult(unittest.TestCase):
         self.assertTrue(self.script._try_restart_emulator())
         self.assertEqual(self.script.consecutive_adb_offline, 0)
 
-
-if __name__ == '__main__':
-    unittest.main()
-
     def test_already_online_emulator_is_not_stopped(self):
         """等待期间用户手动启动了模拟器：不能再把它关掉。"""
         self.script.consecutive_adb_offline = 5
@@ -96,3 +92,21 @@ if __name__ == '__main__':
             self.assertFalse(self.script._emulator_responsive())
         self.script.config.Emulator_Serial = 'auto'
         self.assertFalse(self.script._emulator_responsive())
+
+    def test_online_skip_happens_only_once_per_outage(self):
+        """ADB 能应答但实例有病（如截图持续超时）：第二次必须真正重启，不能无限跳过。"""
+        self.script._emulator_responsive = Mock(return_value=True)
+
+        self.assertTrue(self.script._try_restart_emulator())
+        self.device.emulator_stop.assert_not_called()
+
+        self.script.__dict__['device'] = self.device
+        self.assertTrue(self.script._try_restart_emulator())
+        self.device.emulator_stop.assert_called_once()
+        self.device.emulator_start.assert_called_once()
+        # 真正重启成功后，下一次故障又允许先检查在线
+        self.assertFalse(self.script.online_restart_skipped)
+
+
+if __name__ == '__main__':
+    unittest.main()

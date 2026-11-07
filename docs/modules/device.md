@@ -343,7 +343,7 @@ Device 构造也有自己的小型阶梯：`super().__init__` 抛 `EmulatorNotRu
 | `MinitouchOccupiedError` | minitouch 单连接被占 | `restart_atx()` 踢掉旧连接 |
 | `JobTimeout` | nemu_ipc DLL 调用挂死 | WORKER_POOL 强杀线程后重试，超时逐轮放宽 |
 | `GameStuckError` / `GameTooManyClickError` | 等待超时 / 点击循环 | 由调度器 `run()` 捕获→保存错误现场→重启游戏恢复 |
-| `EmulatorNotRunningError` | 重连耗尽、冷启动失败、10061 拒连 | 调度器 `_try_restart_emulator()`，永不放弃；MuMu12 实例已关闭时 `_emulator_stop()` 直接视为停止成功，不再执行 `shutdown_player`（已关闭实例上该命令会返回 -2） |
+| `EmulatorNotRunningError` | 重连耗尽、冷启动失败、10061 拒连 | 调度器 `_try_restart_emulator()`，永不放弃；MuMu12 实例已关闭时 `_emulator_stop()` 直接视为停止成功，不再执行 `shutdown_player`（已关闭实例上该命令会返回 -2）；命令返回非 0 时复查一次实例状态，已关闭同样视为成功 |
 | `RequestHumanTakeover` | 授权、保活开关、网络桥接等无法自动修复 | 调度器记录后仍会尝试重启模拟器恢复 |
 | `EmulatorOpBusy` | 模拟器启停互斥锁被占 | 调用方跳过本轮，不打断进行中的操作 |
 

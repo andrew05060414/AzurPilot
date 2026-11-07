@@ -107,6 +107,8 @@ class AzurLaneAutoScript:
         # 连续卡死/ADB 离线计数，用于判断是否需要重启模拟器
         self.consecutive_game_stuck = 0
         self.consecutive_adb_offline = 0
+        # 本轮离线故障里是否已因「模拟器在线」跳过过一次重启，见 _try_restart_emulator
+        self.online_restart_skipped = False
         # 未预期异常连续计数，先重启游戏，连续多次才重启模拟器
         self.consecutive_unexpected_error = 0
         # 调度器独占锁句柄，见 loop()
@@ -481,11 +483,15 @@ class AzurLaneAutoScript:
             time.sleep(wait_seconds)
 
         # 等待期间用户可能已手动把模拟器开起来了：已在线就不要再关它。
-        if self._emulator_responsive():
+        # 每轮故障只跳过一次：跳过后若普通任务仍未成功又回到这里，说明 ADB 虽能
+        # 应答但实例本身有问题（如 NemuIpc 截图持续超时），必须真正重启，
+        # 否则「在线 → 跳过 → 再失败」会无限循环、永远不重启。
+        if not getattr(self, 'online_restart_skipped', False) and self._emulator_responsive():
             logger.info('[AzurPilot] 模拟器已在线并能响应 ADB（可能已被手动启动），跳过本轮重启')
             if 'device' in self.__dict__:
                 del_cached_property(self, 'device')
             self.consecutive_adb_offline = 0
+            self.online_restart_skipped = True
             return True
 
         logger.hr('[AzurPilot] 正在重启模拟器', level=1)
@@ -533,6 +539,7 @@ class AzurLaneAutoScript:
                 logger.warning('[AzurPilot] 模拟器启动未确认上线，本轮重启失败，保留连续失败次数')
                 return False
             logger.info('[AzurPilot] 模拟器重启完成')
+            self.online_restart_skipped = False
 
             # 清除 device 缓存，下次访问时重新建立连接
             if 'device' in self.__dict__:
@@ -2763,6 +2770,7 @@ class AzurLaneAutoScript:
                         consecutive_global_failures = 0
                         self.consecutive_game_stuck = 0
                         self.consecutive_adb_offline = 0
+                        self.online_restart_skipped = False
                         self.consecutive_unexpected_error = 0
                         self.script_error_count = 0
                     continue
