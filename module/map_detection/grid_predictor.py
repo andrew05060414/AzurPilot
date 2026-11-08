@@ -11,6 +11,9 @@ from module.template.assets import *
 
 
 class GridPredictor:
+    # 空袭引导图标匹配时，网格图像四周额外变换出的像素数（单位：HOMO_TILE 像素）。
+    AIR_STRIKE_ICON_PAD = 30
+
     def __init__(self, location, image, corner, config):
         """初始化网格预测器。
 
@@ -382,9 +385,15 @@ class GridPredictor:
         Returns:
             bool: 是否匹配空袭图标。
         """
-        # area = area_pad((0, 0, 140, 140), pad=5)
-        # image = color_similarity_2d(crop(self.image_trans, area=area, copy=False), color=(255, 255, 160))
-        image = color_similarity_2d(self.image_trans, color=(255, 255, 160))
+        # 模板 130x130，而 image_trans 只有 140x140，匹配只允许 ±5 像素偏移。
+        # 有雾/云层的地图（如 16-3）单应性每帧会抖 15 像素以上，图标就会匹配不上，
+        # 于是脚本一直重复点同一格直到 GameTooManyClickError。
+        # 所以向四周多变换一圈再匹配，容忍约 ±AIR_STRIKE_ICON_PAD 像素的网格定位误差。
+        pad = self.AIR_STRIKE_ICON_PAD
+        shift = np.array([[1, 0, pad], [0, 1, pad], [0, 0, 1]], dtype=float)
+        size = (self.config.HOMO_TILE[0] + pad * 2, self.config.HOMO_TILE[1] + pad * 2)
+        image = cv2.warpPerspective(self.image, shift @ self.homo_data, size)
+        image = color_similarity_2d(image, color=(255, 255, 160))
         cv2.threshold(image, 175, 255, cv2.THRESH_BINARY, dst=image)
         return TEMPLATE_AIR_STRIKE_ICON.match(image, similarity=0.7)
 
