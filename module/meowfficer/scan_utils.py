@@ -88,6 +88,12 @@ def pick_cat_name(texts) -> str:
     Returns:
         str: 提取的猫名；无合格候选时返回空字符串。
     """
+    # 左下角名字旁边还有状态文字（空闲中 / 编队中的舰队名，如「第五舰队」），
+    # 舰队名也是 2~6 个汉字，会被当成猫名；所以先认图鉴里的品种名
+    from module.meowfficer.cat_data import CATS
+    for text in texts:
+        if (text or '').strip() in CATS:
+            return text.strip()
     best = ''
     for text in texts:
         text = (text or '').strip()
@@ -135,8 +141,11 @@ def parse_level(texts):
 
 # ---------- 扫描用到的坐标与阈值（实机量测） ----------
 # 猫窝卡片网格（实机量测）
+# origin 是左上角：让每张卡的点击区落在头像中心 (784/914/1044/1174, 185/331/477) ±30 内。
+# 原先把中心坐标当成了左上角，第三行点击区下沿到 y=557，已经越过猫窝面板（下沿约 548），
+# 滚动没对齐整行时会点到下方的「训练」入口，弹出训练窗口（2026-11-09 实机踩过）。
 MEOWFFICER_CATTERY_GRID = ButtonGrid(
-    origin=(784, 185), delta=(130, 146), button_shape=(80, 80), grid_shape=(4, 3),
+    origin=(754, 155), delta=(130, 146), button_shape=(60, 60), grid_shape=(4, 3),
     name='MEOWFFICER_CATTERY_GRID')
 
 # 左侧中部的空白区：主界面上是立绘背景、指挥喵页上是猫的立绘，点它都不会触发任何功能，

@@ -27,8 +27,10 @@ from module.base.button import Button
 from module.base.timer import Timer
 from module.exception import RequestHumanTakeover
 from module.logger import logger
-from module.meowfficer.assets import MEOWFFICER_TALENT_TAB
+from module.meowfficer.assets import (MEOWFFICER_CAT_LOCKED, MEOWFFICER_CAT_UNLOCKED, MEOWFFICER_TALENT_TAB,
+                                      MEOWFFICER_TRAIN_ENTER)
 from module.meowfficer.base import MeowfficerBase
+from module.meowfficer.enhance import MEOWFFICER_CATTERY_SCROLL, MeowfficerLevelOcr
 from module.meowfficer.score import Talent
 from module.meowfficer.scan_utils import _crop, _mean_diff, parse_level, pick_cat_name, scroll_offset
 from module.meowfficer.score_ocr import recognize
@@ -39,6 +41,11 @@ from module.meowfficer.scan_utils import (CATTERY_PANEL_AREA, CATTERY_SCREEN_HEI
                                           PLAY_CONFIRM_COUNT, PLAY_CONFIRM_THRESHOLD, STABLE_TOLERANCE,
                                           TALENT_OCR_AREA, TALENT_PANEL_AREA, TALENT_TAB_OFFSET)
 
+
+# 主页左下角等级条右端的「LV.x」（猫窝列表选中猫后显示），实测 1280×720 下稳定落在这个框里
+OCR_CAT_LEVEL = MeowfficerLevelOcr(
+    Button(area=(385, 598, 450, 620), color=(), button=(385, 598, 450, 620), name='OCR_CAT_LEVEL'),
+    name='OCR_CAT_LEVEL')
 
 class MeowfficerScanner(MeowfficerBase):
     """自动遍历猫窝并识别每只猫天赋的扫描器。
@@ -333,6 +340,26 @@ class MeowfficerScanner(MeowfficerBase):
                 logger.debug(f'[指挥喵-扫描] 点击后猫名未变（{previous}），重试一次')
         return name
 
+    def _read_card_state(self) -> tuple:
+        """读主页左侧当前选中猫的等级和锁定状态（选中卡片后、进天赋页前调用）。
+
+        等级用强化页同款的像素数字 OCR 读等级条右端的「LV.x」：通用中文 OCR
+        对这个描边字体很不稳（实测把 LV.1 读成 V5），会把新猫误判成「已养过」。
+        锁按钮显示「解锁」说明这只猫当前已上锁，显示「锁定」说明没锁。
+
+        Returns:
+            tuple[int | None, bool | None]: (等级, 是否已上锁)；读不到为 None。
+        """
+        level = OCR_CAT_LEVEL.ocr(self.device.image)
+        level = level if 1 <= level <= 30 else None
+        if self.appear(MEOWFFICER_CAT_LOCKED, offset=(10, 10), similarity=0.9):
+            locked = True
+        elif self.appear(MEOWFFICER_CAT_UNLOCKED, offset=(10, 10), similarity=0.9):
+            locked = False
+        else:
+            locked = None
+        return level, locked
+
     def _open_talent(self) -> bool:
         """点开「天赋」页签。
 
@@ -361,6 +388,11 @@ class MeowfficerScanner(MeowfficerBase):
         Returns:
             bool: 是否成功返回猫窝列表。
         """
+        # 天赋页其实没打开（页签消失是别的原因）时还在猫窝列表上，这时再点返回箭头
+        # 会直接退出指挥喵页面，后面对卡片坐标的点击全落到生活区/编队页上（2026-11-09 实机踩过）
+        self.device.screenshot()
+        if self._in_cattery():
+            return True
         if not self.appear(MEOWFFICER_GOTO_DORMMENU, offset=TALENT_TAB_OFFSET):
             logger.warning('[指挥喵-扫描] 天赋页上找不到返回箭头')
             return False
@@ -369,7 +401,16 @@ class MeowfficerScanner(MeowfficerBase):
         if not self._wait_talent_tab(appear=True):
             return False
         self._wait_stable(CATTERY_PANEL_AREA, timeout=4)
-        return True
+        return self._in_cattery()
+
+    def _cattery_at_bottom(self) -> bool:
+        """猫窝滚动条是否已经到底（截一张新图判断）。"""
+        self.device.screenshot()
+        return MEOWFFICER_CATTERY_SCROLL.at_bottom(main=self)
+
+    def _in_cattery(self) -> bool:
+        """当前截图是否是猫窝列表主页（右下角有「训练」入口，天赋页和生活区都没有）。"""
+        return self.appear(MEOWFFICER_TRAIN_ENTER, offset=(30, 30))
 
     def _read_talents(self, ocr) -> list:
         """抓取当前猫的天赋：整屏识别 + 小步上滑，直到画面不再变化。
@@ -433,6 +474,10 @@ class MeowfficerScanner(MeowfficerBase):
             # 向下滑（回顶部）：必须从面板上方往下拖，否则起止点会被钳到几乎不动
             y_from = y0 + 60
             y_to = min(y1 - 40, y_from - distance)
+        # 本模块的滑动都是有意重复的（翻屏、读长天赋列表、回顶部），会撞上
+        # 「同一按钮点击过多」保护（同名 SWIPE 累计 12 次即报错），每次滑动前清掉记录；
+        # 防卡死仍由各调用处的次数上限和 stuck 检测兜底。
+        self.device.click_record_clear()
         self.device.swipe((x, y_from), (x, y_to), duration=duration)
         time.sleep(0.5)
         self.device.stuck_record_clear()
@@ -454,10 +499,19 @@ class MeowfficerScanner(MeowfficerBase):
         """把猫窝列表滑回顶部。
 
         列表同样会沿用上次的滚动位置；不复位就从中间开始扫，**上方的猫会整批漏掉**。
-        多滑几次确保到底，滑到顶后继续往下滑是无害的（只会回弹）。
+        滑到顶后继续往下滑是无害的（只会回弹）。固定滑 4 次在猫窝满 160 只、
+        停在列表后半段时不够（实测从第 7 屏开始扫，前面 88 只整批漏掉），
+        所以改成每次量位移，滑到列表不再动为止。
         """
-        for _ in range(4):
+        self.device.screenshot()
+        prev = _crop(self.device.image, CATTERY_PANEL_AREA).copy()
+        for _ in range(30):
             self._swipe_panel(CATTERY_PANEL_AREA, distance=-320, duration=0.6)
+            self.device.screenshot()
+            current = _crop(self.device.image, CATTERY_PANEL_AREA).copy()
+            if _mean_diff(prev, current) < STABLE_TOLERANCE:
+                break
+            prev = current
 
     def _advance_cattery_screen(self) -> int:
         """把猫窝列表整屏前进，供「不重叠逐屏扫描」使用。
@@ -507,6 +561,8 @@ class MeowfficerScanner(MeowfficerBase):
             等级读不到时为 ``None``。
         """
         self.scanned = []
+        self.records = []
+        self.incomplete = False
         ocr = self._load_ocr()
 
         self._ensure_cattery()
@@ -524,6 +580,12 @@ class MeowfficerScanner(MeowfficerBase):
                     logger.info(f'[指挥喵-扫描] 已达到上限 {limit} 只，结束')
                     return self.scanned
 
+                self.device.screenshot()
+                if not self._in_cattery() and not self._dismiss_play_popup():
+                    logger.error('[指挥喵-扫描] 已不在猫窝列表上，为避免点错页面，提前结束扫描')
+                    logger.info(f'[指挥喵-扫描] 扫描中断，共 {len(self.scanned)} 只猫')
+                    self.incomplete = True
+                    return self.scanned
                 cat = self._select_card(button, ocr, previous=previous)
                 if cat:
                     previous = cat
@@ -537,6 +599,8 @@ class MeowfficerScanner(MeowfficerBase):
                     continue
 
                 logger.hr(f'第 {page} 屏 第 {index} 张：{cat}', level=3)
+                card_level, locked = self._read_card_state()
+                logger.attr('[指挥喵-扫描] 等级/锁定', f'Lv{card_level} / {locked}')
                 if not self._open_talent():
                     continue
                 # 防串数据：面板切换有一瞬间可能还显示上一只猫的内容，
@@ -558,7 +622,10 @@ class MeowfficerScanner(MeowfficerBase):
                     continue
 
                 read_in_page += 1
+                level = card_level if card_level is not None else level
                 self.scanned.append((cat, talents, level))
+                self.records.append({'name': cat, 'talents': talents, 'level': level, 'locked': locked,
+                                     'page': page, 'slot': index})
                 logger.attr('[指挥喵-扫描] 已扫描', f'{len(self.scanned)} 只')
 
             logger.info(f'[指挥喵-扫描] 第 {page} 屏结束，读到 {read_in_page} 只，'
@@ -567,9 +634,20 @@ class MeowfficerScanner(MeowfficerBase):
                 logger.info('[指挥喵-扫描] 本屏一张卡片都没读到，结束')
                 break
             # 整屏前进，保证不重叠（每只猫只访问一次，所以不需要去重）
-            if self._advance_cattery_screen() < 40:
-                logger.info('[指挥喵-扫描] 列表没有继续滚动，结束')
-                break
+            moved = self._advance_cattery_screen()
+            logger.info(f'[指挥喵-扫描] 翻屏实测滚动 {moved}px')
+            if moved < 40:
+                # 位移量是按画面内容比对出来的；同名猫成排时内容几乎周期重复，
+                # 可能量成 0。以滚动条是否到底为准，没到底就再试一次，仍不动就判为不完整
+                if self._cattery_at_bottom():
+                    logger.info('[指挥喵-扫描] 滚动条已到底，结束')
+                    break
+                moved = self._advance_cattery_screen()
+                logger.info(f'[指挥喵-扫描] 重试翻屏，实测滚动 {moved}px')
+                if moved < 40:
+                    logger.error('[指挥喵-扫描] 滚动条没到底但列表翻不动，扫描不完整')
+                    self.incomplete = True
+                    break
 
         logger.info(f'[指挥喵-扫描] 扫描完成，共 {len(self.scanned)} 只猫')
         return self.scanned
