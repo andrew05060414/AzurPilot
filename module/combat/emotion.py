@@ -18,15 +18,21 @@
 首次使用及更换恢复条件后需填写实测心情建立基准。
 """
 
+from datetime import datetime, timedelta
 from time import sleep
 
 import numpy as np
 
 from module.combat.emotion_state import (DIC_RECOVER, DIC_RECOVER_MAX, OATH_RECOVER,
                                         ONSEN_RECOVER, EmotionRecoveryState)
+from module.config.deep import deep_get
 from module.config.time_source import now as current_time
 from module.exception import ScriptEnd, ScriptError, RequestHumanTakeover
 from module.logger import logger
+from module.retire.fleet_emotion import ORDERS
+
+# 两次船坞核对之间的最短间隔：核对后账本已按实测重建，短时间内不必再扫。
+DOCK_VERIFY_INTERVAL = timedelta(minutes=30)
 
 # 情绪控制阈值：当情绪低于此值时触发等待/延迟
 DIC_LIMIT = {
@@ -618,3 +624,80 @@ class Emotion:
                         record_time)
                 setattr(self.config, fleet.state_name, state.export())
         logger.info('[心情-保底] 已将受管理舰队心情按0重新计时，恢复到出击要求后自动继续')
+
+    def dock_verify_targets(self, battle):
+        """判断是否要在延后任务之前扫描船坞核对心情。
+
+        心情是推算值，基准一旦偏离实际（例如存档不可用后按旧值重建）就会一直错下去。
+        只在「推算说要等」或账本未校准时才值得进船坞看一眼；推算说够用时不碰游戏。
+
+        Args:
+            battle (int): 本次战役预计的战斗场次。
+
+        Returns:
+            list[tuple[FleetEmotion, int]]: 需要核对的（账本, 船坞舰队编号）；不需要时为空列表。
+        """
+        # 子类（如刷石油、凹分）有自己的舰队与扣减规则，不能按普通出击舰队推断归属。
+        if type(self) is not Emotion:
+            return []
+        if (not getattr(self.config, 'Emotion_VerifyByDock', False) or not self.is_calculate
+                or self.using_public or self.config.Campaign_Mode != 'normal'):
+            return []
+        active = ORDERS.get(self.config.Fleet_FleetOrder)
+        numbers = {i: getattr(self.config, f'Fleet_Fleet{i}') for i in (1, 2)}
+        if (active is None or numbers[1] == numbers[2]
+                or any(type(numbers[i]) is not int or not 1 <= numbers[i] <= 6 for i in active)):
+            return []
+        last = deep_get(self.config.data, keys='FleetInfo.FleetInfo.Record', default=None)
+        if isinstance(last, str):
+            try:
+                last = datetime.fromisoformat(last)
+            except ValueError:
+                last = None
+        if isinstance(last, datetime) and current_time() - last < DOCK_VERIFY_INTERVAL:
+            return []
+        targets = [(self.fleets[i - 1], numbers[i]) for i in active]
+        self.update()
+        if any(fleet.state is None for fleet, _ in targets):
+            return targets
+        _, delay = self._check_reduce(battle)
+        return targets if delay else []
+
+    def apply_dock_readings(self, targets, minimums):
+        """用船坞读到的最低心情核对账本，不一致时按实测重建基准。
+
+        读数落在账本的可能范围内说明推算没有偏离，不改动；落在范围外（或账本未校准）
+        才按读数重建。记录时间取核对完成的时刻：读数来自此前几十秒内的截图，
+        期间若恰好跨过一个恢复批次，实际心情只会比记录更高，偏向保守。
+
+        Args:
+            targets (list[tuple[FleetEmotion, int]]): `dock_verify_targets` 的返回值。
+            minimums (dict[int, int]): 船坞舰队编号到该舰队 6 艘舰船的最低心情。
+
+        Returns:
+            int: 被重建基准的舰队数。
+        """
+        now = current_time()
+        rebased = 0
+        with self.config.multi_set():
+            for fleet, number in targets:
+                reading = minimums.get(number)
+                if reading is None:
+                    logger.warning(f'[心情-核对] 舰队 {fleet.fleet}（船坞 {number} 队）未读到完整可信的心情，保留推算值')
+                    continue
+                fleet.update(now, require_calibration=False)
+                if fleet.state is not None and fleet.lower <= reading <= fleet.upper:
+                    logger.info(f'[心情-核对] 舰队 {fleet.fleet} 实测最低 {reading}，与推算范围 '
+                                f'{fleet.lower}–{fleet.upper} 一致')
+                    continue
+                before = '未校准' if fleet.state is None else f'{fleet.lower}–{fleet.upper}'
+                state = EmotionRecoveryState.calibrate(reading, now, fleet.recover, fleet.oath, fleet.onsen)
+                fleet.state = state
+                fleet.current = state.value
+                fleet.calibration_error = ''
+                setattr(self.config, fleet.value_name, reading)
+                setattr(self.config, fleet.value_name.replace('Value', 'Record'), now)
+                setattr(self.config, fleet.state_name, state.export())
+                logger.warning(f'[心情-核对] 舰队 {fleet.fleet} 实测最低 {reading}，推算为 {before}，已按实测重建基准')
+                rebased += 1
+        return rebased

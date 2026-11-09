@@ -397,6 +397,7 @@ class GeneratedConfig:
     Emotion_Mode = 'calculate'  # calculate, ignore, calculate_ignore
     Emotion_IgnoreShipwreck = False
     Emotion_MinReserve = 0
+    Emotion_VerifyByDock = False
     Emotion_RecoveryWait = None
     Emotion_Fleet1Value = 119
     Emotion_Fleet1Record = datetime.datetime(2020, 1, 1, 0, 0)

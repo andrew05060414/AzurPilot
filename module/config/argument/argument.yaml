@@ -896,6 +896,7 @@ Emotion:
   MinReserve:
     value: 0
     validate: [0, 150]
+  VerifyByDock: false
   RecoveryWait:
     type: stored
     value: null

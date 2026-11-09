@@ -1649,6 +1649,10 @@
           150
         ]
       },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
+      },
       "RecoveryWait": {
         "type": "stored",
         "value": null,
@@ -2123,6 +2127,10 @@
           150
         ]
       },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
+      },
       "RecoveryWait": {
         "type": "stored",
         "value": null,
@@ -2596,6 +2604,10 @@
           0,
           150
         ]
+      },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
       },
       "RecoveryWait": {
         "type": "stored",
@@ -3225,6 +3237,10 @@
           150
         ]
       },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
+      },
       "RecoveryWait": {
         "type": "stored",
         "value": null,
@@ -3825,6 +3841,10 @@
           150
         ]
       },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
+      },
       "RecoveryWait": {
         "type": "stored",
         "value": null,
@@ -4394,6 +4414,10 @@
           150
         ]
       },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
+      },
       "RecoveryWait": {
         "type": "stored",
         "value": null,
@@ -4901,6 +4925,10 @@
           0,
           150
         ]
+      },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
       },
       "RecoveryWait": {
         "type": "stored",
@@ -5412,6 +5440,10 @@
           150
         ]
       },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
+      },
       "RecoveryWait": {
         "type": "stored",
         "value": null,
@@ -5921,6 +5953,10 @@
           150
         ]
       },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
+      },
       "RecoveryWait": {
         "type": "stored",
         "value": null,
@@ -6289,6 +6325,10 @@
           0,
           150
         ]
+      },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
       },
       "RecoveryWait": {
         "type": "stored",
@@ -6757,6 +6797,10 @@
           150
         ]
       },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
+      },
       "RecoveryWait": {
         "type": "stored",
         "value": null,
@@ -6990,6 +7034,10 @@
           0,
           150
         ]
+      },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
       },
       "RecoveryWait": {
         "type": "stored",
@@ -7328,6 +7376,10 @@
           0,
           150
         ]
+      },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
       },
       "RecoveryWait": {
         "type": "stored",
@@ -7672,6 +7724,10 @@
           0,
           150
         ]
+      },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
       },
       "RecoveryWait": {
         "type": "stored",
@@ -8612,6 +8668,10 @@
           150
         ]
       },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
+      },
       "RecoveryWait": {
         "type": "stored",
         "value": null,
@@ -9139,6 +9199,10 @@
           0,
           150
         ]
+      },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
       },
       "RecoveryWait": {
         "type": "stored",
@@ -9668,6 +9732,10 @@
           150
         ]
       },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
+      },
       "RecoveryWait": {
         "type": "stored",
         "value": null,
@@ -10195,6 +10263,10 @@
           0,
           150
         ]
+      },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
       },
       "RecoveryWait": {
         "type": "stored",
@@ -10724,6 +10796,10 @@
           150
         ]
       },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
+      },
       "RecoveryWait": {
         "type": "stored",
         "value": null,
@@ -11242,6 +11318,10 @@
           150
         ]
       },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
+      },
       "RecoveryWait": {
         "type": "stored",
         "value": null,
@@ -11602,6 +11682,10 @@
           150
         ]
       },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
+      },
       "RecoveryWait": {
         "type": "stored",
         "value": null,
@@ -11936,6 +12020,10 @@
           0,
           150
         ]
+      },
+      "VerifyByDock": {
+        "type": "checkbox",
+        "value": false
       },
       "RecoveryWait": {
         "type": "stored",

@@ -251,6 +251,8 @@ record()  ← 与 update 成对：同一计算时刻的 Value + 完整 Record + 
 
 `Emotion.MinReserve`（最少预留心情）位于无视沉船心情惩罚下方，默认 0 关闭，范围 0–150，仅在包含 `calculate` 的模式生效。它不提高平时的出击控制线：只有参与出击的舰队不足以完成下一轮并保持原控制线时，才将恢复目标提高到预留值（超过当前恢复上限则按上限，原出击需求更高时仍以需求为准）。例如控制线 30、预留 150，恢复后可以连续消耗到下一轮无法保持 30，再等待至 150。
 
+`Emotion.VerifyByDock`（扫描船坞核对心情）位于最少预留心情下方，默认关闭，仅在 `Emotion.Mode` 含 `calculate`、`Campaign.Mode=normal`、独立舰队（非公海）且 `Fleet.FleetOrder` 能确定出击舰队时生效。推算是账本，起点一旦偏离实际（例如存档不可用后按旧值重建）就会一直错下去，被动学习又只会在推算范围内过滤相位，无法纠正大偏差。开启后，`CampaignBase.emotion_check_reduce()` 在进图前先让 `Emotion.dock_verify_targets()` 判断：推算说要等、或账本未校准，且距上次舰队扫描（`FleetInfo.FleetInfo.Record`）已超过 30 分钟，才调用 `FleetManagement.run()` 进船坞读取出击舰队 6 艘舰船的心情，不依赖现截后端或 `Error.SaveError`。`Emotion.apply_dock_readings()` 取最低读数：落在账本的可能范围内则不动；落在范围外或未校准则按读数重建基准，记录时间取核对完成的时刻（偏向保守）。名字未确认、心情读不出或不满 6 艘的舰队保留推算值。重建后若已够出击，用 `task_delay(minute=0)` 加 `ScriptEnd` 结束本次运行并立即重排，由调度器重走选关与进图，避免在船坞页内就地恢复界面状态；仍不够则按新的恢复时间延后。伏击 1-1、刷石油等使用 `Emotion` 子类的流程不触发核对。没有在实机上验收，船坞卡片是否稳定显示心情数字需实际运行确认。
+
 `Emotion._get_recovered()` 统一用于整图预检、自动换队预检和图内等待，沿用保守下限及批次恢复时间。隐藏的 `Emotion.RecoveryWait` 按当前任务记录需要恢复的舰队编号（公共账本记为 `Public`），提前重试或重启不能在刚够打一轮时取消预留等待；达标或关闭预留后清除对应标记。待命队不触发等待，使用公共账本的不同任务保留各自预留设置及等待状态，其他任务的实际消耗会使恢复时间重新计算。
 
 自动换队后原待命队即将参与战斗，恢复自律前调用 `Emotion.check_fleet(fleet_index)` 检查该画面编号对应账本的下一场基础消耗。忽略模式跳过，公共模式检查共享账本；检查不等待、不扣减。心情不足延后任务，未校准沿用人工接管，均先退出地图再上抛，不能开战后才发现接替队账本不可用。
@@ -334,6 +336,7 @@ stateDiagram-v2
 | `Emotion.Mode` | 选项 | `calculate` | `calculate`（预检+等待）/ `ignore`（无视红脸直接确认）/ `calculate_ignore` |
 | `Emotion.IgnoreShipwreck` | bool | `false` | 无视沉船额外扣减（10 点） |
 | `Emotion.MinReserve` | int | 0 | 心情不足后恢复到的最少预留值，0 关闭，范围 0–150 |
+| `Emotion.VerifyByDock` | bool | `false` | 心情不足要延后任务之前，先扫描船坞用实测最低心情核对并重建基准 |
 | `Emotion.RecoveryWait` | stored | null | 当前任务正在等待预留恢复的舰队编号，达标后清除 |
 | `Emotion.Fleet{1,2}Value` / `Record` | int / datetime | 119 / 2020-01-01 | 情绪现值与记账时间戳；`Record` 为隐藏项 |
 | `Emotion.Fleet{1,2}RecoveryState` / `PublicEmotion.FleetRecoveryState` | stored | null | 隐藏恢复存档；旧配置默认未校准，填写实测 Value 后建立基准 |

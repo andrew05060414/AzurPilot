@@ -2226,6 +2226,10 @@
       "name": "Minimum morale reserve",
       "help": "0 disables this setting; range: 0–150. Applies only to modes that calculate morale consumption. When morale cannot cover the next sortie while staying above the control threshold, delay the task until morale recovers to this value. After recovery, keep running with the original control threshold. For example, reserve 150 with threshold 30 waits for 150 when the next sortie cannot maintain 30. The reserve is capped at the current recovery maximum; a higher sortie requirement takes precedence."
     },
+    "VerifyByDock": {
+      "name": "Verify morale by scanning the dock",
+      "help": "When enabled, before a task is delayed for low morale, the dock is opened to read the actual morale of the 6 ships in the sortie fleet. If it disagrees with the estimated range, the estimate is recalibrated to the lowest actual value and the delay is decided again. Works only on Normal difficulty and without the public fleet, and the configured fleet number must match the real fleet in the dock. Skipped if a scan ran within the last 30 minutes; each scan costs about 20-30 seconds."
+    },
     "RecoveryWait": {
       "name": "Morale reserve recovery state",
       "help": ""
