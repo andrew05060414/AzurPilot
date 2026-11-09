@@ -60,12 +60,15 @@ class FleetManagement(Dock):
             self.device.screenshot()
         self.handle_dock_cards_loading()
 
-    def run(self) -> None:
+    def run(self) -> dict:
         """执行一次舰队扫描。
 
         Pages:
             in: Any
             out: page_dock
+
+        Returns:
+            dict: 各分类的扫描结果；供调用方在不重读配置的情况下使用已保存的同一份数据。
         """
         logger.hr("舰队扫描", level=0)
         self.ui_ensure(page_dock)
@@ -95,8 +98,11 @@ class FleetManagement(Dock):
                     windows[category] = screenshot_window(self.device)
                 result[category] = self._normalize_result(scanner.scan(self.device.image))
 
-            learn_fleet_emotion(self.config, result, windows, set(scanner.name_scanner.name_matcher.names))
+            known_names = set(scanner.name_scanner.name_matcher.names)
+            self.last_known_names = known_names
+            learn_fleet_emotion(self.config, result, windows, known_names)
             self._save_result(result)
+            return result
         finally:
             self.dock_filter.reset_first = reset_first
             # 扫描结束后恢复船坞默认筛选和排序状态。

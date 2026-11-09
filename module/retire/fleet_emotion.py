@@ -53,6 +53,38 @@ def _mapping(task, values):
     return ids, active
 
 
+def complete_fleet_minimums(result, known_names):
+    """从完整的舰队扫描结果取各舰队 6 艘舰船的最低心情。
+
+    与被动学习使用同一套可信条件：前排 3 + 后排 3、六个不同且已确认的名称、
+    每个心情都是 0–150 的整数。任一条件不满足的舰队不出现在返回值中，
+    调用方不能把缺失当作心情为 0 或满值。
+
+    Args:
+        result (dict): `FleetManagement.run()` 返回的分类扫描结果。
+        known_names (set[str]): 已确认的舰船名称集合。
+
+    Returns:
+        dict[int, int]: 舰队编号到最低心情。
+    """
+    minimums = {}
+    if not known_names:
+        return minimums
+    for number in range(1, 7):
+        ships = []
+        for category in ('vanguard', 'main'):
+            group = result.get(category, {}).get(str(number), [])
+            if len(group) != 3:
+                break
+            ships.extend(group)
+        else:
+            if (len({ship.get('name') for ship in ships}) == 6 and
+                    all(ship.get('name') in known_names and type(ship.get('emotion')) is int and
+                        0 <= ship['emotion'] <= 150 for ship in ships)):
+                minimums[number] = min(ship['emotion'] for ship in ships)
+    return minimums
+
+
 def learn_fleet_emotion(config, result, windows, known_names):
     """向既有保存事务加入学到的三字段；只读内存快照，不另行保存。"""
     if not known_names or not all(windows.get(category) for category in ('vanguard', 'main')):

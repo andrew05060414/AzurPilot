@@ -43,6 +43,47 @@ class CampaignBase(CampaignUI, Map, AutoSearchCombat):
     # 被误撤退。
     AUTO_SEARCH_WITHDRAW = False
 
+    def emotion_check_reduce(self, battle):
+        """进图前检查心情；开启「扫描船坞核对心情」时，延后之前先用船坞实测核对推算值。
+
+        推算值偏低会让任务被无谓地延后。核对只发生在推算说要等（或账本未校准）时，
+        读数与推算不一致就按实测重建基准。重建后若已够出击，直接结束本次运行并立即重排，
+        由调度器重新走一遍选关与进图；否则按新的恢复时间延后。
+
+        Args:
+            battle (int): 本次战役预计的战斗场次。
+
+        Raises:
+            ScriptEnd: 心情不足需要延后，或核对后需要重新进图时抛出。
+
+        Pages:
+            in: page_campaign
+            out: page_campaign（未核对）；page_dock（已核对，任务随即结束）
+        """
+        targets = self.emotion.dock_verify_targets(battle)
+        if not targets:
+            self.emotion.check_reduce(battle)
+            return
+
+        from module.retire.fleet_emotion import complete_fleet_minimums
+        from module.retire.fleet_management import FleetManagement
+
+        logger.hr('心情-船坞核对', level=2)
+        scanner = FleetManagement(config=self.config, device=self.device)
+        result = scanner.run()
+        minimums = complete_fleet_minimums(result, scanner.last_known_names)
+        logger.attr('船坞最低心情', minimums)
+        self.emotion.apply_dock_readings(targets, minimums)
+
+        recovered, delay = self.emotion._check_reduce(battle)
+        if delay:
+            logger.info('[情绪-延迟] 核对后心情仍不足，延后当前任务')
+            self.config.task_delay(target=recovered)
+            raise ScriptEnd('[情绪-延迟] 情绪控制')
+        logger.info('[心情-核对] 实测心情足够出击，立即重新进图')
+        self.config.task_delay(minute=0)
+        raise ScriptEnd('[心情-核对] 已按实测校准，重新进图')
+
     def battle_default(self):
         """默认战斗策略：清除所有敌人。
 
@@ -229,7 +270,7 @@ class CampaignBase(CampaignUI, Map, AutoSearchCombat):
             # 进入地图
             self.map_get_info()
             logger.attr('地图战斗次数', self._map_battle)
-            self.emotion.check_reduce(self._map_battle)
+            self.emotion_check_reduce(self._map_battle)
             self.ENTRANCE.area = self.ENTRANCE.button
             self.enter_map(self.ENTRANCE, mode=self.config.Campaign_Mode)
 
