@@ -412,3 +412,14 @@ class ScanToReportTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ResolveScrollTests(unittest.TestCase):
+    def test_periodic_ambiguity_is_resolved_by_thumb(self):
+        from module.meowfficer.scan_utils import resolve_scroll
+        # 画面比对只看出 24px（同名猫成排），滚动条说大约 165px -> 24 + 146
+        self.assertEqual(resolve_scroll(24, 165), 170)
+        # 内容不重复时两者一致
+        self.assertEqual(resolve_scroll(171, 160), 171)
+        # 到底不动
+        self.assertEqual(resolve_scroll(0, 3), 0)

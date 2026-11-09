@@ -134,22 +134,22 @@ def assess(record: CatRecord) -> Verdict:
         verdict.action, verdict.reason = KEEP_IN_USE, '固定天赋猫'
         return verdict
 
-    has_fire = '侵略如火' in specials
-    core = [s for s in specials if s != '既定的命运']
-    clean = not junk
-    if rarity == 'SSR':
-        if core:
+    # 三个条件满足其二才算胚子（用户 2026-11-09 口径）：
+    #   ① 清一色：普通天赋全是本舰种的，没有别的舰种、观测/声呐、阵营天赋或无用彩天赋
+    #   ② 输出彩：侵略如火（最好），不动如山勉强算
+    #   ③ 本舰种精英：航母王牌机师 / 战列一发入魂 / 潜艇狼群之首
+    # 最理想是 ②+③（火 + 精英）。金猫紫猫同一标准。
+    cond_clean = not junk
+    cond_fire = any(s in specials for s in ('侵略如火', '不动如山'))
+    cond_elite = elite is not None and elite in specials
+    met = [name for name, ok in (('清一色', cond_clean), ('火/山', cond_fire), ('本舰种精英', cond_elite)) if ok]
+    if rarity in ('SSR', 'SR'):
+        kind = '金猫' if rarity == 'SSR' else '紫猫'
+        if len(met) >= 2:
             verdict.action = KEEP_EMBRYO
-            verdict.reason = f'金猫自带{"、".join(core)}' + ('' if clean else f'（夹着 {len(junk)} 个废天赋）')
+            verdict.reason = f'{kind}满足 {"+".join(met)}'
         else:
-            verdict.reason = '金猫：没有火、山或本舰种精英'
-    elif rarity == 'SR':
-        if has_fire and clean:
-            verdict.action, verdict.reason = KEEP_EMBRYO, '紫猫自带侵略如火且无废天赋'
-        elif core and clean:
-            verdict.action, verdict.reason = KEEP_EMBRYO, f'紫猫自带{core[0]}且清一色'
-        else:
-            verdict.reason = '紫猫：标准更严，要有火，或有山/精英且不夹废天赋'
+            verdict.reason = f'{kind}只满足 {"+".join(met) or "0 条"}（三条要满足两条）'
     else:
         verdict.reason = '蓝猫一律当饲料'
     return verdict

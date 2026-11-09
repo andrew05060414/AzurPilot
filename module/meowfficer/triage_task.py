@@ -226,3 +226,166 @@ def run_meowfficer_triage(config, device=None, apply: bool = False):
     if apply:
         task.apply(verdicts)
     return verdicts
+
+
+class MeowfficerSweep(MeowfficerTriage):
+    """一遍过的猫窝整理：只看「1 级、没上锁」的猫，读完天赋当场决定上不上锁。
+
+    用户口径：满级 / 养过的猫不用管，已经上锁的是用户自己挑的，也不用管；
+    只处理新开出来的 1 级猫。所以这里：
+
+    - 猫窝按等级**升序**排，编队中的猫置顶，之后就是 1 级猫，遇到等级 > 1 的就结束；
+    - 已上锁的 1 级猫只记品种（算进同名库存），不读天赋；
+    - 没上锁的 1 级猫读天赋：胚子当场上锁，其余不动；同名库存不上锁，由喂猫步骤负责每个品种留 4 只；
+    - 永远不解锁任何猫。
+
+    不再「先扫一遍出清单、再扫一遍改锁」，也就不存在两遍之间对不上位置的问题。
+    滚动位置按实测位移累加，并用滚动条消除同名猫成排时的周期歧义，
+    每张卡按绝对行号只处理一次。
+    """
+
+    def _cattery_capacity(self) -> int:
+        from module.meowfficer.enhance import MEOWFFICER_ENHANCE_CAPACITY
+        current, _, total = MEOWFFICER_ENHANCE_CAPACITY.ocr(self.device.image)
+        return current or total or 160
+
+    def _thumb(self) -> float:
+        from module.meowfficer.enhance import MEOWFFICER_CATTERY_SCROLL
+        return MEOWFFICER_CATTERY_SCROLL.cal_position(main=self)
+
+    def _scroll_once(self, scroll_range: float) -> int:
+        """向下翻约一行多，返回消歧后的实际内容位移。"""
+        from module.meowfficer.scan_utils import (CATTERY_PANEL_AREA, CATTERY_SWIPE_STEP, _crop,
+                                                  resolve_scroll, scroll_offset)
+        self.device.screenshot()
+        before = _crop(self.device.image, CATTERY_PANEL_AREA).copy()
+        thumb_before = self._thumb()
+        self._swipe_panel(CATTERY_PANEL_AREA, distance=CATTERY_SWIPE_STEP, duration=0.7)
+        self._wait_stable(CATTERY_PANEL_AREA, timeout=3)
+        self.device.screenshot()
+        after = _crop(self.device.image, CATTERY_PANEL_AREA).copy()
+        image_dy = scroll_offset(before, after)
+        thumb_dy = (self._thumb() - thumb_before) * scroll_range
+        moved = resolve_scroll(image_dy, thumb_dy)
+        logger.info(f'[指挥喵-整理] 滚动：画面 {image_dy}px，滚动条约 {thumb_dy:.0f}px，取 {moved}px')
+        return moved
+
+    def _card_button(self, column: int, center_y: int):
+        from module.base.button import Button
+        from module.meowfficer.scan_utils import CATTERY_COLUMN_X
+        x = CATTERY_COLUMN_X[column]
+        area = (x - 25, center_y - 25, x + 25, center_y + 25)
+        return Button(area=area, color=(), button=area, name=f'CATTERY_CARD_{column}_{center_y}')
+
+    def sweep(self, stock_per_species: int = 4) -> dict:
+        """执行一遍整理，返回统计。
+
+        Pages:
+            in: 任意（会自行进入指挥喵猫窝）
+            out: 指挥喵猫窝
+        """
+        from collections import Counter
+
+        from module.meowfficer.scan_utils import (CATTERY_CLICK_Y_RANGE, CATTERY_FIRST_ROW_Y,
+                                                  CATTERY_ROW_PITCH)
+        from module.meowfficer.triage import assess
+
+        logger.hr('指挥喵整理：只看 1 级未上锁的猫', level=1)
+        ocr = self._load_ocr()
+        self._ensure_cattery()
+        self._reset_cattery_scroll()
+        self.device.screenshot()
+        capacity = self._cattery_capacity()
+        rows = (capacity + 3) // 4
+        scroll_range = max(1, rows * CATTERY_ROW_PITCH - 438)
+        logger.attr('[指挥喵-整理] 猫窝', f'{capacity} 只，约 {rows} 行')
+
+        stock = Counter()          # 品种 -> 已上锁的 1 级猫数（含用户自己锁的）
+        embryo_species = set()
+        stats = Counter()
+        records = []
+        content_y = 0
+        next_row = 0               # 下一个要处理的绝对行号
+        seen_level1 = False
+        previous = ''
+        stalls = 0
+
+        while next_row < rows:
+            progressed = False
+            while next_row < rows:
+                center_y = CATTERY_FIRST_ROW_Y + next_row * CATTERY_ROW_PITCH - content_y
+                if center_y > CATTERY_CLICK_Y_RANGE[1]:
+                    break
+                if center_y < CATTERY_CLICK_Y_RANGE[0]:
+                    logger.warning(f'[指挥喵-整理] 第 {next_row + 1} 行已滚出可点范围，跳过（这一行不改锁）')
+                    next_row += 1
+                    continue
+                for column in range(4):
+                    index = next_row * 4 + column + 1
+                    if index > capacity:
+                        break
+                    self.device.screenshot()
+                    if not self._in_cattery() and not self._dismiss_play_popup():
+                        logger.error('[指挥喵-整理] 已不在猫窝列表上，停止')
+                        return dict(stats)
+                    cat = self._select_card(self._card_button(column, center_y), ocr, previous=previous)
+                    previous = cat or previous
+                    level, locked = self._read_card_state()
+                    if level is None or locked is None:
+                        stats['unreadable'] += 1
+                        continue
+                    if level > 1:
+                        if seen_level1:
+                            logger.info(f'[指挥喵-整理] 遇到 Lv{level} 的 {cat}，1 级猫已经看完')
+                            return self._finish(stats, records)
+                        stats['leveled'] += 1
+                        continue
+                    seen_level1 = True
+                    if locked:
+                        stock[cat] += 1
+                        stats['already_locked'] += 1
+                        continue
+                    if not self._open_talent():
+                        stats['unreadable'] += 1
+                        continue
+                    talents = self._read_talents(ocr)
+                    if not self._back_to_cattery():
+                        logger.error('[指挥喵-整理] 回不到猫窝列表，停止')
+                        return self._finish(stats, records)
+                    verdict = assess(CatRecord(name=cat, talents=talents, level=level, locked=False, index=index))
+                    action = verdict.action
+                    # 同名库存不上锁（用户口径：喂猫时记得每个品种留 4 只即可），这里只锁胚子
+                    records.append(verdict)
+                    if action == KEEP_EMBRYO:
+                        if self._set_lock(True):
+                            stock[verdict.cat] += 1
+                            stats['locked_' + action] += 1
+                            logger.info(f'[指挥喵-整理] #{index} {cat} 上锁：{verdict.reason}')
+                        else:
+                            stats['lock_failed'] += 1
+                    else:
+                        stats[action] += 1
+                        logger.info(f'[指挥喵-整理] #{index} {cat} 不上锁：{verdict.reason}')
+                next_row += 1
+                progressed = True
+            if next_row >= rows:
+                break
+            moved = self._scroll_once(scroll_range)
+            content_y += moved
+            if moved < 10 and not progressed:
+                stalls += 1
+                if stalls >= 2:
+                    logger.info('[指挥喵-整理] 列表滚不动了，结束')
+                    break
+            else:
+                stalls = 0
+        return self._finish(stats, records)
+
+    def _finish(self, stats, records) -> dict:
+        self._save(records)
+        logger.attr('[指挥喵-整理] 结果', dict(stats))
+        return dict(stats)
+
+
+def run_meowfficer_sweep(config, device=None):
+    return MeowfficerSweep(config, device=device).sweep()

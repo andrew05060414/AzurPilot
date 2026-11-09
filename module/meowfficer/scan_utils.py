@@ -193,3 +193,30 @@ CATTERY_SCREEN_HEIGHT = 438
 CATTERY_SWIPE_STEP = 120
 # 两次截图的平均像素差小于该值即认为画面已稳定
 STABLE_TOLERANCE = 3.0
+
+
+# 猫窝卡片的行距（像素）与第一行卡片中心在列表顶部时的 y
+CATTERY_ROW_PITCH = 146
+CATTERY_FIRST_ROW_Y = 185
+CATTERY_COLUMN_X = (784, 914, 1044, 1174)
+# 卡片中心落在这个 y 区间才点：上下各留 25px 点击余量，仍在猫窝面板内
+CATTERY_CLICK_Y_RANGE = (160, 515)
+
+
+def resolve_scroll(image_dy: int, thumb_dy: float, period: int = CATTERY_ROW_PITCH, max_k: int = 3) -> int:
+    """用滚动条估算值消除画面比对的周期歧义。
+
+    同名猫成排时卡片几乎一模一样，画面比对只能确定位移「模一行」的部分：
+    真实位移可能是 ``image_dy + k * 行距``。滚动条精度约 15px/像素，足够从中挑出正确的 k。
+
+    Args:
+        image_dy: :func:`scroll_offset` 量出的位移。
+        thumb_dy: 按滚动条位置变化换算的内容位移估计。
+        period: 行距。
+        max_k: 最多考虑几行的歧义。
+
+    Returns:
+        int: 消歧后的位移（不小于 0）。
+    """
+    candidates = [image_dy + k * period for k in range(-max_k, max_k + 1) if image_dy + k * period >= 0]
+    return min(candidates, key=lambda d: abs(d - thumb_dy))
