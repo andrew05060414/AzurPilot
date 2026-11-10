@@ -158,6 +158,8 @@ module/
 
 进房及对话处理后，`pq_goto_room()` 调用 `_pq_target_appear()`，以三种头顶气泡模板在 `(100, 100)` 偏移范围内确认舰娘就绪。每次检测最多向上微调一次视角，在 `Timer(1.5, count=3)` 窗口内持续截图；超时后退出房间，最多尝试三次。确认就绪才执行最多三次互动，精力耗尽导致互动按钮不出现时按现有超时退出；点击等待及互动阶段超时由 `RunParams.UiWait` 控制。
 
+进房时若出现好感已满标记（`PRIVATE_QUARTERS_ROOM_TARGET_INTIMACY_MAX`），`_pq_goto_room_enter()` 置 `pq_intimacy_max` 并退回休息室主界面。`pq_run()` 随后调用 `pq_switch_target()`，从 `PrivateQuarters.NextTargets`（`>` 分隔的英文名）依次取下一位：跳过无法识别、本服不支持或与当前相同的名字，把选中者写入 `TargetShip` 并从列表删除，再进入她的房间互动；列表为空则仅记警告。该列表只应填写已拥有且已下载资源的舰娘。
+
 ### 船坞蓝图（module/shipyard）
 
 `RewardShipyard(ShipyardUI)` 在主界面 OCR 金币后进入船坞，按价格阶梯（PR 最高 1500/张、DR 最高 6000/张，前两张免费）计算可购数量，购买并使用 PR/DR 目标舰船的蓝图；多余蓝图直接使用。每日防重复执行基于服务器刷新时间；配置分 `Shipyard.*`（PR）与 `ShipyardDr.*`（DR），舰船定位依赖 `ui_globals.py` 的系列/舰船表。

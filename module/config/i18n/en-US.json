@@ -3690,6 +3690,10 @@
       "aegir": "Aegir",
       "nakhimov": "Nakhimov",
       "implacable": "Implacable"
+    },
+    "NextTargets": {
+      "name": "Next Targets After Max Affinity",
+      "help": "When the current target's affinity is maxed, switch to the next ship listed here and update the target above; switched ships are removed from this list. Separate with >, e.g. noshiro > sirius. Valid: anchorage, noshiro, sirius, new_jersey, taihou, aegir, nakhimov, implacable. Only list ships you own with downloaded assets. Leave empty to keep the current target"
     }
   },
   "Daily": {

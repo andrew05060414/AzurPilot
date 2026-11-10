@@ -32,6 +32,8 @@ Pages:
     宿舍菜单页面：page_dormmenu
 """
 
+import re
+
 import module.config.server as server
 from module.base.timer import Timer
 from module.logger import logger
@@ -60,6 +62,7 @@ class PrivateQuarters(PQInteract, PQShop):
         PrivateQuarters_BuyCake: 是否购买每周蛋糕。
         PrivateQuarters_TargetInteract: 是否执行舰娘互动。
         PrivateQuarters_TargetShip: 目标舰娘名称（小写，如 'sirius'）。
+        PrivateQuarters_NextTargets: 好感满后依次换成的舰娘，用 > 分隔。
     """
     # Key: str, server name
     # Value: list[str]
@@ -192,6 +195,43 @@ class PrivateQuarters(PQInteract, PQShop):
         # 执行互动流程
         self.pq_interact()
 
+    def pq_switch_target(self, current):
+        """好感度已满时，从「好感满后依次换成」取下一位舰娘并写回配置。
+
+        跳过无法识别、当前服务器不支持或与当前目标相同的名字。
+        选中的舰娘写入 TargetShip，并从后续列表中移除，下次运行直接从她开始。
+
+        Args:
+            current (str): 当前已满好感的目标舰娘。
+
+        Returns:
+            str | None: 下一位目标舰娘；列表已空时返回 None。
+        """
+        raw = self.config.PrivateQuarters_NextTargets or ''
+        queue = [name.strip().lower().replace(' ', '_')
+                 for name in re.split(r'[>,，]', str(raw))]
+        queue = [name for name in queue if name]
+
+        while queue:
+            name = queue.pop(0)
+            if name not in self.available_targets:
+                logger.warning(f'[私人休息室] 后续舰娘 "{name}" 无法识别，跳过')
+                continue
+            if name in self.not_supported_filter[server.server]:
+                logger.warning(f'[私人休息室] 后续舰娘 {name} 在 {server.server} 服务器不可用，跳过')
+                continue
+            if name == current:
+                continue
+            logger.info(f'[私人休息室] {current} 好感度已满，换成 {name}')
+            with self.config.multi_set():
+                self.config.PrivateQuarters_TargetShip = name
+                self.config.PrivateQuarters_NextTargets = ' > '.join(queue)
+            return name
+
+        if raw:
+            self.config.PrivateQuarters_NextTargets = ''
+        return None
+
     def pq_run(self, buy_roses, buy_cake, target_interact, target_ship):
         """执行私人宿舍日常流程。
 
@@ -235,8 +275,16 @@ class PrivateQuarters(PQInteract, PQShop):
                 logger.info('每日亲密度次数耗尽，退出子任务')
                 return
 
-            # 执行互动
-            self.pq_execute_interact(target_ship)
+            # 执行互动；好感度已满时按「好感满后依次换成」换下一位再试
+            while 1:
+                self.pq_execute_interact(target_ship)
+                if not self.pq_intimacy_max:
+                    return
+                target_ship = self.pq_switch_target(target_ship)
+                if target_ship is None:
+                    logger.warning('[私人休息室] 目标好感度已满且没有可换的后续舰娘，'
+                                   '请在「好感满后依次换成」中填写，或关闭舰娘互动')
+                    return
 
     def run(self):
         """

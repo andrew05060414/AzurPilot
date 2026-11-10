@@ -1470,6 +1470,9 @@ PrivateQuarters:
     TargetShip:
       value: anchorage
       option: [ anchorage, noshiro, sirius, new_jersey, taihou, aegir, nakhimov, implacable ]
+    NextTargets:
+      type: input
+      value: ''
 # ==================== Daily ====================
 
 Daily:

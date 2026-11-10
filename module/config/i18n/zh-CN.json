@@ -3690,6 +3690,10 @@
       "aegir": "埃吉尔",
       "nakhimov": "纳希莫夫",
       "implacable": "怨仇"
+    },
+    "NextTargets": {
+      "name": "好感满后依次换成",
+      "help": "当前舰娘好感度满了，自动换成这里的下一位，并把上面的目标改过去；换过的会从这里删掉。用 > 分隔，填英文名：anchorage、noshiro、sirius、new_jersey、taihou、aegir、nakhimov、implacable。只填已拥有且已下载资源的舰娘。留空则好感满后不换人"
     }
   },
   "Daily": {
