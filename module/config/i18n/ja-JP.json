@@ -3690,6 +3690,10 @@
       "aegir": "aegir",
       "nakhimov": "nakhimov",
       "implacable": "implacable"
+    },
+    "NextTargets": {
+      "name": "好感度MAX後の次の対象",
+      "help": "現在の対象の好感度がMAXになったら、ここに並べた次の艦船に切り替えて上の対象を更新します。切り替えた艦船はここから削除されます。> 区切りで英語名を入力：anchorage, noshiro, sirius, new_jersey, taihou, aegir, nakhimov, implacable。所持済みかつリソースをダウンロード済みの艦船のみ。空欄なら切り替えません"
     }
   },
   "Daily": {

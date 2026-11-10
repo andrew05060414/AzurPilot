@@ -2772,7 +2772,8 @@
       "BuyRoses": true,
       "BuyCake": false,
       "TargetInteract": true,
-      "TargetShip": "anchorage"
+      "TargetShip": "anchorage",
+      "NextTargets": null
     },
     "Storage": {
       "Storage": {}

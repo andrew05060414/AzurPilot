@@ -713,6 +713,7 @@ class GeneratedConfig:
     PrivateQuarters_BuyCake = False
     PrivateQuarters_TargetInteract = True
     PrivateQuarters_TargetShip = 'anchorage'  # anchorage, noshiro, sirius, new_jersey, taihou, aegir, nakhimov, implacable
+    PrivateQuarters_NextTargets = None
 
     # 配置组 `Daily`
     Daily_UseDailySkip = True

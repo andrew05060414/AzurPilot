@@ -43,6 +43,8 @@ class PQInteract(UI):
         'nakhimov': (PRIVATE_QUARTERS_SHIP_NAKHIMOV, PRIVATE_QUARTERS_PAGE_LOCALE_VILLA),
         'implacable': (PRIVATE_QUARTERS_SHIP_IMPLACABLE, PRIVATE_QUARTERS_PAGE_LOCALE_VILLA),
     }
+    # 最近一次 pq_goto_room 是否因好感度已满而未进入
+    pq_intimacy_max = False
 
     def _pq_handle_dialogue(self):
         """处理舰船对话序列。
@@ -172,6 +174,7 @@ class PQInteract(UI):
 
         Returns:
             bool: 成功进入房间且好感度未满返回 True，需要下载资源或好感度已满返回 False。
+                好感度已满时置 pq_intimacy_max 并退回私人休息室主界面。
         """
         target_title = target_ship.title().replace('_', ' ')
         if target_ship not in self.available_targets:
@@ -197,10 +200,11 @@ class PQInteract(UI):
         # 处理进入房间时的对话
         self._pq_handle_dialogue()
 
-        # 检查好感度是否已满
+        # 检查好感度是否已满；满了退回主界面，由上层决定是否换人
         if self.appear(PRIVATE_QUARTERS_ROOM_TARGET_INTIMACY_MAX, offset=(20, 20)):
-            logger.warning(
-                f'[私人休息室-互动] {target_title} 好感度已满，请更换目标或关闭子任务')
+            logger.warning(f'[私人休息室-互动] {target_title} 好感度已满')
+            self.pq_intimacy_max = True
+            self._pq_goto_room_exit()
             return False
 
         return True
@@ -308,6 +312,7 @@ class PQInteract(UI):
             bool: 成功进入且舰船就绪返回 True，否则返回 False。
         """
         success = False
+        self.pq_intimacy_max = False
         target_title = target_ship.title().replace('_', ' ')
         logger.hr(f'[私人休息室-互动] 进入 {target_title} 房间', level=1)
 
