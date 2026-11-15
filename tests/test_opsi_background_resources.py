@@ -21,6 +21,7 @@ from module.os_handler.os_status import OCR_SHOP_YELLOW_COINS
 from module.os_handler.resource_read import BackgroundCoinRead, CoinReading, CoinReplenishRequired, read_coins
 from module.os_handler.resource_state import ActionPointSnapshot, reset_resource_caches
 from module.os_handler.resource_write import record_resources_background
+from module.persistence.write_queue import write_queue
 from module.statistics import resource_flow
 from tests.test_api import fixture
 
@@ -397,6 +398,8 @@ class ResourcePersistenceTests(unittest.TestCase):
         with resource_flow.task_session('testpilot', 'OpsiHazard1Leveling'):
             future = record_resources_background(self.config, {'YellowCoin': 51000}, observed_at=self.stamp)
         future.result(timeout=15)
+        # 库存复核改为经 write_queue 排队落库（上游新行为），需等待刷新后才能读到。
+        write_queue.flush(timeout=15)
         with resource_flow.connect() as connection:
             balance = connection.execute('SELECT * FROM resource_balances WHERE resource=?', ('YellowCoin',)).fetchone()
         self.assertEqual(balance['ts'], str(self.stamp))

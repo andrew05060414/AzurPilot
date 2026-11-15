@@ -2,6 +2,8 @@
 
 import unittest
 from datetime import datetime, timedelta
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import Mock, call, patch
 
 from alas import AzurLaneAutoScript
@@ -743,6 +745,42 @@ class TestSchedulerRecovery(unittest.TestCase):
             call.emulator(), call.game('Restart'),
         ])
         self.assertEqual(script.task_restart_record, {})
+
+    def test_main_continues_when_resource_observation_cannot_get_write_lock(self):
+        """资源观察改为经 write_queue 排队落库（上游新行为）：写锁被占用时不会同步
+        报错或丢弃观察，而是静默入队、任务边界立即继续，锁释放后补齐落库。"""
+        from module.log_res import LogRes
+        from module.scheduler.store import ProgramStore
+        from module.persistence.write_queue import write_queue
+
+        directory = Path(self.enterContext(TemporaryDirectory())) / 'config'
+        store = ProgramStore(directory)
+        store.database.ensure_ready()
+        profile = directory / 'testpilot.json'
+        profile.write_text('{}', encoding='utf-8')
+        script = self.make_script()
+        script.config.config_name = 'testpilot'
+        script.config.task.command = 'Main'
+        script.config.data = {'Dashboard': {'Oil': {'Value': 123, 'Record': None}}}
+        script.config.modified = {}
+        recorder = LogRes(script.config)
+        script.main = lambda: setattr(recorder, 'Oil', 456)
+
+        with patch('module.config.utils.filepath_config', return_value=profile), \
+                store.database.transaction():
+            self.assertIs(script.run('main'), True)
+            # 任务边界的 write_queue.flush() 在写锁仍被占用时拿不到落库，观察被原样
+            # 保留在队列里等待重试，不会在本轮同步报错或被丢弃。
+            self.assertEqual({}, store.observations('testpilot'))
+
+        self.assertEqual(456, script.config.modified['Dashboard.Oil.Value'])
+        script.config.task_call.assert_not_called()
+        script._try_restart_emulator.assert_not_called()
+        self.assertEqual({}, script.task_restart_record)
+
+        # 写锁释放后补一次刷新：排队的观察没有丢，补齐落库到位。
+        self.assertTrue(write_queue.flush(timeout=5))
+        self.assertEqual(456, store.observations('testpilot')['Oil']['Value'])
 
     def test_global_failure_preserves_sensitive_task_protection(self):
         for strict, sensitive in ((False, False), (False, True), (True, False), (True, True)):
