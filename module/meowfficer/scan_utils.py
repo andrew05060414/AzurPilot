@@ -88,6 +88,12 @@ def pick_cat_name(texts) -> str:
     Returns:
         str: 提取的猫名；无合格候选时返回空字符串。
     """
+    # 左下角名字旁边还有状态文字（空闲中 / 编队中的舰队名，如「第五舰队」），
+    # 舰队名也是 2~6 个汉字，会被当成猫名；所以先认图鉴里的品种名
+    from module.meowfficer.cat_data import CATS
+    for text in texts:
+        if (text or '').strip() in CATS:
+            return text.strip()
     best = ''
     for text in texts:
         text = (text or '').strip()
@@ -137,8 +143,11 @@ def parse_level(texts):
 
 # ---------- 扫描用到的坐标与阈值（实机量测） ----------
 # 猫窝卡片网格（实机量测）
+# origin 是左上角：让每张卡的点击区落在头像中心 (784/914/1044/1174, 185/331/477) ±30 内。
+# 原先把中心坐标当成了左上角，第三行点击区下沿到 y=557，已经越过猫窝面板（下沿约 548），
+# 滚动没对齐整行时会点到下方的「训练」入口，弹出训练窗口（2026-11-09 实机踩过）。
 MEOWFFICER_CATTERY_GRID = ButtonGrid(
-    origin=(784, 185), delta=(130, 146), button_shape=(80, 80), grid_shape=(4, 3),
+    origin=(754, 155), delta=(130, 146), button_shape=(60, 60), grid_shape=(4, 3),
     name='MEOWFFICER_CATTERY_GRID')
 
 # 左侧中部的空白区：主界面上是立绘背景、指挥喵页上是猫的立绘，点它都不会触发任何功能，
@@ -186,3 +195,30 @@ CATTERY_SCREEN_HEIGHT = 438
 CATTERY_SWIPE_STEP = 120
 # 两次截图的平均像素差小于该值即认为画面已稳定
 STABLE_TOLERANCE = 3.0
+
+
+# 猫窝卡片的行距（像素）与第一行卡片中心在列表顶部时的 y
+CATTERY_ROW_PITCH = 146
+CATTERY_FIRST_ROW_Y = 185
+CATTERY_COLUMN_X = (784, 914, 1044, 1174)
+# 卡片中心落在这个 y 区间才点：上下各留 25px 点击余量，仍在猫窝面板内
+CATTERY_CLICK_Y_RANGE = (160, 515)
+
+
+def resolve_scroll(image_dy: int, thumb_dy: float, period: int = CATTERY_ROW_PITCH, max_k: int = 3) -> int:
+    """用滚动条估算值消除画面比对的周期歧义。
+
+    同名猫成排时卡片几乎一模一样，画面比对只能确定位移「模一行」的部分：
+    真实位移可能是 ``image_dy + k * 行距``。滚动条精度约 15px/像素，足够从中挑出正确的 k。
+
+    Args:
+        image_dy: :func:`scroll_offset` 量出的位移。
+        thumb_dy: 按滚动条位置变化换算的内容位移估计。
+        period: 行距。
+        max_k: 最多考虑几行的歧义。
+
+    Returns:
+        int: 消歧后的位移（不小于 0）。
+    """
+    candidates = [image_dy + k * period for k in range(-max_k, max_k + 1) if image_dy + k * period >= 0]
+    return min(candidates, key=lambda d: abs(d - thumb_dy))
