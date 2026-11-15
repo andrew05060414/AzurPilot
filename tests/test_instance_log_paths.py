@@ -1,5 +1,4 @@
 """使用临时目录验证完整实例名的日志写入与 MCP 读取归属。"""
-import datetime
 from contextlib import contextmanager
 import os
 import tempfile
@@ -51,20 +50,21 @@ class InstanceLogPathTests(unittest.TestCase):
                 os.chdir(original)
 
     def test_missing_instance_log_never_uses_another_instance(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            default = logging_module.get_log_file_path('alas', root)
-            default.parent.mkdir()
-            default.write_text('默认实例私有日志', encoding='utf-8')
-            configs = SimpleNamespace(root=root, path=lambda name: root / 'config' / f'{name}.json')
-            tools = Tools(configs=configs)
-            missing = tools.log_path('account_b')
-            self.assertFalse(missing.exists())
-            self.assertEqual(missing.name, f'{datetime.date.today()}_account_b.txt')
-            self.assertEqual(tools.log_path('alas'), default)
-            missing.write_text('B 的日志', encoding='utf-8')
-            self.assertEqual(tools.log_path('account_b').read_text(encoding='utf-8'), 'B 的日志')
+        """上游把 MCP 日志改为读运行时内存缓冲（Tools.log_path 已移除）；
+        同样的归属约束改为：没有自己进程的实例拿不到别的实例的日志。"""
+        from rich.text import Text
+        from module.api.runtime_service import RuntimeService
 
+        configs = SimpleNamespace(path=lambda name: Path(name))
+        tools = Tools(configs=configs, runtime=RuntimeService(configs))
+        manager = SimpleNamespace(renderables=[Text('INFO 默认实例私有日志')])
+        with patch('module.api.runtime_service.ProcessManager._processes', {'alas': manager}):
+            missing = tools.tool_get_logs({'instance': 'account_b'}).payload
+            self.assertEqual([], missing['entries'])
+            self.assertEqual('account_b', missing['instance'])
+            default = tools.tool_get_logs({'instance': 'alas'}).payload
+            self.assertEqual(['INFO 默认实例私有日志'], [item['text'] for item in default['entries']])
+            self.assertEqual([], tools.tool_get_logs({'instance': 'account_b'}).payload['entries'])
 
     @contextmanager
     def windows_logging(self, process_name='MainProcess'):

@@ -70,6 +70,8 @@ class TestSmartExploreTaskDelay(unittest.TestCase):
             ('module.os.tasks.smart_explore.get_os_next_reset', RESET),
             ('module.os.globe_operation.get_os_next_reset', RESET),
             ('module.os.tasks.smart_explore.get_server_next_update', UPDATE),
+            # 服务器更新时间与本机时区无关：否则非 UTC+8 的机器上 00:00 更新会落在本地 NOW 当天。
+            ('module.config.utils.server_time_offset', timedelta(0)),
         ):
             patcher = patch(target, return_value=value)
             patcher.start()

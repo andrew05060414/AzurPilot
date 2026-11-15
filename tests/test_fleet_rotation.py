@@ -210,6 +210,7 @@ class RotationIntegrationTests(unittest.TestCase):
                                handle_use_data_key=Mock(return_value=False),
                                handle_popup_cancel=Mock(return_value=True),
                                handle_popup_confirm=Mock(return_value=True),
+                               is_low_emotion_popup=Mock(return_value=True),
                                _emotion_emergency_exit=Mock(), interval_reset=Mock())
 
     def test_selected_150_fixed_70_does_not_rotate_and_keeps_full_fleet_ledger(self):
@@ -780,7 +781,8 @@ class CampaignEntryTests(unittest.TestCase):
         order = []
         campaign.map_get_info = lambda: order.append('map')
         campaign._fleet_rotation_preflight = lambda battle: order.append(('rotate', battle))
-        campaign.emotion = SimpleNamespace(check_reduce=lambda battle: order.append(('emotion', battle)))
+        campaign.emotion = SimpleNamespace(dock_verify_targets=lambda battle: [],
+                                           check_reduce=lambda battle: order.append(('emotion', battle)))
         campaign.enter_map = lambda *args, **kwargs: order.append('enter')
         campaign.map_is_auto_search = True
         campaign.MAP = object()

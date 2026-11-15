@@ -1367,7 +1367,7 @@ class TrainingIntegrationTests(unittest.TestCase):
         campaign.map_is_auto_search = True
         campaign.map_get_info = Mock()
         campaign.enter_map = Mock()
-        campaign.emotion = SimpleNamespace(check_reduce=Mock())
+        campaign.emotion = SimpleNamespace(dock_verify_targets=lambda battle: [], check_reduce=Mock())
         campaign.MAP = object()
         campaign.lv_reset = campaign.lv_get = Mock()
         campaign.auto_search_execute_a_battle = Mock(side_effect=[None, None, CampaignEnd])

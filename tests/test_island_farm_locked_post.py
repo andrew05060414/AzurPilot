@@ -50,6 +50,9 @@ class IslandFarmLockedPostTests(unittest.TestCase):
             'nursery': {'default_crop': 'lavender', 'plant_default': 0},
         }
         farm.to_plant_lists = {'farm': [], 'orchard': [], 'nursery': ['lavender']}
+        # 上游 518247b1b 起 run() 会调用 _resolve_default_crop（读取 INVENTORY_CONFIG 并做季节判断）；
+        # 本用例只关心锁定岗位，固定返回已配置的默认作物。
+        farm._resolve_default_crop = Mock(side_effect=lambda category: farm.plant_config[category]['default_crop'])
         farm.config = Mock()
         farm.decided_lists = Mock(side_effect=lambda *args: args[1] != 'ISLAND_NURSERY_POST2')
         farm._plant_idle_posts = Mock()
