@@ -35,6 +35,7 @@ from module.combat.submarine import SubmarineCall
 from module.combat_ui.assets import *
 from module.equipment.equipment_config import EquipmentConfigHandler
 from module.exception import GameStuckError
+from module.handler.assets import FLEET_UNAVAILABLE
 from module.handler.auto_search import AutoSearchHandler
 from module.logger import logger
 from module.map.assets import MAP_OFFENSIVE
@@ -107,6 +108,28 @@ class Combat(Level, HPBalancer, Retirement, EquipmentConfigHandler, SubmarineCal
             self.device.click(OPTS_INFO_D)
             return True
         return False
+
+    def handle_fleet_unavailable_popup(self):
+        """处理「当前选中舰队无法成型，将自动切换到公海舰队」弹窗。
+
+        战败后舰队无法成型时游戏弹出，只有一个「确定」。先记录结果，再点击确认；
+        该正文意味着游戏将自动换队，不能让通用「确定」被误识别成紧急委托。
+
+        Pages:
+            in: FLEET_UNAVAILABLE
+            out: 弹窗关闭后的地图
+
+        Returns:
+            bool: 画面上是否有该弹窗，有则需要新截图。
+        """
+        if not self.appear(FLEET_UNAVAILABLE, offset=(160, 30)):
+            return False
+        self.combat_result_record(fleet_unavailable=True)
+        if self.appear(FLEET_UNAVAILABLE, offset=(160, 30), interval=2):
+            # 正文随动态舰队名居中偏移，确认按钮本身仍在固定位置。
+            FLEET_UNAVAILABLE.clear_offset()
+            self.device.click(FLEET_UNAVAILABLE)
+        return True
 
     def combat_result_observe(self):
         """只观察当前结果，不点击；C/D 字母的过渡帧不作为战败证据。"""
@@ -740,6 +763,9 @@ class Combat(Level, HPBalancer, Retirement, EquipmentConfigHandler, SubmarineCal
         for _ in self.loop():
 
             if self.handle_combat_defeat(drop=drop):
+                continue
+            # 战败后舰队无法成型的换队弹窗，不处理会一直停在弹窗上直到判定卡死。
+            if self.handle_fleet_unavailable_popup():
                 continue
 
             # 检测预期结束状态
