@@ -186,11 +186,14 @@ class GridPredictor:
         red = color_similarity_2d(image, (255, 130, 132))
         yellow = color_similarity_2d(image, (255, 235, 156))
 
-        if TEMPLATE_ENEMY_L.match(red, similarity=0.75):
+        # 规模图标按原阈值匹配，不随非原生 720p 放宽到 0.75：
+        # 放宽后小型图标会匹配上弹药补给气泡（约 0.77）和潜艇图标（约 0.83），
+        # 在不可能刷敌的格子上凭空多出 1E，而真图标缩放后仍在 0.97 以上。
+        if TEMPLATE_ENEMY_L.match(red, similarity=0.75, direct_match=True):
             scale = 3
-        elif TEMPLATE_ENEMY_M.match(yellow):
+        elif TEMPLATE_ENEMY_M.match(yellow, direct_match=True):
             scale = 2
-        elif TEMPLATE_ENEMY_S.match(yellow):
+        elif TEMPLATE_ENEMY_S.match(yellow, direct_match=True):
             scale = 1
         else:
             scale = 0
