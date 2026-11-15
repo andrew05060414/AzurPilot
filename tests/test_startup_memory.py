@@ -80,6 +80,38 @@ class StartupMemoryStoreTests(unittest.TestCase):
         self.assertTrue(startup_memory.consume_update_restart())
         self.assertFalse(startup_memory.consume_update_restart())
 
+    def test_update_keeps_instances_it_stopped_in_memory(self):
+        """更新器先停实例再清理；清理把运行集合记成空后，更新前的集合要写回记忆。"""
+        import threading
+        from unittest.mock import Mock
+
+        from module.runtime.updater import Updater
+
+        startup_memory.set_startup_remember('demo', True)
+        startup_memory.record_running(['demo'])
+        updater = object.__new__(Updater)
+        updater.state = None
+        updater.update = Mock(return_value=True)
+        updater._update_lock = threading.Lock()
+        updater._trigger_reload = Mock()
+        with ExitStack() as stack:
+            stack.enter_context(patch.multiple(
+                State, restart_event=Mock(), dependency_sync_event=Mock(),
+                _restart_requested=False, _clearup=False))
+            stack.enter_context(patch('module.runtime.updater.atomic_write'))
+            stack.enter_context(patch('module.runtime.updater.mark_dependency_sync_pending'))
+            stack.enter_context(patch.object(lifecycle, 'task_handler', Mock()))
+            stack.enter_context(patch.object(lifecycle, 'stop_ocr_server_process', Mock()))
+            stack.enter_context(patch.object(lifecycle.RemoteAccess, 'kill_ssh_process', Mock()))
+            stack.enter_context(patch.object(lifecycle.State, 'clearup', Mock()))
+            # 实例已被更新器停掉，清理时枚举不到任何运行实例。
+            stack.enter_context(patch.object(lifecycle.ProcessManager, 'running_instances', return_value=[]))
+            self.assertTrue(updater._run_update([], ['demo\n']))
+
+        self.assertEqual(['demo'], startup_memory.remembered_runs())
+        self.assertTrue(startup_memory.consume_update_restart())
+        self.assertEqual(['demo'], startup_memory.startup_runs([], update_restart=True))
+
     def test_record_writes_nothing_when_nobody_enabled(self):
         startup_memory.record_running(['demo'])
         self.assertFalse(self.memory_file.exists())
