@@ -188,7 +188,7 @@ class GridPredictor:
 
         # 规模图标按原阈值匹配，不随非原生 720p 放宽到 0.75：
         # 放宽后小型图标会匹配上弹药补给气泡（约 0.77）和潜艇图标（约 0.83），
-        # 在不可能刷敌的格子上凭空多出 1E，而真图标缩放后仍在 0.97 以上。
+        # 在不可能刷敌的格子上凭空多出 1E，而真图标缩放后仍在 0.91 以上。
         if TEMPLATE_ENEMY_L.match(red, similarity=0.75, direct_match=True):
             scale = 3
         elif TEMPLATE_ENEMY_M.match(yellow, direct_match=True):
