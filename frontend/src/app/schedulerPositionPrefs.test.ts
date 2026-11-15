@@ -12,11 +12,10 @@ import {
 describe('schedulerPositionPrefs 调度器位置偏好', () => {
   beforeEach(() => {
     localStorage.clear()
-    setSchedulerPosition('left')
   })
 
-  it('未设置时默认在左侧', () => {
-    expect(readSchedulerPosition()).toBe('left')
+  it('未设置时默认在右侧', () => {
+    expect(readSchedulerPosition()).toBe('right')
   })
 
   it('存储值为 right 时解析为 right', () => {
@@ -24,9 +23,9 @@ describe('schedulerPositionPrefs 调度器位置偏好', () => {
     expect(readSchedulerPosition()).toBe('right')
   })
 
-  it('存储非合法值时回退为 left', () => {
+  it('存储非合法值时回退为 right', () => {
     localStorage.setItem('azurpilot.layout.scheduler-position', 'top')
-    expect(readSchedulerPosition()).toBe('left')
+    expect(readSchedulerPosition()).toBe('right')
   })
 
   it('写入位置时持久化至 localStorage 并通知订阅者', () => {

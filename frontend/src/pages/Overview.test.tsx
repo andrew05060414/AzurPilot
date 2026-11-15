@@ -79,7 +79,6 @@ describe('Overview 总览页调度器位置与排布', () => {
   beforeEach(() => {
     localStorage.clear()
     resetModernRailWidth()
-    setSchedulerPosition('left')
   })
 
   afterEach(() => {
@@ -88,22 +87,7 @@ describe('Overview 总览页调度器位置与排布', () => {
     localStorage.clear()
   })
 
-  it('默认排布在左侧，带有 rail-left 类名与 data-scheduler-position="left"', async () => {
-    renderOverview()
-    const grid = await screen.findByRole('heading', { name: 'test-instance' })
-      .then(heading => heading.closest('.instance-page-grid'))
-
-    expect(grid).not.toBeNull()
-    expect(grid?.className).toContain('instance-page-grid')
-    expect(grid?.className).toContain('rail-left')
-    expect(grid?.getAttribute('data-scheduler-position')).toBe('left')
-
-    const handle = screen.getByRole('separator')
-    expect(handle.getAttribute('data-side')).toBe('left')
-  })
-
-  it('切换到右侧时带有 rail-right 类名与 data-side="right"', async () => {
-    setSchedulerPosition('right')
+  it('默认排布在右侧，带有 rail-right 类名与 data-scheduler-position="right"', async () => {
     renderOverview()
     const grid = await screen.findByRole('heading', { name: 'test-instance' })
       .then(heading => heading.closest('.instance-page-grid'))
@@ -115,6 +99,21 @@ describe('Overview 总览页调度器位置与排布', () => {
 
     const handle = screen.getByRole('separator')
     expect(handle.getAttribute('data-side')).toBe('right')
+  })
+
+  it('切换到左侧时带有 rail-left 类名与 data-side="left"', async () => {
+    setSchedulerPosition('left')
+    renderOverview()
+    const grid = await screen.findByRole('heading', { name: 'test-instance' })
+      .then(heading => heading.closest('.instance-page-grid'))
+
+    expect(grid).not.toBeNull()
+    expect(grid?.className).toContain('instance-page-grid')
+    expect(grid?.className).toContain('rail-left')
+    expect(grid?.getAttribute('data-scheduler-position')).toBe('left')
+
+    const handle = screen.getByRole('separator')
+    expect(handle.getAttribute('data-side')).toBe('left')
   })
 
   it('自定义宽度时传递 --modern-rail-width 样式变量', async () => {
@@ -148,14 +147,6 @@ describe('Overview 总览页调度器位置与排布', () => {
       return heading.closest('.instance-page-grid')
     }
     let grid = await getGrid()
-    expect(grid?.className).toContain('rail-left')
-    expect(grid?.getAttribute('data-scheduler-position')).toBe('left')
-    expect(screen.getByRole('separator').getAttribute('data-side')).toBe('left')
-
-    await act(async () => {
-      setSchedulerPosition('right')
-    })
-    grid = await getGrid()
     expect(grid?.className).toContain('rail-right')
     expect(grid?.getAttribute('data-scheduler-position')).toBe('right')
     expect(screen.getByRole('separator').getAttribute('data-side')).toBe('right')
@@ -167,6 +158,14 @@ describe('Overview 总览页调度器位置与排布', () => {
     expect(grid?.className).toContain('rail-left')
     expect(grid?.getAttribute('data-scheduler-position')).toBe('left')
     expect(screen.getByRole('separator').getAttribute('data-side')).toBe('left')
+
+    await act(async () => {
+      setSchedulerPosition('right')
+    })
+    grid = await getGrid()
+    expect(grid?.className).toContain('rail-right')
+    expect(grid?.getAttribute('data-scheduler-position')).toBe('right')
+    expect(screen.getByRole('separator').getAttribute('data-side')).toBe('right')
   })
 
   it('调度器在右侧时可在总览页直接拖拽调整宽度并双击重置', async () => {

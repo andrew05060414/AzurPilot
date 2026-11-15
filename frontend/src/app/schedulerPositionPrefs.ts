@@ -9,7 +9,7 @@ export type SchedulerPosition = 'left' | 'right'
 
 const store = prefStore<SchedulerPosition>(
   'azurpilot.layout.scheduler-position',
-  raw => raw === 'right' ? 'right' : 'left'
+  raw => raw === 'left' ? 'left' : 'right'
 )
 
 /** 读取调度器栏停靠位置。 */
