@@ -22,7 +22,7 @@ from module.logger import logger
 from module.runtime.config import DeployConfig
 from module.runtime.process_manager import ProcessManager
 from module.runtime.setting import State, mark_dependency_sync_pending
-from module.runtime.startup_memory import mark_update_restart
+from module.runtime.startup_memory import mark_update_restart, record_running
 from module.runtime.task_handler import TaskHandler, get_next_time
 
 
@@ -517,6 +517,12 @@ class Updater(DeployConfig, GitManager):
                     action='检查 WebUI 清理日志，确认是否有残留的任务进程或资源。',
                     level=50,
                 )
+            try:
+                # 清理发生在实例已被本次更新停掉之后，会把「正在运行」记成空；
+                # 更新重启只按记忆恢复，这里把更新前的运行集合写回去。
+                record_running(name.strip() for name in names)
+            except Exception:
+                logger.exception('更新前的运行状态无法写回记忆，开启记忆运行的实例可能不会恢复')
             try:
                 # 只有清理结束后父进程才能终止当前 WebUI，避免中途强杀。
                 mark_update_restart()
