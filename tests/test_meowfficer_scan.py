@@ -22,8 +22,10 @@ class GridGeometryTests(unittest.TestCase):
     def test_first_and_last_button(self):
         first = MEOWFFICER_CATTERY_GRID.buttons[0].area
         last = MEOWFFICER_CATTERY_GRID.buttons[-1].area
-        self.assertEqual(tuple(int(v) for v in first), (784, 185, 864, 265))
-        self.assertEqual(tuple(int(v) for v in last), (1174, 477, 1254, 557))
+        # 点击区以头像中心 (784,185)…(1174,477) 为中心 ±30，下沿不能越过猫窝面板（约 y=548）
+        self.assertEqual(tuple(int(v) for v in first), (754, 155, 814, 215))
+        self.assertEqual(tuple(int(v) for v in last), (1144, 447, 1204, 507))
+        self.assertLess(last[3], 548)
 
     def test_column_and_row_pitch(self):
         areas = [tuple(int(v) for v in b.area) for b in MEOWFFICER_CATTERY_GRID.buttons]
@@ -42,6 +44,8 @@ class PickCatNameTests(unittest.TestCase):
 
     def test_keeps_four_char_name(self):
         self.assertEqual(pick_cat_name(['潜艇参谋', '30']), '潜艇参谋')
+        # 编队中的猫，名字旁边的舰队名不能盖过品种名
+        self.assertEqual(pick_cat_name(['R', '邦尼喵', '第五舰队']), '邦尼喵')
 
     def test_drops_ui_words(self):
         self.assertEqual(pick_cat_name(['空闲中', '后勤', '加成一览', 'Lv30']), '')
@@ -157,6 +161,15 @@ class _StubScanner(MeowfficerScanner):
 
     def _back_to_cattery(self):
         self.back_calls += 1
+        return True
+
+    def _read_card_state(self):
+        return 1, False
+
+    def _in_cattery(self):
+        return True
+
+    def _cattery_at_bottom(self):
         return True
 
     def _swipe_panel(self, area, distance=150, duration=0.9):
@@ -399,3 +412,14 @@ class ScanToReportTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ResolveScrollTests(unittest.TestCase):
+    def test_periodic_ambiguity_is_resolved_by_thumb(self):
+        from module.meowfficer.scan_utils import resolve_scroll
+        # 画面比对只看出 24px（同名猫成排），滚动条说大约 165px -> 24 + 146
+        self.assertEqual(resolve_scroll(24, 165), 170)
+        # 内容不重复时两者一致
+        self.assertEqual(resolve_scroll(171, 160), 171)
+        # 到底不动
+        self.assertEqual(resolve_scroll(0, 3), 0)
