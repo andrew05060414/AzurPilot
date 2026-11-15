@@ -13,7 +13,11 @@ from PIL import Image
 
 REGEX_NODE = re.compile(r'(-?[A-Za-z]+)(-?\d+)')
 TEMPLATE_MATCH_NON_NATIVE_720P = False
-TEMPLATE_MATCH_NON_NATIVE_720P_THRESHOLD = 0.75
+# 1080p 等缩放到 720p 后，同一素材的相似度中位数只掉约 0.005（小图标最多约 0.10），
+# 所以只在原阈值上让出 TEMPLATE_MATCH_NON_NATIVE_720P_MARGIN，且不低于 FLOOR；
+# 低于 FLOOR 的阈值保持不变。FLOOR 以下是「长得像的兄弟素材」的灰区（0.75~0.80 约占误收的八成）。
+TEMPLATE_MATCH_NON_NATIVE_720P_MARGIN = 0.05
+TEMPLATE_MATCH_NON_NATIVE_720P_FLOOR = 0.80
 TEMPLATE_MATCH_NON_NATIVE_720P_RESOLUTION = (1280, 720)
 # 多尺度补救：同一页面存在“模拟器原生 720p”与“1080p 缩放到 720p”两种渲染，
 # 文字整体相差约 1%~3% 缩放。常规匹配“接近失败”（最高相似度 ≥ 下限）时，才按下列比例缩放模板重试。
@@ -42,7 +46,8 @@ def set_template_match_non_native_720p(enabled, resolution=(1280, 720)):
 def lower_template_match_similarity(similarity):
     """对非原生 720p 截图放宽模板匹配阈值。
 
-    当截图不是以 1280x720 原始分辨率捕获时，将严格阈值限制在 0.75。
+    当截图不是以 1280x720 原始分辨率捕获时，将阈值在原值上降低 MARGIN（0.05），但不低于 FLOOR（0.80）；
+    原阈值本身不高于 FLOOR 时保持不变。
 
     Args:
         similarity (float): 0~1 范围的 cv2.TM_CCOEFF_NORMED 阈值。
@@ -52,7 +57,8 @@ def lower_template_match_similarity(similarity):
     """
     similarity = float(similarity)
     if TEMPLATE_MATCH_NON_NATIVE_720P:
-        return min(similarity, TEMPLATE_MATCH_NON_NATIVE_720P_THRESHOLD)
+        return min(similarity, max(similarity - TEMPLATE_MATCH_NON_NATIVE_720P_MARGIN,
+                                   TEMPLATE_MATCH_NON_NATIVE_720P_FLOOR))
     return similarity
 
 
