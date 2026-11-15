@@ -37,7 +37,7 @@ import { recordDevLogoClick } from './devMode'
 import { useDevOverride } from './devOverride'
 import { useSystemNotifications } from './systemNotifications'
 import { usesLegacyLayout, usesLegacyShell, showsRightRail } from './theme'
-import { readLastPath, readTabSize, subscribeTabSize, writeLastPath } from './topbarPrefs'
+import { readLastPath, writeLastPath } from './topbarPrefs'
 import { INSTANCE_NAME_PATTERN } from './instanceName'
 
 /* 旧版外壳下也要显示居中页名的顶层路由。 */
@@ -137,7 +137,6 @@ export function App() {
   const [creating, setCreating] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [railOpen, setRailOpen] = useState(false)
-  const tabSize = useSyncExternalStore(subscribeTabSize, readTabSize, readTabSize)
   /* 只区分「全新打开」与「刷新 / 后退前进」：前者才回上次选中的实例。
      刷新时地址栏已经是用户要停留的页面，写进去就不再改。 */
   const freshOpen = useRef((performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type === 'navigate')
