@@ -1,7 +1,7 @@
 """作战委托模块。
 
-在主线关卡页启动「作战委托」：消耗石油与作战全权委托书，让舰队离线自动
-执行指定主线关卡若干次，委托结束后再领取掉落。委托期间出击类任务（主线、
+在主线或活动关卡页启动「作战委托」：消耗石油与作战全权委托书，让舰队离线自动
+执行指定关卡若干次，委托结束后再领取掉落。委托期间出击类任务（主线、
 活动）都会失败，只有大世界照常可用，因此本任务排在调度优先级的末尾。
 
 流程：
@@ -13,7 +13,7 @@
 2. 委托次数为 0 时这个任务只在有必要时才进游戏：上一次开的委托还在做就等它结束，
    做完了就进去领奖励；手上没有委托才按定时功能排下一次运行（一键消耗的触发
    时刻、维护检查）；两个功能都没开就直接关掉本任务
-3. 进入主线关卡页
+3. 按关卡名称进入主线或所选活动关卡页，活动图先确认普通 / 困难模式
 4. 上一次的委托没结束时，目标关卡进关卡页直接弹出「作战委托 INFORM」弹窗，
    其他关卡先弹阻止页，点它的「查看委托」进同一个弹窗
 5. 弹窗里委托仍在进行（HANDOVER_STOP_CHECK）则关掉弹窗，按剩余时间推迟
@@ -33,7 +33,7 @@
     这类当天等不来的原因直接放弃本周（记下记录，按定时功能排下一次运行，见
     handover_consume_all_book_give_up）；界面操作失败才隔一段时间重试
 
-配置路径: Campaign.Name, OperationHandover.Count,
+配置路径: Campaign.Name, Campaign.Event, OperationHandover.Count,
          OperationHandover.AutoSupplementTime, OperationHandover.UseHandoverBook,
          OperationHandover.OilLimit, OperationHandover.ConsumeAllBook,
          OperationHandover.ConsumeAllBookWeekday, OperationHandover.ConsumeAllBookTime,
@@ -44,8 +44,10 @@ import math
 import re
 from datetime import datetime, timedelta, timezone
 
-import requests
+from module.base import http
 
+from deploy.api_endpoints import MAINTENANCE_API_URL
+from module.base.device_id import get_device_id
 from module.base.runtime_params import (
     HANDOVER_CONSUME_RETRY_MINUTES,
     HANDOVER_MAINTAIN_CHECK_MINUTES,
@@ -55,6 +57,7 @@ from module.base.timer import Timer
 from module.config.utils import read_run_param
 from module.base.utils import crop
 from module.campaign.run import CampaignRun
+from module.campaign.stage_name import normalize_event_stage, normalize_post_loop_stage
 from module.config.time_source import now as current_time
 from module.config.utils import SERVER_TO_TIMEZONE
 from module.handler.assets import NEW_SHIP_SKIP, POPUP_CONFIRM
@@ -100,7 +103,7 @@ HANDOVER_WEEKDAY_NAMES = ['周一', '周二', '周三', '周四', '周五', '周
 
 # 停服维护时间接口，顶层是国服公告的聚合结果，servers 里按 cn/jp/en/tw 分别给出
 # maintenance_date(YYYY-MM-DD) 与 start_time(HH:MM)
-HANDOVER_MAINTAIN_API = 'https://api-blhx-maintain.nanoda.work/api/maintenance'
+HANDOVER_MAINTAIN_API = MAINTENANCE_API_URL
 # 接口里服务器时区的形状，如 `UTC+8`、`UTC-7`、`UTC+08:00`
 HANDOVER_MAINTAIN_TIMEZONE = re.compile(r'^UTC([+-])(\d{1,2})(?::?(\d{2}))?$')
 # 委托结束时间的初始值，表示脚本手上没有开过委托
@@ -187,7 +190,7 @@ class OperationHandover(CampaignRun):
                     return
                 logger.info('[作战委托] 委托次数为 0，上一次委托做完了，进去领取奖励')
 
-        # 进入主线关卡页，并按 Fleet 组准备编队
+        # 进入目标关卡页，并按 Fleet 组准备编队
         self.handover_enter()
 
         # 上一次的委托仍在进行，不打断它，关掉弹窗等它做完再回来领取
@@ -296,7 +299,7 @@ class OperationHandover(CampaignRun):
         self.config.task_delay(minute=needed.total_seconds() / 60)
 
     def handover_enter(self):
-        """进入主线关卡页，并按 Fleet 组准备编队。
+        """进入主线或活动关卡页，并按 Fleet 组准备编队。
 
         进入方式与地图模块 MapOperation.enter_map() 一致：ensure_campaign_ui()
         只切换章节，不会点开关卡节点，必须再点击一次 ENTRANCE 才进得了关卡页。
@@ -314,7 +317,9 @@ class OperationHandover(CampaignRun):
             out: 关卡页 / 作战委托弹窗
         """
         name = to_map_file_name(self.config.Campaign_Name)
-        self.load_campaign(name, folder='campaign_main')
+        folder = 'campaign_main' if self.stage_is_main(name) else self.config.Campaign_Event
+        name = normalize_post_loop_stage(normalize_event_stage(name, folder), folder)
+        self.load_campaign(name, folder=folder)
 
         self.device.screenshot()
         self.campaign.ensure_campaign_ui(name=self.stage, mode='normal', skip_first_screenshot=True)
@@ -329,9 +334,24 @@ class OperationHandover(CampaignRun):
             if self.handover_handle_popup():
                 continue
 
+            # 进行中或已完成的委托会挡住难度开关，先交给 run() 处理。
+            if self.handover_dialog_appear():
+                break
+            if self.appear_then_click(HANDOVER_CHECK, offset=(20, 20), interval=3):
+                continue
+
+            # 新活动的 A/C、B/D 共用关卡入口。先在准备页确认实际难度，
+            # 切换后的新截图才可用于检查委托入口和配置舰队。
+            stage_ready = self.appear(HANDOVER_TAB) or self.appear(HANDOVER_TAB_UNSUPPORTED)
+            fleet_ready = self.campaign.appear(FLEET_PREPARATION, offset=(20, 50))
+            if (stage_ready or fleet_ready) and not self.campaign.handle_map_mode_switch(
+                    self.campaign.config.Campaign_Mode):
+                self.campaign.map_fleet_checked = False
+                continue
+
             # 舰队准备。与 enter_map() 相同，只有编队准备界面出现时才调用
             # fleet_preparation()，在章节选择页上调用会卡死在 FleetOperator.clear()。
-            if fleet_timer.reached() and self.campaign.appear(FLEET_PREPARATION, offset=(20, 50)):
+            if fleet_timer.reached() and fleet_ready:
                 if not self.campaign.map_fleet_checked:
                     self.campaign.fleet_preparation()
                     self.campaign.map_fleet_checked = True
@@ -340,16 +360,8 @@ class OperationHandover(CampaignRun):
                 continue
 
             # 已到关卡页
-            if self.appear(HANDOVER_TAB) or self.appear(HANDOVER_TAB_UNSUPPORTED):
+            if stage_ready:
                 break
-
-            # 上一次的委托还在，弹出了作战委托弹窗
-            if self.handover_dialog_appear():
-                break
-
-            # 委托进行中的阻止页，点「查看委托」进弹窗
-            if self.appear_then_click(HANDOVER_CHECK, offset=(20, 20), interval=3):
-                continue
 
             # 进入关卡
             if campaign_timer.reached() and self.campaign.appear_then_click(self.campaign.ENTRANCE):
@@ -747,8 +759,8 @@ class OperationHandover(CampaignRun):
     def handover_maintain_query(self):
         """查询停服维护接口，取出当前游戏服务器的那一份公告。
 
-        接口顶层是国服新闻聚合出来的结果，各服务器自己的公告在 `servers` 里，
-        并且带各自的时区。只有拿不到 `servers`（旧版接口）时才退回顶层数据。
+        使用 v2 按当前区服查询，RFC 3339 时间转换为当前区服时区。
+        其他区服没有计划时返回空结果，不退回国服公告。
 
         Returns:
             tuple[dict | None, datetime.timedelta, str]:
@@ -756,30 +768,29 @@ class OperationHandover(CampaignRun):
         """
         server = self.config.SERVER
         try:
-            response = requests.get(HANDOVER_MAINTAIN_API, timeout=10).json()
+            result = http.get(HANDOVER_MAINTAIN_API, params={'server': server},
+                                  headers={'X-AzurPilot-ID': get_device_id()}, timeout=10)
+            result.raise_for_status()
+            response = result.json()
+            if response.get('schema_version') != 2 or response.get('server') != server or 'maintenance' not in response:
+                raise ValueError('维护接口返回了无效或其他区服的数据')
+            plan = response['maintenance']
+            default = SERVER_TO_TIMEZONE.get(server, SERVER_TO_TIMEZONE['cn'])
+            if plan is None:
+                return {}, default, ''
+            at = datetime.fromisoformat(plan['starts_at'].replace('Z', '+00:00'))
+            if at.tzinfo is None:
+                raise ValueError('维护时间缺少时区')
+            at = at.astimezone(timezone(default))
+            minutes = int(default.total_seconds() / 60)
+            sign = '+' if minutes >= 0 else '-'
+            absolute = abs(minutes)
+            tz = f'UTC{sign}{absolute // 60}' + (f':{absolute % 60:02d}' if absolute % 60 else '')
+            return {'maintenance_date': at.strftime('%Y-%m-%d'), 'start_time': at.strftime('%H:%M'),
+                    'timezone': tz, 'name': plan.get('name', server)}, default, ''
         except Exception as e:
             logger.warning(f'[作战委托] 查询维护时间失败，按不维护处理: {e}')
             return None, timedelta(), '查询维护时间失败'
-
-        data = response.get('data') or {}
-        if not data:
-            detail = response.get('message') or response.get('status')
-            logger.warning(f'[作战委托] 维护接口没有返回数据，按不维护处理: {detail}')
-            return None, timedelta(), '维护接口没有返回数据'
-
-        servers = data.get('servers')
-        if not isinstance(servers, dict) or not servers:
-            # 顶层公告来自国服新闻，退回它时只能按国服时区解释
-            logger.warning('[作战委托] 维护接口没有按服务器返回数据，退回顶层公告（国服）')
-            return data, SERVER_TO_TIMEZONE['cn'], ''
-
-        payload = servers.get(server)
-        if not payload:
-            reason = (data.get('server_errors') or {}).get(server) or '接口未返回该服务器'
-            logger.warning(f'[作战委托] {server} 的维护公告查询失败，按不维护处理: {reason}')
-            return None, timedelta(), f'{server} 维护公告查询失败'
-
-        return payload, SERVER_TO_TIMEZONE.get(server, SERVER_TO_TIMEZONE['cn']), ''
 
     def handover_maintain_timezone(self, payload, default):
         """解析维护公告所用的服务器时区。
@@ -806,7 +817,7 @@ class OperationHandover(CampaignRun):
     def handover_maintain_state(self):
         """今天有没有停服维护，有的话返回维护开始时间（可能已经开始）。
 
-        数据来自 api-blhx-maintain，按当前游戏服务器取对应公告，公告里的服务器本地
+        数据来自统一云 API，按当前游戏服务器取对应公告，公告里的服务器本地
         时间先换算成本机时间。不是今天的维护一律返回 None；今天已经开始的维护仍然
         返回时间，好让调用方区分「今天没事了」和「等维护」。
 
@@ -822,6 +833,8 @@ class OperationHandover(CampaignRun):
         payload, default, error = self.handover_maintain_query()
         if payload is None:
             return None, error, False
+        if not payload:
+            return None, '未发布维护安排', True
 
         try:
             start = datetime.strptime(

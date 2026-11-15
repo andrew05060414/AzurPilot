@@ -99,7 +99,7 @@ def handle_notify(_config: str, **kwargs) -> bool:
             logger.warning("[通知] 未收到推送服务器的响应（连接失败或超时）")
             return False
         if isinstance(resp, Response):
-            if resp.status_code != 200:
+            if not 200 <= resp.status_code < 300:
                 logger.warning("推送通知失败!")
                 logger.warning(f"[通知] HTTP状态码:{resp.status_code}")
                 return False
@@ -145,12 +145,12 @@ def notify_webui(instance: str, title: str, content: str, **kwargs) -> bool:
         port = 25548
     try:
         payload = {"instance": instance, "title": title, "content": content}
-        payload.update(kwargs)
-        requests.post(
-            f"http://127.0.0.1:{port}/api/notify",
+        # IPC 的通知协议只接收这三个字段；第三方推送参数不进入本机通道。
+        response = requests.post(
+            f"http://127.0.0.1:{port}/api/v2/internal/notifications",
             json=payload,
             timeout=2,
         )
-        return True
+        return response.ok
     except Exception:
         return False

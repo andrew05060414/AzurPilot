@@ -161,6 +161,9 @@ Input(Uiautomator2)
 | `Hermit` | HTTP 注入，仅 VMOS（无 u2/minitouch 的环境） |
 | `scrcpy` | scrcpy 控制通道（代码保留，配置选项未暴露） |
 
+`control_interval()` 仅在当前调用范围内为输入增加随机间隔，默认不启用，正常返回或异常退出均恢复原值。
+智能换船的 `preflight_rotation()` 使用0.1–0.3秒间隔，通过 `Device.handle_control_check()` 覆盖点击、滑动和拖动，保留既有卡死及连点检测；普通任务不增加等待。该节流只控制输入节奏，界面就绪仍由截图状态循环确认。
+
 `PatchedIniter.push_url()` 为 atx-agent 预填 uiautomator2 的原有缓存，再沿用上游解包和 ADB 推送。
 下载时不发送固定的 GitHub `Origin`，避免 `atx.azurpilot.com` 重定向到 CNB 后被拒绝；连接/读取
 超时分别为 5/30 秒，镜像失败时回退到相同版本和架构的 OpenATX 官方 GitHub Release。
@@ -252,7 +255,7 @@ MuMu12 同步 `shutdown_player` 命令的 `None` 表示执行超时，非零返�
 | `module/base` ModuleBase | 业务模块经继承链调用 `device.screenshot()/click()`；每次检测调 `stuck_record_add` |
 | `module/handler` LoginHandler | 登录等待期间用 `stuck_timeout_override` 放宽卡死阈值 |
 | `module/runtime/scheduler_stop.py` | WebUI 停止收尾用 `Device.for_existing_device` 执行关游戏/回主页/关模拟器 |
-| `module/mcp/device_worker.py` | MCP 的 `get_screenshot`/`restart_emulator`/`restart_adb` 工具在独立 spawn 进程中构造 `Device` 执行 |
+| `module/mcp/device_worker.py` | MCP 的 `azurpilot_observe_device` / `azurpilot_click` / `azurpilot_swipe` / `azurpilot_long_press` / `azurpilot_input_text` / `azurpilot_press_key` / `azurpilot_adb_shell` / `azurpilot_restart_emulator` / `azurpilot_restart_adb` 在独立 spawn 进程中构造 `Device` 执行 |
 | `module/daemon/benchmark.py` | 消费 Device 的各后端方法跑基准（截图方式 auto 的实现者） |
 
 ### 下游
@@ -291,12 +294,12 @@ MuMu12 同步 `shutdown_player` 命令的 `None` 表示执行超时，非零返�
 
 `PlatformWindows.execute(wait=False)` 用短命的 `cmd /c start` 断开模拟器与 ALAS 的进程树关系；
 这不会解除 Windows Job 归属。启动器需为后端 Job 设置 `JOB_OBJECT_LIMIT_BREAKAWAY_OK`，
-并向 Python 注入 `ALAS_LAUNCHER_JOB_BREAKAWAY=1`；ALAS 仅在此能力存在时以
+并向 Python 注入 `AP_LAUNCHER_JOB_BREAKAWAY=1`；ALAS 仅在此能力存在时以
 `CREATE_BREAKAWAY_FROM_JOB` 启动 cmd，使模拟器及其后代独立于后端 Job。
 普通 Python worker 仍继承 Job，退出或关闭 Job 句柄时照常回收。
 
-异步模拟器启动还会从复制的环境中移除 `ALAS_LAUNCHER_PID`、`ALAS_LAUNCHER_JOB_BREAKAWAY`
-和 `ALAS_WEBUI_TRUST_SECRET`，避免模拟器被启动器的残留进程扫描误杀或继承 WebUI 信任密钥。
+异步模拟器启动还会从复制的环境中移除 `AP_LAUNCHER_PID`、`AP_LAUNCHER_JOB_BREAKAWAY`
+和 `AP_WEBUI_TRUST_SECRET`，避免模拟器被启动器的残留进程扫描误杀或继承 WebUI 信任密钥。
 父进程环境及同步管理命令保持原有行为。直接运行 Python 不请求 breakaway；旧启动器未提供能力时
 保留原有启动方式，因此要彻底解决 Job 连带关闭问题，需同时更新启动器和 ALAS。
 显式配置的停止后关闭模拟器、模拟器故障恢复和看门狗仍按各自规则执行。
@@ -362,6 +365,7 @@ Device 构造也有自己的小型阶梯：`super().__init__` 抛 `EmulatorNotRu
 
 - 几乎所有连接资源都是 `cached_property`：`adb_binary`、`adb_client`、`adb`、`u2`、`reverse_server`、`droidcast_session`、`_minitouch_builder`、`nemu_ipc` 等。失效方式统一是 `del_cached_property` + 下次访问惰性重建；`release_resource()` 集中清理会话类资源。
 - `method/utils.py` 模块级 monkey patch：去掉 u2 的 minicap 安装、重定向 u2 日志到项目 logger、修补 adbutils 1.0 缺失的 `check_okay()`——import 即生效，不可重复触发。
+- ATX Agent 安装优先使用 `https://atx.azurpilot.com/`；镜像请求失败或下载长度校验失败时，直接回退 `https://github.com/openatx/atx-agent/releases/download/<版本>/<文件名>`，保留版本与 ABI 选择。两处下载共用镜像 URL 对应的缓存路径，GitHub 下载成功后可直接复用；两处均失败时继续抛出异常，由原有安装重试机制处理。运行时补丁与 `deploy/patch.py`、`deploy/Windows/patch.py` 的安装补丁保持一致，已有仅改写镜像地址的环境也会补齐回退行为。
 - 截图去抖动启用时（`Emulator_ScreenshotDedithering`）每张图多花 40–60ms；错误截图环形队列 `screenshot_deque`（长度由 `Error.ScreenshotLength` 控制，1–400）供错误现场保存。
 - 写回配置的自动检测结果：serial 修正、包名、`EmulatorInfo_*` 三元组、基准测试选出的 `Emulator_ScreenshotMethod` / `Optimization_OcrDevice`。雷电的 `127.0.0.1:5555+X ↔ emulator-5554+X` 配对与 MuMu12 的端口漂移是**动态修正，不写配置**。
 
@@ -426,6 +430,8 @@ device.emulator_start()   # 深度重启等参数同样委托 platform
 image = device.screenshot()
 ```
 
+MCP 坐标与输入类工具（`azurpilot_click` / `azurpilot_swipe` / `azurpilot_long_press` / `azurpilot_input_text` / `azurpilot_press_key`）在同一个 worker 内调用 `Device` 的对应方法，用操作前后的帧指纹差异回报「画面是否变化」；设备租约只存在于 MCP 服务进程，设备层不感知接管状态。
+
 ## 19. 调试方法
 
 - 画面采集工具 [dev_tools/uiautomator2_screenshot.py](../../dev_tools/uiautomator2_screenshot.py) 使用实例配置中的截图后端，将首帧和变化帧保存为无损 WebP。默认相似度阈值为 0.98；调用 `watch(similarity=1)` 可跳过相似度计算，保存每轮的新截图，首帧只保存一次。
@@ -441,5 +447,5 @@ image = device.screenshot()
 - [基础层 module/base](base/index.md)——消费 `Device.screenshot()/click()` 的上层原语；`appear()` 每次检测都会登记卡死记录。
 - [OCR 系统](ocr.md)——`Optimization_OcrDevice` 基准决定 OCR 跑在 GPU 还是 CPU。
 - [WebUI 总览](webui/index.md)——手动停止后的 `close_game`/`close_emulator` 收尾与实时截图预览都走设备层。
-- [MCP SSE 服务器](entry/mcp-server.md)——`get_screenshot`/`restart_emulator`/`restart_adb` 工具的底层实现（`module/mcp/device_worker.py`）。
+- [MCP SSE 服务器](entry/mcp-server.md)——`azurpilot_observe_device`、坐标/文本输入类工具与 `azurpilot_restart_emulator` / `azurpilot_restart_adb` 的底层实现（`module/mcp/device_worker.py`）。
 - [配置系统](config.md)——`Emulator.*`、`EmulatorInfo.*`、`Optimization.*` 的定义与写回。

@@ -98,17 +98,18 @@ class IslandMineForest(Island,LoginHandler):
         return post_info.get('state') == 'idle'
 
     # ==================== 仓库检测（OCR 文字识别物品，再用 Digit 读数量） ====================
-    # 所有可识别物品的中文名映射（矿山 + 林场）
-    # OCR 可能识别不完全，每个物品提供多个可能的名称
+    # 所有可识别物品的名称映射（矿山 + 林场）
+    # OCR 可能识别不完全，每个物品提供多个可能的名称；
+    # 国际服仓库显示英文名，且识别区域较窄，木材名称只取首个单词
     ITEM_CN_NAMES = {
-        'Copper': ['铜矿'],
-        'Aluminium': ['铝矿'],
-        'Iron': ['铁矿'],
-        'Sulphur': ['硫磺', '硫矿'],
-        'Silver': ['银矿'],
-        'Practical': ['实用之木', '实用之本'],
-        'Selected': ['精选之木', '精选之本'],
-        'Elegant': ['典雅之木', '典雅之本'],
+        'Copper': ['铜矿', 'Copper'],
+        'Aluminium': ['铝矿', 'Bauxite'],
+        'Iron': ['铁矿', 'Iron'],
+        'Sulphur': ['硫磺', '硫矿', 'Sulfur'],
+        'Silver': ['银矿', 'Silver'],
+        'Practical': ['实用之木', '实用之本', 'Workable'],
+        'Selected': ['精选之木', '精选之本', 'Premium'],
+        'Elegant': ['典雅之木', '典雅之本', 'Elegant'],
     }
 
     def warehouse_inventory(self, category):
@@ -570,16 +571,20 @@ class IslandMineForest(Island,LoginHandler):
 
             # 所有缺口产物岗位需求满足后，剩余空闲 → 按配置分配默认产物
             remaining = idle_count - len(all_to_plant[category])
+            # MineSilver / CutElegant（配置名沿用）：几个空闲岗位生产默认产物，其余空着。
+            # 默认产物由 DefaultOre / DefaultWood 选择，未知值退回银矿 / 典雅之木
             if category == 'mine':
-                # MineSilver: 几个空闲岗位产银矿，其余空着
-                silver_count = min(self.config.IslandMine_MineSilver, remaining)
-                for _ in range(silver_count):
-                    all_to_plant['mine'].append(('Silver', None))
+                default_count = min(self.config.IslandMine_MineSilver, remaining)
+                default_product = self.config.IslandMine_DefaultOre
+                if default_product not in ('Copper', 'Aluminium', 'Iron', 'Sulphur', 'Silver'):
+                    default_product = 'Silver'
             else:
-                # CutElegant: 几个空闲岗位产典雅之木，其余空着
-                elegant_count = min(self.config.IslandForest_CutElegant, remaining)
-                for _ in range(elegant_count):
-                    all_to_plant['forest'].append(('Elegant', None))
+                default_count = min(self.config.IslandForest_CutElegant, remaining)
+                default_product = self.config.IslandForest_DefaultWood
+                if default_product not in ('Practical', 'Selected', 'Elegant'):
+                    default_product = 'Elegant'
+            for _ in range(default_count):
+                all_to_plant[category].append((default_product, None))
 
             if all_to_plant[category]:
                 logger.info(

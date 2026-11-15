@@ -556,6 +556,8 @@ class TestResourceCacheInvalidation(unittest.TestCase):
         handler.config = SimpleNamespace(task=SimpleNamespace(command='OpsiHazard1Leveling'))
         handler.device = Mock()
         handler.appear = Mock(return_value=True)
+        # 上游已把迷雾检测从 appear 改为 match_template_color（要真实截图），夹具直接判定命中。
+        handler.match_template_color = Mock(return_value=True)
         handler.ui_ensure = Mock()
         names = ('_ap_snapshot', '_ap_purchase_count', '_yellow_coin_read', '_paired_purple_read')
         for name in names:
@@ -597,10 +599,10 @@ class TestIntervalConfiguration(unittest.TestCase):
         service.__dict__['args'] = json.loads(args_path.read_text(encoding='utf-8'))
         field = service.args['OpsiHazard1Leveling']['OpsiHazard1Leveling']['ActionPointCheckInterval']
         self.assertEqual(field['value'], 0)
-        for value in (0, 1, 60, 99999):
+        for value in (0, 1, 60, 99999, '10'):
             self.assertEqual(service.validate('OpsiHazard1Leveling.OpsiHazard1Leveling.ActionPointCheckInterval', value),
                              ['OpsiHazard1Leveling', 'OpsiHazard1Leveling', 'ActionPointCheckInterval'])
-        for value in (-1, 0.5, True, '10'):
+        for value in (-1, 0.5, True, '10.5'):
             with self.subTest(value=value), self.assertRaises(ApiError):
                 service.validate('OpsiHazard1Leveling.OpsiHazard1Leveling.ActionPointCheckInterval', value)
 
@@ -618,10 +620,26 @@ class TestDeferredResourceHistory(unittest.TestCase):
             recorder.record('Oil', 150, defer_history=True)
         recorder._observe.assert_called_once_with('Oil', 150)
         synchronous.assert_not_called()
-        self.assertEqual(queued.call_args.args, ('isolated', {'Oil': 150, 'Coin': 200}))
+        # 只写本次读到的资源，其余列由数据库最近一行补全，不取配置对象里可能过期的值。
+        self.assertEqual(queued.call_args.args, ('isolated', {'Oil': 150}))
+        self.assertTrue(queued.call_args.kwargs['carry_forward'])
         self.assertIsInstance(queued.call_args.kwargs['observed_at'], datetime)
         config.modified['Dashboard.Oil.Value'] = 999
         self.assertEqual(queued.call_args.args[1]['Oil'], 150)
+
+    def test_stale_config_copy_does_not_leak_into_snapshot(self):
+        """战役配置副本里的旧石油、旧物资不能随活动 PT 一起写进快照。"""
+        config = SimpleNamespace(config_name='isolated', modified={}, data={
+            'Dashboard': {'Oil': {'Value': 6732, 'Record': None}, 'Coin': {'Value': 5045, 'Limit': 0, 'Record': None},
+                          'Pt': {'Value': 300, 'Record': None}},
+        })
+        recorder = LogRes(config)
+        recorder.__dict__['groups'] = {'Oil': {}, 'Coin': {}, 'Pt': {}}
+        recorder.__dict__['_observe'] = Mock()
+        with patch('module.statistics.resource_stats.record_resource_snapshot') as synchronous:
+            recorder.Pt = 4720
+            recorder.record('Coin', {'Limit': 105000})
+        synchronous.assert_called_once_with('isolated', {'Pt': 4720}, carry_forward=True)
 
     def test_legacy_history_remains_synchronous(self):
         config = SimpleNamespace(config_name='isolated', modified={}, data={

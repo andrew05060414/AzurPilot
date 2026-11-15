@@ -22,8 +22,26 @@ def choose_fallback_repository() -> str:
 GITHUB_REPOSITORY = 'https://github.com/wess09/AzurPilot'
 
 
+class ErrorCodes:
+    """部署错误码：同时作为进程退出码返回，启动器按码分类展示。
+
+    码段与 gui.py 的 EXIT_*（70-76）互不重叠；新增码值必须同步
+    启动器（alas-launcher）的错误码映射表。
+    """
+
+    EXEC_UNKNOWN = 1
+    COMMAND_FAILED = 10      # execute() 通用命令执行失败
+    GIT_FETCH_FAILED = 11    # git fetch 主源与全部镜像重试穷尽
+    GIT_MERGE_FAILED = 12    # git pull/merge 合并失败
+    DEPS_SYNC_FAILED = 13    # 依赖同步（uv sync / pip）失败
+
+
 class ExecutionError(Exception):
-    pass
+    """部署流程执行失败；code 取 ErrorCodes，供上游结构化识别。"""
+
+    def __init__(self, code: int = ErrorCodes.EXEC_UNKNOWN, message: str = ''):
+        super().__init__(message or f'deploy failed with error code {code}')
+        self.code = code
 
 
 class ConfigModel:
@@ -108,6 +126,10 @@ class DeployConfig(DeployConfigTransaction, ConfigModel):
         self.config = {}
         self.config_template = {}
         self._github_location_checked = False
+        # 地区查询可能等待网络；预读仅用于查询，事务内仍重新读取最新配置。
+        values = {**poor_yaml_read(self.template_file), **poor_yaml_read(self.file)}
+        self._github_country_code = (get_country_code()
+                                     if values.get('Repository') == GITHUB_REPOSITORY else None)
         self.read()
 
         self.show_config()
@@ -173,7 +195,7 @@ class DeployConfig(DeployConfigTransaction, ConfigModel):
             return
 
         self._github_location_checked = True
-        country_code = get_country_code()
+        country_code = self._github_country_code
         if country_code == 'cn':
             logger.info('检测到中国大陆网络，切换至国内 Git 更新源')
             object.__setattr__(self, 'Repository', GIT_OVER_CDN_REPOSITORY)
@@ -192,8 +214,12 @@ class DeployConfig(DeployConfigTransaction, ConfigModel):
         Returns:
             str: 绝对文件路径。
         """
+        path = self.config[key]
+        # 启动器可写入带双引号的 YAML 路径，引号不是文件名的一部分。
+        if len(path) >= 2 and path[0] == path[-1] == '"':
+            path = path[1:-1]
         return (
-            os.path.abspath(os.path.join(self.root_filepath, self.config[key]))
+            os.path.abspath(os.path.join(self.root_filepath, path))
             .replace(r"\\", "/")
             .replace("\\", "/")
             .replace('"', '"')
@@ -228,7 +254,9 @@ class DeployConfig(DeployConfigTransaction, ConfigModel):
         if not output:
             command = command + ' >nul 2>nul'
         logger.info(command)
-        error_code = os.system(command)
+        # Windows cmd /c 会剥掉首尾引号；额外包一层，保留程序路径和参数的引号。
+        shell_command = f'"{command}"' if os.name == 'nt' and command.startswith('"') else command
+        error_code = os.system(shell_command)
         if error_code:
             if allow_failure:
                 logger.info(f"[ allowed failure ], error_code: {error_code}")
@@ -236,7 +264,10 @@ class DeployConfig(DeployConfigTransaction, ConfigModel):
             else:
                 logger.info(f"[ failure ], error_code: {error_code}")
                 self.show_error(command)
-                raise ExecutionError
+                raise ExecutionError(
+                    ErrorCodes.COMMAND_FAILED,
+                    f'Command failed (exit {error_code}): {command}',
+                )
         else:
             logger.info(f"[ success ]")
             return True

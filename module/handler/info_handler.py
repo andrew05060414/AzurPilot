@@ -30,7 +30,8 @@ from module.logger import logger
 from module.ocr.ocr import Ocr
 from module.os_handler.assets import CLICK_SAFE_AREA as OS_CLICK_SAFE_AREA, OS_GAME_TIPS
 from module.ui.assets import BACK_ARROW
-from module.ui_white.assets import POPUP_CANCEL_WHITE, POPUP_CONFIRM_WHITE, POPUP_SINGLE_WHITE
+from module.ui_white.assets import (POPUP_CANCEL_WHITE, POPUP_CONFIRM_WHITE, POPUP_CONFIRM_WHITE_BOLD,
+                                    POPUP_SINGLE_WHITE)
 
 
 # 双按钮弹窗的正文区域（标题栏以下、按钮以上）
@@ -199,6 +200,13 @@ class InfoHandler(ModuleBase):
             self.device.click(POPUP_CONFIRM_WHITE)
             POPUP_CONFIRM_WHITE.name = POPUP_CONFIRM_WHITE.name[:-len(name) - 1]
             return True
+        # 国际服新版白色弹窗的「Confirm」为粗体（如邮件「No mail found meeting these conditions.」），
+        # 旧的细体模板认不出；其他服的同名图沿用原确认图
+        if self.appear(POPUP_CONFIRM_WHITE_BOLD, offset=offset, interval=interval):
+            POPUP_CONFIRM_WHITE_BOLD.name = POPUP_CONFIRM_WHITE_BOLD.name + '_' + name
+            self.device.click(POPUP_CONFIRM_WHITE_BOLD)
+            POPUP_CONFIRM_WHITE_BOLD.name = POPUP_CONFIRM_WHITE_BOLD.name[:-len(name) - 1]
+            return True
         return False
 
     def handle_popup_cancel(self, name='', offset=None, interval=2):
@@ -266,7 +274,7 @@ class InfoHandler(ModuleBase):
         """清除常用弹窗按钮的点击冷却间隔。"""
         self.interval_clear([
             POPUP_CANCEL, POPUP_CONFIRM,
-            POPUP_CANCEL_WHITE, POPUP_CONFIRM_WHITE,
+            POPUP_CANCEL_WHITE, POPUP_CONFIRM_WHITE, POPUP_CONFIRM_WHITE_BOLD,
         ])
 
     _hot_fix_check_wait = Timer(6)
@@ -342,6 +350,25 @@ class InfoHandler(ModuleBase):
         if self.handle_use_data_key():
             return True
 
+        # 仅普通主线/活动换船入口安装此策略；其他任务保留原红脸处理。
+        if (getattr(self.emotion, 'selected_only', False) is True
+                and self.appear(POPUP_CANCEL, offset=self._popup_offset)
+                and self.appear(POPUP_CONFIRM, offset=self._popup_offset)):
+            if self.emotion.rotation_popup_allowed():
+                result = self.handle_popup_confirm('IGNORE_LOW_EMOTION')
+                if result:
+                    self.interval_reset(AUTO_SEARCH_MAP_OPTION_OFF)
+                return result
+            if self.handle_popup_cancel('IGNORE_LOW_EMOTION'):
+                logger.warning('[心情-换船] 培养心情未知或不足，退出后重新检查')
+                try:
+                    self._emotion_emergency_exit()
+                except CampaignEnd:
+                    pass
+                self.emotion.delay_rotation_popup(max(1, getattr(self, '_map_battle', 1)))
+                raise ScriptEnd('[心情-换船] 红脸弹窗取消，重新检查培养舰位心情')
+            return False
+
         if not self.is_low_emotion_popup():
             return False
 
@@ -350,7 +377,7 @@ class InfoHandler(ModuleBase):
         if self.emotion.is_calculate and not self.emotion.is_ignore:
             if self.handle_popup_cancel('IGNORE_LOW_EMOTION'):
                 logger.warning('[心情-保底] 计算模式下出现红脸弹窗，'
-                               '可能是ALAS计算错误或用户手动操作')
+                               '可能是AzurPilot计算错误或用户手动操作')
                 logger.hr('心情异常保底')
                 # 退出关卡（弹窗已取消，阻止战斗）
                 # 捕获 withdraw() 抛出的 CampaignEnd，确保后续心情清零和延时被执行
@@ -799,7 +826,7 @@ class InfoHandler(ModuleBase):
             )
 
             if not siren_research_enabled:
-                logger.info('[Handler] [Story] 塞壬研究装置未启用，选择离开')
+                logger.info('[Handler] [Story] 塞壬信息收集装置未启用，选择离开')
                 self.siren_device_mode = None
                 return options[-1]
 

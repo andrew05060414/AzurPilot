@@ -2112,12 +2112,19 @@ class RewardCommission(Dock, UI, InfoHandler):
                     else:
                         self.device.screenshot()
 
+                    if drop and hasattr(drop, 'capture_commission_status'):
+                        drop.capture_commission_status(self.device.image)
+
                     if self.ui_page_appear(page_commission, offset=(20, 20)):
                         break
 
                     for button in [EXP_INFO_S_REWARD, GET_ITEMS_1, GET_ITEMS_2, GET_ITEMS_3]:
                         if self.appear(button, interval=1):
                             self.ensure_no_info_bar(timeout=1)
+
+                            if button in [GET_ITEMS_1, GET_ITEMS_2, GET_ITEMS_3]:
+                                self.device.sleep(0.5)
+                                self.device.screenshot()
 
                             if drop:
                                 drop.add(self.device.image)
@@ -2133,8 +2140,7 @@ class RewardCommission(Dock, UI, InfoHandler):
 
                             REWARD_SAVE_CLICK.name = button.name
                             self.device.click(REWARD_SAVE_CLICK)
-                            if button is EXP_INFO_S_REWARD:
-                                self.device.sleep(0.3)
+                            self.device.sleep(0.3)
                             click_timer.reset()
                             reward = True
                             continue
@@ -2590,7 +2596,7 @@ class RewardCommission(Dock, UI, InfoHandler):
         # 选择 BACK_ARROW，但从该页面无法导航到 page_reward
         self.device.screenshot()
         if self.appear(TACTICAL_CLASS_START, offset=(30, 30)):
-            logger.info('[委托-战术] 检测到战术课堂开始按钮，点击取消退出')
+            logger.info('[委托-战术] 检测到战术学院课程开始按钮，点击取消退出')
             self.device.click(TACTICAL_CLASS_CANCEL)
             self.device.sleep((0.5, 1.0))
         self.ui_ensure(page_reward)

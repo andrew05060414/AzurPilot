@@ -6,13 +6,13 @@ import { Component, lazy, Suspense, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createHashRouter, RouterProvider, Navigate } from 'react-router-dom'
 import { App } from './app/App'
+import { InstanceSetup } from './pages/InstanceSetup'
 import { AppProvider } from './app/context'
 import { ThemeWallpaper } from './components/GlassMaterial'
 import { applyTheme, getThemePreference } from './app/theme'
 import { Overview } from './pages/Overview'
 import { TaskConfig } from './pages/TaskConfig'
 import { Statistics } from './pages/Statistics'
-import { Home } from './pages/Home'
 import { Updater } from './pages/Updater'
 import { Announcement } from './pages/Announcement'
 import { InterfaceSettings } from './pages/InterfaceSettings'
@@ -20,7 +20,7 @@ import { RemoteAccess } from './pages/RemoteAccess'
 import { Settings } from './pages/Settings'
 import { DevControls } from './pages/DevControls'
 import { ConfigManager } from './pages/ConfigManager'
-import {StockExchangeBoundary,StockExchangeFallback} from './stock/OverviewLink'
+import {StockExchangeBoundary,StockExchangeFallback} from './components/StockExchangeBoundary'
 import { translateCurrentUi } from './i18n'
 import { initialPagePath } from './app/topbarPrefs'
 
@@ -39,8 +39,8 @@ class ErrorBoundary extends Component<{children: ReactNode}, {failed: boolean}> 
 }
 const SchedulerProgram = lazy(() => import('./pages/SchedulerProgram').then(module => ({default: module.SchedulerProgram})))
 const StockExchange = lazy(() => import('./pages/StockExchange').then(module => ({default: module.StockExchange})))
-const MindCalculator = lazy(() => import('./pages/MindCalculator').then(module => ({default: module.MindCalculator})))
-const FleetTechnology = lazy(() => import('./pages/FleetTechnology').then(module => ({default: module.FleetTechnology})))
+const FleetAnalysis = lazy(() => import('./pages/FleetAnalysis').then(module => ({default: module.FleetAnalysis})))
+const FleetSwitch = lazy(() => import('./pages/FleetSwitch').then(module => ({default: module.FleetSwitch})))
 
 const initialPath = initialPagePath((performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type, location.hash)
 if (initialPath) {
@@ -49,19 +49,24 @@ if (initialPath) {
   history.replaceState(history.state, '', url)
 }
 const router = createHashRouter([
-  {path: '/', element: <App/>, errorElement: <ErrorPage/>, children: [{index: true, element: <Home/>}, {path: 'announcement', element: <Announcement/>}, {path: 'interface', element: <InterfaceSettings/>}, {path: 'remote', element: <RemoteAccess/>}, {path: 'settings', element: <Settings/>}, {path: 'updater', element: <Updater/>}, {path: 'configs', element: <ConfigManager/>}, {path: 'dev', element: <DevControls/>}]},
+  {path: '/', element: <App/>, errorElement: <ErrorPage/>, children: [{path: 'setup', element: <InstanceSetup/>}, {path: 'announcement', element: <Announcement/>}, {path: 'interface', element: <InterfaceSettings/>}, {path: 'remote', element: <RemoteAccess/>}, {path: 'settings', element: <Settings/>}, {path: 'updater', element: <Updater/>}, {path: 'configs', element: <ConfigManager/>}, {path: 'dev', element: <DevControls/>}]},
   {path: '/i/:instance', element: <App/>, errorElement: <ErrorPage/>, children: [
     {index: true, element: <Navigate to="overview" replace/>},
     {path: 'overview', element: <Overview/>}, {path: 'task/:task', element: <TaskConfig/>},
-    {path: 'mind-calculator', element: <Navigate to="../task/MindCalculator" replace/>},
     {path: 'resources', element: <Navigate to="../statistics?view=management" replace/>},
     {path: 'stock-exchange', element: <StockExchangeBoundary><Suspense fallback={<StockExchangeFallback/>}><StockExchange/></Suspense></StockExchangeBoundary>},
     {path: 'logs', element: <Navigate to="../overview" replace/>}, {path: 'statistics', element: <Statistics/>}, {path: 'scheduler', element: <Navigate to="../task/SchedulerProgram" replace/>}, {path: 'settings', element: <Navigate to="/settings" replace/>},
     {path: 'task/SchedulerProgram', element: <Suspense fallback={<div>{translateCurrentUi('common.loading')}</div>}><SchedulerProgram/></Suspense>},
-    {path: 'task/MindCalculator', element: <Suspense fallback={<div>{translateCurrentUi('common.loading')}</div>}><MindCalculator/></Suspense>},
-    {path: 'task/FleetTechnology', element: <Suspense fallback={<div>{translateCurrentUi('common.loading')}</div>}><FleetTechnology/></Suspense>},
+    {path: 'task/FleetAnalysis', element: <Suspense fallback={<div>{translateCurrentUi('common.loading')}</div>}><FleetAnalysis/></Suspense>},
+    {path: 'task/FleetSwitch', element: <Suspense fallback={<div>{translateCurrentUi('common.loading')}</div>}><FleetSwitch/></Suspense>},
+    {path: 'task/FleetInfo', element: <Navigate to="../FleetSwitch?tab=info" relative="path" replace/>},
+    {path: 'task/FleetRotation', element: <Navigate to="../FleetSwitch?tab=rotation" relative="path" replace/>},
+    {path: 'task/FleetTraining', element: <Navigate to="../FleetSwitch?tab=training" relative="path" replace/>},
+    {path: 'task/FleetLevelTraining', element: <Navigate to="../FleetSwitch?tab=training" relative="path" replace/>},
+    {path: 'task/FleetAffinityTraining', element: <Navigate to="../FleetSwitch?tab=training" relative="path" replace/>},
+    {path: 'task/FleetEquipment', element: <Navigate to="../FleetSwitch?tab=equipment" relative="path" replace/>},
   ]},
-  {path: '*', element: <Navigate to="/" replace/>},
+  {path: '*', element: <Navigate to="/configs" replace/>},
 ])
 // 先读取偏好并加载当前主题，再挂载页面，避免简约首屏短暂请求壁纸或玻璃库。
 void applyTheme(getThemePreference()).then(() => {
