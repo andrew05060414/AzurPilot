@@ -894,8 +894,7 @@
   margin: 14px 0;
   padding: 12px 16px;
   border-radius: 8px;
-  background: var(--surface-muted);
-  border-left: 4px solid var(--border);
+  border: 1px solid transparent;
 }
 .markdown-view .md-alert-header {
   display: flex;
@@ -916,39 +915,60 @@
   line-height: 1.6;
 }
 .markdown-view .md-alert-note {
-  border-left-color: #3b82f6;
+  background: color-mix(in srgb, #3b82f6 10%, var(--surface));
+  border-color: color-mix(in srgb, #3b82f6 22%, transparent);
 }
 .markdown-view .md-alert-note .md-alert-badge {
-  background: #3b82f620;
-  color: #3b82f6;
+  background: color-mix(in srgb, #3b82f6 20%, var(--surface));
+  color: #1d4ed8;
 }
+[data-theme='dark'] .markdown-view .md-alert-note .md-alert-badge {
+  color: #60a5fa;
+}
+
 .markdown-view .md-alert-tip {
-  border-left-color: var(--accent, #10b981);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 .markdown-view .md-alert-tip .md-alert-badge {
-  background: var(--accent-soft, #10b98120);
-  color: var(--accent, #10b981);
+  background: color-mix(in srgb, var(--accent) 20%, var(--surface));
+  color: var(--accent);
 }
+
 .markdown-view .md-alert-important {
-  border-left-color: #a855f7;
+  background: color-mix(in srgb, #a855f7 10%, var(--surface));
+  border-color: color-mix(in srgb, #a855f7 22%, transparent);
 }
 .markdown-view .md-alert-important .md-alert-badge {
-  background: #a855f720;
-  color: #a855f7;
+  background: color-mix(in srgb, #a855f7 20%, var(--surface));
+  color: #7e22ce;
 }
+[data-theme='dark'] .markdown-view .md-alert-important .md-alert-badge {
+  color: #c084fc;
+}
+
 .markdown-view .md-alert-warning {
-  border-left-color: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 10%, var(--surface));
+  border-color: color-mix(in srgb, #f59e0b 22%, transparent);
 }
 .markdown-view .md-alert-warning .md-alert-badge {
-  background: #f59e0b20;
-  color: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 20%, var(--surface));
+  color: #b45309;
 }
+[data-theme='dark'] .markdown-view .md-alert-warning .md-alert-badge {
+  color: #fbbf24;
+}
+
 .markdown-view .md-alert-caution {
-  border-left-color: #ef4444;
+  background: color-mix(in srgb, #ef4444 10%, var(--surface));
+  border-color: color-mix(in srgb, #ef4444 22%, transparent);
 }
 .markdown-view .md-alert-caution .md-alert-badge {
-  background: #ef444420;
-  color: #ef4444;
+  background: color-mix(in srgb, #ef4444 20%, var(--surface));
+  color: #b91c1c;
+}
+[data-theme='dark'] .markdown-view .md-alert-caution .md-alert-badge {
+  color: #f87171;
 }
 
 /* HTML 折叠 details/summary */
@@ -1070,6 +1090,8 @@
 .nav-restore {position: fixed; left: 0; top: 50%; transform: translateY(-50%); z-index: 60; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 58px; padding: 0; border: 0; border-radius: 0 11px 11px 0; background: color-mix(in srgb, var(--surface) 86%, transparent); color: var(--theme-muted); cursor: pointer; box-shadow: var(--glass-shadow); transition: color .15s ease, background .15s ease}
 .nav-restore:hover {color: var(--theme-accent); background: var(--surface)}
 .nav-restore:focus-visible {outline: 2px solid var(--theme-focus); outline-offset: 2px}
+/* 看图把手只用于桌面侧栏，窄屏由顶栏按钮打开导航抽屉。 */
+.nav-handle {display: none}
 @media (min-width: 951px) {
   /* 收起/展开为瞬时切换，避免低帧率下宽度动画挤压主内容。
      grid 轨道用 auto，宽度由 .sidebar 自己的 width 承担。 */

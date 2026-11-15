@@ -134,6 +134,7 @@ class ResearchSelector(ResearchUI):
 
         通过逐个进入项目详情页识别项目属性，并按原始顺序重排。
         """
+        self.research_list_archive()
         projects = []
         proj_sorted = []
 
@@ -177,6 +178,15 @@ class ResearchSelector(ResearchUI):
                 break
 
         self.projects = projects
+        self.research_list_archive()
+
+    def research_list_archive(self):
+        """Keep optional local selection screenshots outside the cloud reward stream."""
+        method = self.config.DropRecord_ResearchRecord
+        if method != 'save_and_upload':
+            return
+        with self.stat.new('research_refresh', method=method) as record:
+            record.add(self.device.image)
 
     def research_sort_filter(self, enforce=False):
         """
@@ -209,7 +219,7 @@ class ResearchSelector(ResearchUI):
             string = DICT_FILTER_PRESET[preset]
 
         logger.attr('科研预设', preset)
-        logger.info('[科研-资源] 使用魔方: {} 使用金币: {} 使用部件: {}'.format(
+        logger.info('[科研-资源] 使用魔方: {} 使用物资: {} 使用部件: {}'.format(
             self.config.Research_UseCube,
             self.config.Research_UseCoin,
             self.config.Research_UsePart))

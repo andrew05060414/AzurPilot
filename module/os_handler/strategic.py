@@ -75,7 +75,22 @@ class StrategicSearchHandler(MapEventHandler):
             bool: 配置是否成功，若因未知原因弹窗意外关闭则返回 False。
         """
         logger.info('[大世界-策略] 设置策略搜索选项')
+        is_jp = self.config.SERVER == 'jp'
+        if is_jp:
+            # 日服选项文本换行：先确保区域模式与商人选项在同一个可见范围。
+            STRATEGIC_SEARCH_SCROLL.drag_threshold = 0.01
+            STRATEGIC_SEARCH_SCROLL.set(0.17, main=self, random_range=(-0.01, 0.01), distance_check=False)
+            if not self._strategy_search_scroll_appear():
+                return False
+
         for _ in self.loop():
+            if is_jp:
+                if not self.appear(STRATEGIC_SEARCH_MERCHANT_CHECK, offset=(20, 100)):
+                    continue
+                for button in (STRATEGIC_SEARCH_ZONEMODE_REPEAT, STRATEGIC_SEARCH_ZONEMODE_RANDOM,
+                               STRATEGIC_SEARCH_MERCHANT_STOP, STRATEGIC_SEARCH_MERCHANT_CONTINUE):
+                    button.load_offset(STRATEGIC_SEARCH_MERCHANT_CHECK)
+
             if self._strategy_option_selected(STRATEGIC_SEARCH_ZONEMODE_REPEAT) \
                     and self._strategy_option_selected(STRATEGIC_SEARCH_MERCHANT_STOP):
                 logger.attr('区域模式', '重复')
@@ -132,9 +147,14 @@ class StrategicSearchHandler(MapEventHandler):
     def strategic_search_confirm(self):
         """确认并开始执行策略搜索。"""
         logger.info('[大世界-策略] 策略搜索确认')
+        confirmed = False
         for _ in self.loop():
             if self.appear(STRATEGIC_SEARCH_POPUP_CHECK, offset=(20, 20)) \
                     and self.handle_popup_confirm(offset=(30, 30), name='STRATEGIC_SEARCH'):
+                confirmed = True
+                continue
+            # 计划作战确认后可能继续弹出指挥喵召回等确认框，处理后等待新截图。
+            if confirmed and self.handle_popup_confirm(offset=(30, 30), name='STRATEGIC_SEARCH_MEOWFFICER'):
                 continue
             if self.is_in_map():
                 return True
@@ -168,8 +188,8 @@ class StrategicSearchHandler(MapEventHandler):
                 success = self.strategic_search_set_option()
                 if not success:
                     continue
-            self.strategic_search_confirm()
-            return True
+            if self.strategic_search_confirm():
+                return True
 
         logger.warning('[大世界-策略] 策略搜索启动失败')
         return False

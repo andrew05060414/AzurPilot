@@ -39,6 +39,18 @@ class Params(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True)
 
 
+class LauncherAutostartParams(Params):
+    enabled: StrictBool
+
+
+class LauncherCommandParams(Params):
+    commandId: StrictStr = Field(min_length=1, max_length=100)
+
+
+class LauncherTicketParams(Params):
+    ticket: StrictStr = Field(min_length=1, max_length=128)
+
+
 class RemotePairingParams(Params):
     """服务器生成的配对会话标识。"""
     id: StrictStr = Field(pattern=r'^[a-f0-9]{64}$')
@@ -50,12 +62,12 @@ class RemoteClientParams(Params):
 
 
 class MindShip(Params):
-    """可编辑的舰船字段，核对状态与排除状态独立保存。"""
+    """导入的舰船字段与核对状态。"""
     name: StrictStr = Field(min_length=1, max_length=100)
     level: StrictInt = Field(ge=0, le=125)
     rarity: Literal['', 'N', 'R', 'SR', 'SSR', 'UR'] = ''
     base_rarity: Literal['', 'N', 'R', 'SR', 'SSR', 'UR'] = ''
-    excluded: StrictBool = False
+    extra_exp: StrictInt | None = Field(default=None, ge=0)
     review: StrictBool = False
     source: StrictStr = Field(default='', max_length=200)
 
@@ -81,7 +93,7 @@ class AnnouncementParams(Params):
 
 class SchemaParams(Params):
     """配置界面架构查询参数模型。"""
-    language: Literal['zh-CN', 'zh-MIAO', 'en-US', 'ja-JP', 'zh-TW'] = 'zh-CN'
+    language: Literal['zh-CN', 'en-US', 'ja-JP', 'zh-TW'] = 'zh-CN'
 
 
 class SearchContentParams(Params):
@@ -112,17 +124,66 @@ def _partial_update_schema(schema):
         field.pop('default', None)
 
 
+class DockConfigureParams(InstanceParams):
+    """共享扫描范围；跨字段校验由服务在事务内执行。"""
+    min_level: int = Field(ge=1, le=125, strict=True)
+    max_level: int = Field(ge=1, le=125, strict=True)
+
+
+class DockCardChange(Params):
+    """按物理副本 ID 局部编辑底账；缺失 ID 表示新增。"""
+    model_config = ConfigDict(extra='forbid', strict=True, json_schema_extra=_partial_update_schema)
+    id: StrictInt | None = Field(default=None, ge=1)
+    delete: StrictBool = False
+    group_type: StrictInt | None = Field(default=None, ge=1)
+    name: StrictStr = Field(default=None, min_length=1, max_length=100)
+    level: StrictInt = Field(default=None, ge=0, le=125)
+    rarity: Literal['', 'N', 'R', 'SR', 'SSR', 'UR'] = None
+    base_rarity: Literal['', 'N', 'R', 'SR', 'SSR', 'UR'] = None
+    extra_exp: StrictInt | None = Field(default=None, ge=0)
+    full_star: StrictBool | None = None
+    form: Literal['base', 'retrofit'] | None = None
+    review: StrictBool = None
+    source: StrictStr = Field(default=None, max_length=200)
+
+
+class DockPatchParams(InstanceParams):
+    revision: StrictStr = Field(min_length=64, max_length=64)
+    changes: list[DockCardChange] = Field(min_length=1, max_length=5000)
+
+
+class DockStageImportParams(InstanceParams):
+    revision: StrictStr = Field(min_length=64, max_length=64)
+    ships: list[MindShip] = Field(min_length=1, max_length=5000)
+
+
+class CultivationParams(InstanceParams):
+    revision: StrictStr = Field(min_length=64, max_length=64)
+    ship_ids: list[StrictInt] = Field(max_length=5000)
+    target_level: Literal[120, 125] = 120
+
+
+class DockReviewDecision(Params):
+    """每个候选项独立决定；可显式指定要更新的物理副本。"""
+    id: StrictStr = Field(min_length=1, max_length=100)
+    accept: StrictBool
+    ship_id: StrictInt | None = Field(default=None, ge=1)
+
+
+class DockReviewParams(InstanceParams):
+    revision: StrictStr = Field(min_length=64, max_length=64)
+    pending_revision: StrictStr = Field(min_length=64, max_length=64)
+    decisions: list[DockReviewDecision] = Field(min_length=1, max_length=10000)
+
+
 class FleetTechChange(Params):
-    """只修改明确提供的人工字段；恢复自动记录使用独立标记。"""
+    """只修改明确提供的人工字段；科技里程碑仅接受完成或未完成。"""
     model_config = ConfigDict(extra='forbid', strict=True, json_schema_extra=_partial_update_schema)
     group_type: StrictInt = Field(ge=1)
-    owned: StrictBool | None = None
-    full_star: StrictBool | None = None
-    lv120: StrictBool | None = None
-    level: StrictInt | None = Field(default=None, ge=1, le=125)
-    restore: StrictBool = False
-    toggle: Literal['owned', 'complete', 'star'] | None = None
-    target: StrictBool | None = None
+    owned: StrictBool = False
+    full_star: StrictBool = False
+    lv120: StrictBool = False
+    awakening_pending: StrictBool = False
 
 
 class FleetTechPatchParams(InstanceParams):
@@ -131,35 +192,29 @@ class FleetTechPatchParams(InstanceParams):
     nations: dict[str, StrictInt | None] = Field(default_factory=dict, max_length=4)
 
 
-class MindCalculateParams(InstanceParams):
-    ships: list[MindShip] = Field(max_length=5000)
-
-
-class MindSaveParams(MindCalculateParams):
-    revision: StrictStr = Field(min_length=64, max_length=64)
-
-
 class MindFileParams(InstanceParams):
     filename: StrictStr = Field(min_length=1, max_length=200)
     content: StrictStr = Field(min_length=1, max_length=8_000_000)
 
 
-class MindExportParams(InstanceParams):
-    format: Literal['json', 'csv', 'xlsx'] = 'xlsx'
-
-
-class StockRequestParams(InstanceParams):
-    """实例专属交易请求；实例身份和远端凭据由后端补充。"""
-    path: StrictStr = Field(min_length=1, max_length=100)
-    method: Literal['GET', 'POST', 'DELETE'] = 'GET'
-    body: dict[str, Any] | None = None
-    etag: StrictStr = Field(default='', max_length=128)
+class StockRegisterParams(InstanceParams):
+    """只注册实例股票；交易账户由群内官方机器人注册。"""
+    username: StrictStr = Field(min_length=2, max_length=32)
+    noticeVersion: StrictStr = ''
 
 
 class StockRebuildParams(InstanceParams):
-    """先返回实际重建范围，用户确认后才重建本地交易账户。"""
+    """先返回实际重建范围，用户确认后才重建本地股票身份。"""
     confirm: StrictBool = False
     scope: Literal['instance', 'all'] = 'instance'
+
+
+class CreateEmulatorParams(Params):
+    """首次设置随实例一起保存的模拟器参数。"""
+
+    serial: StrictStr = Field(min_length=1, max_length=256)
+    package_name: StrictStr = Field(min_length=1, max_length=128)
+    server_name: StrictStr = Field(min_length=1, max_length=64)
 
 
 class CreateParams(Params):
@@ -167,6 +222,7 @@ class CreateParams(Params):
     name: StrictStr = Field(min_length=1, max_length=64)
     source: StrictStr | None = None
     import_file: StrictStr | None = None
+    emulator: CreateEmulatorParams | None = None
 
 
 class ImportParams(Params):
@@ -230,7 +286,7 @@ class RevisionParams(InstanceParams):
 class SubscribeParams(Params):
     """WebSocket 主题订阅请求参数模型。"""
     instance: StrictStr | None = None
-    topics: list[Literal['instances', 'overview', 'logs', 'preview', 'stock', 'notifications']] = Field(max_length=6)
+    topics: list[Literal['instances', 'overview', 'logs', 'preview', 'stock', 'notifications', 'launcher']] = Field(max_length=7)
 
 
 class LogsParams(InstanceParams):

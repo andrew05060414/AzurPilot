@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from module.api import launcher_api
-from module.runtime import launcher_trust
+from module.runtime.launcher_trust import LauncherTrust
 
 SECRET = 'tray-secret'
 
@@ -47,8 +47,7 @@ class FakeRuntime:
 
 class TestSchedulerEndpoint(unittest.TestCase):
     def setUp(self):
-        launcher_trust._reset()
-        launcher_trust.configure(SECRET, 'pw')
+        launcher_api._trust = LauncherTrust(SECRET)
         self.runtime = FakeRuntime(running=['alas'], names=['alas', 'alt'])
         launcher_api.configure_runtime(self.runtime)
         launcher_api._paused = []
@@ -57,7 +56,7 @@ class TestSchedulerEndpoint(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
     def tearDown(self):
-        launcher_trust._reset()
+        launcher_api._trust = None
         launcher_api.configure_runtime(None)
         launcher_api._paused = []
 
