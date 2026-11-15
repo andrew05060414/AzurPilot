@@ -296,7 +296,7 @@ class GridPredictor:
         """
         image = self.relative_crop((-0.86, 0.08, -0.36, 0.58), shape=(50, 50))
         image = color_similarity_2d(image, color=(255, 243, 156))
-        return TEMPLATE_SUBMARINE.match(image)
+        return TEMPLATE_SUBMARINE.match(image, direct_match=True)
 
     def predict_caught_by_siren(self):
         """预测舰队是否被塞壬抓捕贴脸。
@@ -336,7 +336,7 @@ class GridPredictor:
 
         image = self.relative_crop((-0.5, -3.5, 0.5, -2.5), shape=(60, 60))
         image = color_similarity_2d(image, color=(24, 255, 107))
-        if not TEMPLATE_FLEET_CURRENT.match(image):
+        if not TEMPLATE_FLEET_CURRENT.match(image, direct_match=True):
             return False
 
         return True
