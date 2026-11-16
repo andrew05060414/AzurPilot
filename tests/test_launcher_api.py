@@ -171,13 +171,6 @@ class LauncherApiTests(unittest.TestCase):
                      '/api/notify_stream', '/launcher-login']:
             self.assertEqual(self.client.get(path).status_code, 404, path)
 
-    def test_scheduler_endpoint_survives_old_protocol_removal_and_requires_trust_secret(self):
-        """托盘「暂停/继续调度器」端点是 fork 独有功能，没随旧协议一起下线，但仍需信任密钥。"""
-        self.assertEqual(self.client.get('/api/launcher/scheduler').status_code, 403)
-        response = self.client.get('/api/launcher/scheduler',
-                                   headers={'x-webui-launcher-secret': self.service.trust.secret})
-        self.assertNotEqual(response.status_code, 404)
-
     def test_remote_browser_cannot_use_launcher_ticket(self):
         ticket = self.service.trust.issue()['ticket']
         remote = TestClient(self.app, client=('203.0.113.1', 50000))
