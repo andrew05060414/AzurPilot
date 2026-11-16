@@ -529,7 +529,7 @@ def read_live_summary(
         if cand.exists():
             log_file = cand
         else:
-            logs = sorted(log_dir.glob(f"*{instance}*.txt"), key=lambda p: p.stat().st_mtime, reverse=True)
+            logs = sorted(log_dir.glob(f"*_{instance}.txt"), key=lambda p: p.stat().st_mtime, reverse=True)
             if logs:
                 log_file = logs[0]
 
