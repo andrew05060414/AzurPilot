@@ -55,7 +55,6 @@ def create_app(*, root: Path = ROOT, password=None, manage_runtime=True, mount_m
         if password and password != key:
             State.deploy_config.Password = password
     gateway = Gateway(Router(configs, runtime), password)
-    launcher_api.configure_runtime(runtime)
     plugins = gateway.router.plugins
 
     @asynccontextmanager
