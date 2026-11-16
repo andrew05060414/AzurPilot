@@ -316,6 +316,51 @@ class MaintenanceInstanceLogTests(unittest.TestCase):
         self.assertEqual(summary["state"], "healthy")
         self.assertEqual(summary["heartbeat"]["current_task"], "Reward")
 
+    def test_read_live_summary_other_instance_with_underscore_is_not_main_evidence(self):
+        self.write_log("2026-11-15_Foo_Main.txt", "Commission")
+
+        summary = read_live_summary(alas_root=self.root, instance="Main")
+
+        self.assertEqual(summary["state"], "degraded")
+        self.assertEqual(summary["stalled_reasons"], ["heartbeat_absent"])
+        self.assertEqual(summary["heartbeat"]["detail"], "log_not_found")
+        self.assertIsNone(summary["heartbeat"]["current_task"])
+
+    def test_read_live_summary_non_date_prefix_is_not_main_evidence(self):
+        self.write_log("notes_Main.txt", "Commission")
+
+        summary = read_live_summary(alas_root=self.root, instance="Main")
+
+        self.assertEqual(summary["state"], "degraded")
+        self.assertEqual(summary["stalled_reasons"], ["heartbeat_absent"])
+        self.assertEqual(summary["heartbeat"]["detail"], "log_not_found")
+        self.assertIsNone(summary["heartbeat"]["current_task"])
+
+    def test_read_live_summary_fallback_keeps_instance_name_with_underscore(self):
+        self.write_log("2026-11-14_Foo_Main.txt", "Reward")
+
+        summary = read_live_summary(alas_root=self.root, instance="Foo_Main")
+
+        self.assertEqual(summary["state"], "healthy")
+        self.assertEqual(summary["heartbeat"]["current_task"], "Reward")
+
+    def test_read_live_summary_fallback_keeps_instance_name_with_dot(self):
+        self.write_log("2026-11-14_Main.one.txt", "Reward")
+
+        summary = read_live_summary(alas_root=self.root, instance="Main.one")
+
+        self.assertEqual(summary["state"], "healthy")
+        self.assertEqual(summary["heartbeat"]["current_task"], "Reward")
+
+    def test_read_live_summary_instance_dot_does_not_match_another_character(self):
+        self.write_log("2026-11-14_MainXone.txt", "Commission")
+
+        summary = read_live_summary(alas_root=self.root, instance="Main.one")
+
+        self.assertEqual(summary["state"], "degraded")
+        self.assertEqual(summary["stalled_reasons"], ["heartbeat_absent"])
+        self.assertIsNone(summary["heartbeat"]["current_task"])
+
 
 class MaintenanceLiveProbeTests(unittest.TestCase):
     """实况只读状态巡检、可行动告警与自愈控制单测。"""
