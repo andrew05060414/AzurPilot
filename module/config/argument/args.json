@@ -18153,6 +18153,10 @@
         "type": "input",
         "value": 0
       },
+      "MinBlackPorgy": {
+        "type": "input",
+        "value": 0
+      },
       "MinYellowfinTuna": {
         "type": "input",
         "value": 50
@@ -18196,6 +18200,7 @@
           "tuna",
           "salmon",
           "red_sea_bream",
+          "black_porgy",
           "yellowfin_tuna",
           "sea_cucumber"
         ]
@@ -21245,6 +21250,7 @@
           "tuna",
           "salmon",
           "red_sea_bream",
+          "black_porgy",
           "yellowfin_tuna",
           "sea_cucumber"
         ],
@@ -21262,6 +21268,7 @@
           "tuna",
           "salmon",
           "red_sea_bream",
+          "black_porgy",
           "yellowfin_tuna",
           "sea_cucumber"
         ]
