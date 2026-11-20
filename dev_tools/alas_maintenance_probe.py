@@ -529,7 +529,12 @@ def read_live_summary(
         if cand.exists():
             log_file = cand
         else:
-            logs = sorted(log_dir.glob(f"*{instance}*.txt"), key=lambda p: p.stat().st_mtime, reverse=True)
+            log_pattern = re.compile(rf"\d{{4}}-\d{{2}}-\d{{2}}_{re.escape(instance)}\.txt")
+            logs = sorted(
+                (p for p in log_dir.glob("*.txt") if log_pattern.fullmatch(p.name)),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
             if logs:
                 log_file = logs[0]
 
