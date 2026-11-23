@@ -243,6 +243,125 @@ class MaintenanceProbeTests(unittest.TestCase):
         self.assertEqual([item["state"] for item in json.loads(result.stdout)], ["retry", "stalled"])
 
 
+class MaintenanceInstanceLogTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+        self.log_dir = self.root / "log"
+        self.log_dir.mkdir()
+        for target, result in (
+            ("probe_webui", {"available": True}),
+            ("probe_adb_emulator", {"online": True}),
+            ("probe_ssh_tunnel", {"enabled": False, "reachable": None}),
+        ):
+            mock = patch(f"dev_tools.alas_maintenance_probe.{target}", return_value=result)
+            mock.start()
+            self.addCleanup(mock.stop)
+        clock = patch("dev_tools.alas_maintenance_probe.datetime", wraps=datetime)
+        self.clock = clock.start()
+        self.addCleanup(clock.stop)
+        self.clock.now.return_value = datetime(2026, 11, 15, 12, tzinfo=timezone.utc)
+
+    def write_log(self, filename, task):
+        (self.log_dir / filename).write_text(
+            f"2026-11-15 12:00:00.000 | INFO | 调度器: 开始任务 `{task}`\n"
+            f"2026-11-15 12:00:00.000 | INFO | 调度器: 任务 `{task}` 成功\n",
+            encoding="utf-8",
+        )
+
+    def test_read_live_summary_only_main2_log_is_not_main_evidence(self):
+        self.write_log("2026-11-15_Main2.txt", "Commission")
+
+        summary = read_live_summary(alas_root=self.root, instance="Main")
+
+        self.assertEqual(summary["state"], "degraded")
+        self.assertEqual(summary["stalled_reasons"], ["heartbeat_absent"])
+        self.assertEqual(summary["heartbeat"]["detail"], "log_not_found")
+        self.assertIsNone(summary["heartbeat"]["heartbeat_time"])
+        self.assertIsNone(summary["heartbeat"]["current_task"])
+
+    def test_read_live_summary_exact_main_log_wins_over_main2(self):
+        self.write_log("2026-11-15_Main.txt", "Reward")
+        self.write_log("2026-11-15_Main2.txt", "Commission")
+
+        summary = read_live_summary(alas_root=self.root, instance="Main")
+
+        self.assertEqual(summary["state"], "healthy")
+        self.assertEqual(summary["stalled_reasons"], [])
+        self.assertEqual(summary["heartbeat"]["current_task"], "Reward")
+
+    def test_read_live_summary_empty_log_directory_has_no_heartbeat(self):
+        summary = read_live_summary(alas_root=self.root, instance="Main")
+
+        self.assertEqual(summary["state"], "degraded")
+        self.assertEqual(summary["stalled_reasons"], ["heartbeat_absent"])
+        self.assertEqual(summary["heartbeat"]["detail"], "log_not_found")
+
+    def test_read_live_summary_fallback_requires_complete_instance_name(self):
+        self.write_log("2026-11-15_SuperMain.txt", "Commission")
+
+        summary = read_live_summary(alas_root=self.root, instance="Main")
+
+        self.assertEqual(summary["state"], "degraded")
+        self.assertEqual(summary["stalled_reasons"], ["heartbeat_absent"])
+        self.assertIsNone(summary["heartbeat"]["current_task"])
+
+    def test_read_live_summary_fallback_keeps_own_previous_log(self):
+        self.write_log("2026-11-14_Main.txt", "Reward")
+        self.write_log("2026-11-15_Main2.txt", "Commission")
+
+        summary = read_live_summary(alas_root=self.root, instance="Main")
+
+        self.assertEqual(summary["state"], "healthy")
+        self.assertEqual(summary["heartbeat"]["current_task"], "Reward")
+
+    def test_read_live_summary_other_instance_with_underscore_is_not_main_evidence(self):
+        self.write_log("2026-11-15_Foo_Main.txt", "Commission")
+
+        summary = read_live_summary(alas_root=self.root, instance="Main")
+
+        self.assertEqual(summary["state"], "degraded")
+        self.assertEqual(summary["stalled_reasons"], ["heartbeat_absent"])
+        self.assertEqual(summary["heartbeat"]["detail"], "log_not_found")
+        self.assertIsNone(summary["heartbeat"]["current_task"])
+
+    def test_read_live_summary_non_date_prefix_is_not_main_evidence(self):
+        self.write_log("notes_Main.txt", "Commission")
+
+        summary = read_live_summary(alas_root=self.root, instance="Main")
+
+        self.assertEqual(summary["state"], "degraded")
+        self.assertEqual(summary["stalled_reasons"], ["heartbeat_absent"])
+        self.assertEqual(summary["heartbeat"]["detail"], "log_not_found")
+        self.assertIsNone(summary["heartbeat"]["current_task"])
+
+    def test_read_live_summary_fallback_keeps_instance_name_with_underscore(self):
+        self.write_log("2026-11-14_Foo_Main.txt", "Reward")
+
+        summary = read_live_summary(alas_root=self.root, instance="Foo_Main")
+
+        self.assertEqual(summary["state"], "healthy")
+        self.assertEqual(summary["heartbeat"]["current_task"], "Reward")
+
+    def test_read_live_summary_fallback_keeps_instance_name_with_dot(self):
+        self.write_log("2026-11-14_Main.one.txt", "Reward")
+
+        summary = read_live_summary(alas_root=self.root, instance="Main.one")
+
+        self.assertEqual(summary["state"], "healthy")
+        self.assertEqual(summary["heartbeat"]["current_task"], "Reward")
+
+    def test_read_live_summary_instance_dot_does_not_match_another_character(self):
+        self.write_log("2026-11-14_MainXone.txt", "Commission")
+
+        summary = read_live_summary(alas_root=self.root, instance="Main.one")
+
+        self.assertEqual(summary["state"], "degraded")
+        self.assertEqual(summary["stalled_reasons"], ["heartbeat_absent"])
+        self.assertIsNone(summary["heartbeat"]["current_task"])
+
+
 class MaintenanceLiveProbeTests(unittest.TestCase):
     """实况只读状态巡检、可行动告警与自愈控制单测。"""
 
@@ -465,7 +584,9 @@ class MaintenanceLiveProbeTests(unittest.TestCase):
             self.assertIn("[REDACTED]", hb["latest_error"])
 
             # 2. 实况聚合摘要 JSON 序列化负向断言
-            summary = read_live_summary(alas_root=d, instance="alas", check_ssh=False)
+            with patch("dev_tools.alas_maintenance_probe.probe_webui", return_value={"available": True}), \
+                    patch("dev_tools.alas_maintenance_probe.probe_adb_emulator", return_value={"online": True}):
+                summary = read_live_summary(alas_root=d, instance="alas", check_ssh=False)
             self.assertTrue(summary["stalled"])
             self.assertIn("task_error", summary["stalled_reasons"])
             serialized_json = json.dumps(summary, ensure_ascii=False)
