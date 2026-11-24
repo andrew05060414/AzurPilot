@@ -166,9 +166,15 @@ class PortShop(OSStatus, OSShopUI, Selector, MapEventHandler):
             logger.hr(f'OpsiShop scan {i}')
             self.os_shop_side_navbar_ensure(upper=i + 1)
             pre_pos, cur_pos = self.init_slider()
+            # 滑块不短于轨道：本标签页一屏放得下，没有可滚动范围，扫一屏就结束。
+            # 否则 pre_scroll 会因位置永远不变而抛 GameStuckError（PX-2039）。
+            scrollable = OS_SHOP_SCROLL.has_range(main=self)
+            if not scrollable:
+                logger.info(f'OS shop page {i + 1} has no scroll range, scan single page')
 
             while True:
-                pre_pos = self.pre_scroll(pre_pos, cur_pos)
+                if scrollable:
+                    pre_pos = self.pre_scroll(pre_pos, cur_pos)
 
                 _items = []
                 for _ in range(3):
@@ -185,7 +191,7 @@ class PortShop(OSStatus, OSShopUI, Selector, MapEventHandler):
                 # so any known items can be scanned
                 items += _items
 
-                if OS_SHOP_SCROLL.at_bottom(main=self):
+                if not scrollable or OS_SHOP_SCROLL.at_bottom(main=self):
                     logger.info('OS shop reach bottom, stop')
                     break
                 else:
