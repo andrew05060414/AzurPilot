@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """ALAS / MAA 只读定时巡检（PX-2039）。
 
-只读：只运行 alas_maintenance_probe.py --live（WebUI /healthz、adb devices -l、SSH 端口连通、读日志）、
-读 ALAS / MAA 日志尾部、tasklist。绝不启停或点击任何东西，不改任何配置。
+对 ALAS / MAA 只读：运行 alas_maintenance_probe.py --live（WebUI /healthz、adb devices -l、
+SSH 端口连通、读日志），读取 ALAS / MAA 日志尾部和 tasklist。绝不启停或点击，不改配置。
+巡检会写入自己的状态和日志，并通过 Multica 建告警票。
 
 行为：
 - 正常时不输出、不发消息。
@@ -21,9 +22,10 @@ import os
 import re
 import subprocess
 import sys
-import time
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 ALAS_ROOT = Path(os.environ.get("ALAS_PATROL_ALAS_ROOT", r"D:\模拟器\AzurPilot"))
@@ -36,10 +38,22 @@ STUCK_WINDOW_MIN = 60
 STUCK_MIN_COUNT = 3
 LOG_RETENTION_BYTES = 1_000_000
 
-SECRET_RE = re.compile(r"(?i)(token|password|passwd|secret|api[_-]?key|authorization)\s*[=:]\s*\S+")
+SECRET_RE = re.compile(
+    r"""(?i)\b(token|password|passwd|secret|api[_-]?key|authorization)["']?\s*[=:]\s*"""
+    r"""(?:bearer\s+\S+|"[^"]*"|'[^']*'|\S+)"""
+)
 WAIT_RE = re.compile(r"等待直到 (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
 LINE_TS_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
 MAA_TS_RE = re.compile(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
+SCROLL_ERROR = "GameStuckError: Scroll drag page error."
+STALLED_REASONS = {
+    "emulator_offline", "webui_unavailable", "ssh_unreachable", "task_error",
+    "heartbeat_expired", "heartbeat_absent",
+}
+
+
+class PatrolCommandError(RuntimeError):
+    pass
 
 
 def sanitize(text: str) -> str:
@@ -73,40 +87,58 @@ def finding(key: str, severity: str, title: str, detail: str, actions: list[str]
             "detail": sanitize(detail), "actions": actions}
 
 
+def log_group(message: str) -> str:
+    return hashlib.sha256(sanitize(message).encode("utf-8")).hexdigest()[:16]
+
+
+def parse_log_time(value: str) -> datetime | None:
+    try:
+        return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None
+
+
 # ---------------------------------------------------------------- ALAS
 def scheduler_is_sleeping(log_lines: list[str], now: datetime) -> bool:
     """最后一条「等待直到 T」的 T 还没到：调度器在合法等待，日志静默不是卡死。"""
     for line in reversed(log_lines[-200:]):
         m = WAIT_RE.search(line)
         if m:
-            target = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
-            return target + timedelta(minutes=5) > now
+            target = parse_log_time(m.group(1))
+            if target is not None:
+                return target + timedelta(minutes=5) > now
     return False
 
 
 def stuck_findings(log_lines: list[str], now: datetime) -> list[dict[str, Any]]:
     """窗口内重复出现「游戏状态无法推进」，按异常文本归类。"""
     cutoff = now - timedelta(minutes=STUCK_WINDOW_MIN)
-    groups: dict[str, int] = {}
-    cur_ts = None
+    groups: dict[str, tuple[str, int]] = {}
     pending = False
     for line in log_lines:
         m = LINE_TS_RE.match(line)
         if m:
-            cur_ts = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
-            pending = "游戏状态无法推进" in line and "ERROR" in line and cur_ts >= cutoff
+            cur_ts = parse_log_time(m.group(1))
+            pending = (cur_ts is not None and cutoff <= cur_ts <= now
+                       and "游戏状态无法推进" in line and "ERROR" in line)
             continue
         if pending and line.startswith("异常："):
-            exc = line.removeprefix("异常：").strip()[:120]
-            groups[exc] = groups.get(exc, 0) + 1
+            exc = line.removeprefix("异常：").strip()
+            group = log_group(exc)
+            if exc == SCROLL_ERROR:
+                label = SCROLL_ERROR
+            else:
+                label = "GameTooManyClickError" if exc.startswith("GameTooManyClickError:") else "GameStuckError"
+            groups[group] = (label, groups.get(group, (label, 0))[1] + 1)
             pending = False
     out = []
-    for exc, n in groups.items():
+    for group, (label, n) in groups.items():
         if n >= STUCK_MIN_COUNT:
             out.append(finding(
-                f"alas:stuck:{exc}", "WARNING",
-                f"[AzurPilot] ALAS 重复卡住：{exc}",
-                f"最近 {STUCK_WINDOW_MIN} 分钟「游戏状态无法推进」出现 {n} 次，异常：{exc}。",
+                f"alas:stuck:{group}", "WARNING",
+                f"[AzurPilot] ALAS 重复卡住：{label}",
+                f"最近 {STUCK_WINDOW_MIN} 分钟「游戏状态无法推进」出现 {n} 次，异常：{label}。"
+                "详细信息见本地 ALAS 日志。",
                 ["对照 PX-2039 里的归因，判断是不是脚本 bug；是脚本 bug 就开修复票并在独立 worktree 修。",
                  "不要重启 ALAS 或模拟器（第一阶段不做自动恢复）。"]))
     return out
@@ -118,29 +150,28 @@ def alas_findings(summary: dict[str, Any], alas_log: Path | None, now: datetime)
     if alas_log and alas_log.exists():
         lines = tail_text(alas_log)
     state = summary.get("state")
-    reasons = list(summary.get("stalled_reasons") or [])
+    reasons = sorted({reason for reason in (summary.get("stalled_reasons") or [])
+                      if isinstance(reason, str) and reason in STALLED_REASONS})
     webui_ok = (summary.get("webui") or {}).get("available", True)
     emu_ok = (summary.get("emulator") or {}).get("online", True)
 
     if not webui_ok:
         out.append(finding("alas:webui_down", "WARNING", "[AzurPilot] ALAS WebUI 健康探针失败",
-                           f"WebUI /healthz 不可用：{(summary.get('webui') or {}).get('detail')}",
+                           "WebUI /healthz 不可用，详细信息见本地探针输出。",
                            ["确认 alas-launcher 进程是否还在；只读检查，不要重启。"]))
     if not emu_ok:
         out.append(finding("alas:emulator_offline", "WARNING", "[AzurPilot] 模拟器 ADB 不在线",
-                           f"adb 状态：{(summary.get('emulator') or {}).get('detail')}",
+                           "adb 未检测到在线设备，详细信息见本地探针输出。",
                            ["确认 MuMu 是否被手动关闭或崩溃；需要 Andrew 在场时再处理。"]))
     if state == "stalled" and reasons:
         sleeping = reasons == ["heartbeat_expired"] and scheduler_is_sleeping(lines, now)
         if sleeping:
             log("ALAS 心跳过期，但调度器在合法等待，不告警")
         else:
-            hb = summary.get("heartbeat") or {}
             out.append(finding(
-                "alas:stalled:" + ",".join(sorted(reasons)), "WARNING",
+                "alas:stalled:" + ",".join(reasons), "WARNING",
                 "[AzurPilot] ALAS 实例运行受阻：" + ",".join(reasons),
-                f"state=stalled，原因={reasons}，当前任务={hb.get('current_task')}，"
-                f"距上次心跳 {hb.get('elapsed_seconds')} 秒。",
+                f"state={state}，原因={','.join(reasons)}。详细信息见本地探针输出。",
                 ["在 WebUI 和日志里对照状态；若调度器死锁，需 Andrew 手动退出并重开 Launcher。"]))
     out.extend(stuck_findings(lines, now))
     return out
@@ -152,10 +183,11 @@ def run_probe(timezone_offset: str) -> dict[str, Any]:
            str(ALAS_ROOT / "dev_tools" / "alas_maintenance_probe.py"),
            "--live", "--alas-root", str(ALAS_ROOT), "--instance", "alas",
            f"--timezone-offset={timezone_offset}"]
-    proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", timeout=60,
+    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                          text=True, encoding="utf-8", timeout=60,
                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     if proc.returncode != 0:
-        raise RuntimeError(f"probe exit {proc.returncode}: {sanitize(proc.stderr[-300:])}")
+        raise PatrolCommandError(f"probe exit {proc.returncode}")
     return json.loads(proc.stdout)["summary"]
 
 
@@ -171,15 +203,16 @@ def maa_findings(maa_log: Path | None, now: datetime, window_min: int = 30) -> l
         m = MAA_TS_RE.match(line)
         if not m or "[ERR]" not in line:
             continue
-        if datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S") < cutoff:
+        event_time = parse_log_time(m.group(1))
+        if event_time is None or not cutoff <= event_time <= now:
             continue
-        msg = re.sub(r"\[P\w+\]\[T\w+\]\s*", "", line.split("[ERR]", 1)[1])[:120]
-        msg = re.sub(r"\d+", "N", msg)
-        errs[msg] = errs.get(msg, 0) + 1
+        msg = re.sub(r"\[P\w+\]\[T\w+\]\s*", "", line.split("[ERR]", 1)[1])
+        group = log_group(re.sub(r"\d+", "N", sanitize(msg)))
+        errs[group] = errs.get(group, 0) + 1
     out = []
-    for msg, n in errs.items():
-        out.append(finding(f"maa:err:{msg}", "WARNING", "[AzurPilot] MAA 日志报错",
-                           f"最近 {window_min} 分钟 asst.log 出现 {n} 次 ERR：{msg}",
+    for group, n in errs.items():
+        out.append(finding(f"maa:err:{group}", "WARNING", "[AzurPilot] MAA 日志报错",
+                           f"最近 {window_min} 分钟 asst.log 同类 ERR 出现 {n} 次，详细信息见本地 MAA 日志。",
                            ["对照 MAA 当前任务；只读排查，不要重启 MAA。"]))
     if maa_process_running() and maa_log.exists():
         age = now - datetime.fromtimestamp(maa_log.stat().st_mtime)
@@ -209,7 +242,8 @@ def load_state(path: Path) -> dict[str, Any]:
     return {"open": {}}
 
 
-def decide(findings: list[dict[str, Any]], state: dict[str, Any], now: datetime) -> list[dict[str, Any]]:
+def decide(findings: list[dict[str, Any]], state: dict[str, Any], now: datetime,
+           deliver: Callable[[dict[str, Any]], None] | None = None) -> list[dict[str, Any]]:
     """返回本轮要新发的告警；就地更新 state。"""
     to_post = []
     seen = {f["fingerprint"] for f in findings}
@@ -222,9 +256,13 @@ def decide(findings: list[dict[str, Any]], state: dict[str, Any], now: datetime)
             last_alert = datetime.fromisoformat(rec["alerted_at"])
             if now - last_alert < timedelta(hours=COOLDOWN_HOURS):
                 continue
+            if deliver:
+                deliver(f)
             rec["alerted_at"] = now.isoformat(timespec="seconds")
             to_post.append(f)
         else:
+            if deliver:
+                deliver(f)
             open_[f["fingerprint"]] = {"key": f["key"], "first_seen": now.isoformat(timespec="seconds"),
                                        "last_seen": now.isoformat(timespec="seconds"),
                                        "alerted_at": now.isoformat(timespec="seconds"), "clean_runs": 0}
@@ -244,20 +282,21 @@ def render(f: dict[str, Any]) -> str:
             f"- 来源：巡检任务 AI-ALAS-Patrol，来自 PX-2039\n- key：`{f['key']}`\n")
 
 
-def post(f: dict[str, Any], dry_run: bool) -> None:
+def post(f: dict[str, Any], dry_run: bool, state_dir: Path) -> None:
     body = render(f)
     if dry_run:
         print(f"[DRY-RUN] 将建票：{f['title']}\n{body}")
         return
     cli = os.environ.get("MULTICA_CLI_PATH") or r"C:\Users\Andrew\AppData\Local\Programs\@multicadesktop\resources\app.asar.unpacked\resources\bin\multica.exe"
-    desc = STATE_PATH.parent / f"alert-{f['fingerprint']}.md"
-    desc.write_text(body, encoding="utf-8")
-    r = subprocess.run([cli, "issue", "create", "--title", f["title"], "--description-file", str(desc),
-                        "--allow-external-file", "--assignee", "领航员-TB", "--output", "json"],
-                       capture_output=True, text=True, encoding="utf-8", timeout=60,
-                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    with TemporaryDirectory(dir=state_dir) as directory:
+        desc = Path(directory) / "alert.md"
+        desc.write_text(body, encoding="utf-8")
+        r = subprocess.run([cli, "issue", "create", "--title", f["title"], "--description-file", str(desc),
+                            "--allow-external-file", "--assignee", "领航员-TB", "--output", "json"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     if r.returncode != 0:
-        raise RuntimeError(f"multica issue create 失败: {sanitize(r.stderr[-300:])}")
+        raise PatrolCommandError(f"multica issue create exit {r.returncode}")
     log(f"已建票 {f['fingerprint']} {f['title']}")
 
 
@@ -290,20 +329,25 @@ def main(argv: list[str] | None = None) -> int:
             summary = run_probe(local_offset())
         findings = alas_findings(summary, alas_log, now) + maa_findings(maa_log, now)
         state = load_state(state_path)
-        to_post = decide(findings, state, now)
-        for f in to_post:
-            post(f, args.dry_run)
-        if not args.dry_run or args.state:
+        save = not args.dry_run or args.state is not None
+        if save:
             state_path.parent.mkdir(parents=True, exist_ok=True)
-            state_path.write_text(json.dumps(state, ensure_ascii=False, indent=1), encoding="utf-8")
+        try:
+            to_post = decide(findings, state, now, lambda f: post(f, args.dry_run, state_path.parent))
+        finally:
+            if save:
+                with TemporaryDirectory(dir=state_path.parent) as directory:
+                    pending_state = Path(directory) / "state.json"
+                    pending_state.write_text(json.dumps(state, ensure_ascii=False, indent=1), encoding="utf-8")
+                    pending_state.replace(state_path)
         log(f"ok findings={len(findings)} posted={len(to_post)} dry_run={args.dry_run}")
         return 0
     except Exception as exc:  # 巡检自己坏了也要留痕，退出码非 0 让计划任务显示失败
-        log(f"ERROR {type(exc).__name__}: {sanitize(str(exc))}")
-        print(f"patrol error: {sanitize(str(exc))}", file=sys.stderr)
+        error = str(exc) if isinstance(exc, PatrolCommandError) else type(exc).__name__
+        print(f"patrol error: {error}", file=sys.stderr)
+        log(f"ERROR {error}")
         return 1
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
