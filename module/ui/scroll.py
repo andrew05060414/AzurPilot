@@ -137,21 +137,6 @@ class Scroll:
         """
         return np.mean(self.match_color(main)) > 0.1
 
-    def has_range(self, main):
-        """判断是否有可滚动的范围。
-
-        滑块长度不小于轨道总长度时，说明内容一屏放得下（或检测退化），翻页不会产生位移。
-        此时 cal_position 的分母 	otal - length 不为正，位置恒为 0，调用方不应再等待位置变化。
-
-        Args:
-            main (ModuleBase): 模块基类实例。
-
-        Returns:
-            bool: True 表示滑块比轨道短，存在可滚动范围。
-        """
-        self.match_color(main)
-        return self.length < self.total
-
     def at_top(self, main):
         """判断滚动条是否处于顶部（或最左端）。
 
