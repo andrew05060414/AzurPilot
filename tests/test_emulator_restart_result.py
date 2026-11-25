@@ -20,6 +20,7 @@ class TestEmulatorRestartResult(unittest.TestCase):
         self.device = SimpleNamespace(
             emulator_stop=Mock(return_value=True),
             emulator_start=Mock(return_value=True),
+            release_resource=Mock(),
         )
         self.script.__dict__['device'] = self.device
 

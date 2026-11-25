@@ -16,7 +16,9 @@ from module.storage.amount_glyphs import StorageAmountGlyphs, native_glyph
 
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG = ROOT / 'assets/stats/storage_items/catalog.json'
-GRID_AREA = (130, 65, 1235, 637)
+# 列表停在行间时，首个完整卡框可能从顶部栏下缘约 50px 开始。
+# 从 40px 起裁剪，既保留该行完整边框，又不把 0–40px 的导航装饰算入网格。
+GRID_AREA = (130, 40, 1235, 637)
 
 
 class StorageRecognitionError(ValueError):
@@ -266,6 +268,25 @@ class StorageCatalog:
                      amount=None if item['id'] in unconfirmed else amounts.get(item['id'])) for item in self.items]
 
 
+def _is_material_rectangle(width, height):
+    """内层卡框会随亚像素绘制在 129–131px 间变化，外围高亮约为 138px。"""
+    return 126 <= width <= 134 and 126 <= height <= 134
+
+
+def _grid_starts(positions, inner_positions):
+    """同一组轮廓优先用内框定位，内框缺失时保留尺寸稍有变化的轮廓。"""
+    starts = []
+    for position in sorted(positions):
+        if not starts or position - starts[-1] > 5:
+            starts.append(position)
+    inner_positions = sorted(inner_positions)
+    return [
+        next((position for position in inner_positions if start <= position <= start + 5), start)
+        for start in starts
+    ]
+
+
+
 def detect_rows(image):
     """从方框推导网格，不把物品绑定到固定格子或纵坐标。"""
     if image.shape != (720, 1280, 3):
@@ -274,20 +295,20 @@ def detect_rows(image):
     edges = cv2.Canny(cv2.cvtColor(image[y0:y1, x0:x1], cv2.COLOR_RGB2GRAY), 70, 150)
     contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     rectangles = []
+    inner_rectangles = []
     for contour in contours:
         x, y, width, height = cv2.boundingRect(contour)
-        if 127 <= width <= 130 and 127 <= height <= 130:
-            rectangles.append((x + x0, y + y0))
-    columns = []
-    for x, _ in sorted(rectangles):
-        if not columns or x - columns[-1] > 5:
-            columns.append(x)
+        if _is_material_rectangle(width, height):
+            position = (x + x0, y + y0)
+            rectangles.append(position)
+            if 127 <= width <= 130 and 127 <= height <= 130:
+                inner_rectangles.append(position)
+    columns = _grid_starts((x for x, _ in rectangles), (x for x, _ in inner_rectangles))
     if len(columns) != 7 or any(not 156 <= b - a <= 161 for a, b in zip(columns, columns[1:])):
-        raise StorageRecognitionError('材料网格列数或间距不完整')
-    starts = []
-    for _, y in sorted(rectangles, key=lambda entry: entry[1]):
-        if not starts or y - starts[-1] > 5:
-            starts.append(y)
+        spacing = ','.join(str(b - a) for a, b in zip(columns, columns[1:]))
+        raise StorageRecognitionError(
+            f'材料网格列数或间距不完整：检测到 {len(columns)} 列，间距 {spacing or "无"}')
+    starts = _grid_starts((y for _, y in rectangles), (y for _, y in inner_rectangles))
     rows = []
     for y in starts:
         # 贴着裁剪下沿的轮廓可能仍有 127px 高，但数量末行已被遮住。

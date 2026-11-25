@@ -3,7 +3,7 @@
 from subprocess import CompletedProcess
 from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from module.device.env import IS_WINDOWS
 
@@ -41,27 +41,30 @@ class TestMuMuStopResult(unittest.TestCase):
         res = self.platform._emulator_function_wrapper(self.platform._emulator_stop)
         self.assertFalse(res)
 
-    def test_emulator_stop_retries_stop_only_and_never_launches(self):
+    def test_emulator_stop_fails_without_launch_for_mumu12(self):
         self.platform.execute = Mock(return_value=CompletedProcess(args='shutdown', returncode=1))
         self.platform._emulator_start = Mock()
 
         res = self.platform.emulator_stop()
 
         self.assertFalse(res)
-        self.assertEqual(self.platform.execute.call_count, 3)
+        self.assertEqual(self.platform.execute.call_count, 1)
         self.platform._emulator_start.assert_not_called()
 
-    def test_emulator_stop_recovers_on_second_attempt_without_launch(self):
-        self.platform.execute = Mock(side_effect=[
-            CompletedProcess(args='shutdown', returncode=1),
-            CompletedProcess(args='shutdown', returncode=0),
-        ])
+    def test_emulator_stop_retries_stop_only_and_never_launches_for_non_mumu12(self):
+        other_instance = EmulatorInstance.__new__(EmulatorInstance)
+        other_instance.type = 'LDPlayer9'
+        other_instance.name = 'LDPlayer_0'
+        other_instance.LDPlayer_id = 0
+        other_instance.emulator = SimpleNamespace(path='F:/LDPlayer9/dnplayer.exe')
+        self.platform.emulator_instance = other_instance
+        self.platform._emulator_stop = Mock(side_effect=[False, True])
         self.platform._emulator_start = Mock()
 
         res = self.platform.emulator_stop()
 
         self.assertTrue(res)
-        self.assertEqual(self.platform.execute.call_count, 2)
+        self.assertEqual(self.platform._emulator_stop.call_count, 2)
         self.platform._emulator_start.assert_not_called()
 
     def test_emulator_start_aborts_when_pre_stop_fails(self):
@@ -87,13 +90,13 @@ class TestMuMuStopResult(unittest.TestCase):
         res = self.platform._emulator_function_wrapper(self.platform._emulator_stop)
         self.assertTrue(res)
 
-    def test_mumu12_stop_skips_shutdown_when_instance_already_off(self):
-        """实例已关闭时 shutdown_player 返回非 0，不能让「先停后启」在这里中断。"""
+    def test_mumu12_stop_accepts_legacy_already_off_code(self):
+        """旧版实例已关闭时 shutdown_player 返回 -2，不能让「先停后启」在这里中断。"""
         self.platform.execute = Mock(return_value=CompletedProcess(args='shutdown', returncode=-2))
-        self.platform._mumu12_instances = Mock(return_value={'0': {'is_process_started': False}})
-        res = self.platform._emulator_function_wrapper(self.platform._emulator_stop)
+        with patch('module.device.platform.platform_windows.run_mumu_manager', return_value=''):
+            res = self.platform._emulator_function_wrapper(self.platform._emulator_stop)
         self.assertTrue(res)
-        self.platform.execute.assert_not_called()
+        self.platform.execute.assert_called_once()
 
     def test_mumu12_stop_still_shuts_down_running_instance(self):
         self.platform.execute = Mock(return_value=CompletedProcess(args='shutdown', returncode=0))
@@ -113,17 +116,18 @@ class TestMuMuStopResult(unittest.TestCase):
         self.assertTrue(res)
 
     def test_emulator_start_launches_when_instance_already_off(self):
-        """实机 10-27～11-02 的循环：实例已关闭时「先停后启」必须走到 launch_player。"""
+        """实机 10-27～11-02 的循环：旧版实例已关闭时「先停后启」必须走到 launch_player。"""
         self.platform._mumu12_instances = Mock(return_value={'0': {'is_process_started': False}})
         self.platform.execute = Mock(return_value=CompletedProcess(args='shutdown', returncode=4294967294))
         self.platform._clean_mumu12_residue = Mock()
         self.platform._emulator_start = Mock()
         self.platform.emulator_start_watch = Mock(return_value=True)
 
-        self.assertTrue(self.platform.emulator_start())
+        with patch('module.device.platform.platform_windows.run_mumu_manager', return_value=''):
+            self.assertTrue(self.platform.emulator_start())
 
         self.platform._emulator_start.assert_called_once()
-        self.platform.execute.assert_not_called()
+        self.platform.execute.assert_called_once()
 
 
 if __name__ == '__main__':
