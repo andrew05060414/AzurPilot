@@ -32,6 +32,7 @@ ALAS_ROOT = Path(os.environ.get("ALAS_PATROL_ALAS_ROOT", r"D:\模拟器\AzurPilo
 MAA_ROOT = Path(os.environ.get("ALAS_PATROL_MAA_ROOT", r"D:\模拟器\MAA-win-x64"))
 STATE_PATH = Path(os.environ.get("ALAS_PATROL_STATE", r"D:\Data\alas-patrol\state.json"))
 LOG_PATH = Path(os.environ.get("ALAS_PATROL_LOG", r"D:\Logs\alas-patrol\patrol.log"))
+DEFAULT_INSTANCE = "ap"
 COOLDOWN_HOURS = 24
 RECOVER_AFTER_CLEAN_RUNS = 2
 STUCK_WINDOW_MIN = 60
@@ -42,14 +43,15 @@ SECRET_RE = re.compile(
     r"""(?i)\b(token|password|passwd|secret|api[_-]?key|authorization)["']?\s*[=:]\s*"""
     r"""(?:bearer\s+\S+|"[^"]*"|'[^']*'|\S+)"""
 )
-WAIT_RE = re.compile(r"等待直到 (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
+WAIT_RE = re.compile(r"\[AzurPilot\] 等待直到 (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) 执行任务")
 LINE_TS_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
 MAA_TS_RE = re.compile(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
 SCROLL_ERROR = "GameStuckError: Scroll drag page error."
 STALLED_REASONS = {
-    "emulator_offline", "webui_unavailable", "ssh_unreachable", "task_error",
-    "heartbeat_expired", "heartbeat_absent",
+    "ssh_unreachable", "task_error", "heartbeat_expired", "heartbeat_absent",
 }
+WAIT_ENDED = ("[AzurPilot] 长时间等待后启动模拟器", "[预热] 提前启动完成",
+              "[AzurPilot] 调度器: 开始任务")
 
 
 class PatrolCommandError(RuntimeError):
@@ -99,15 +101,30 @@ def parse_log_time(value: str) -> datetime | None:
 
 
 # ---------------------------------------------------------------- ALAS
-def scheduler_is_sleeping(log_lines: list[str], now: datetime) -> bool:
-    """最后一条「等待直到 T」的 T 还没到：调度器在合法等待，日志静默不是卡死。"""
+def scheduler_wait(log_lines: list[str]) -> tuple[datetime | None, bool]:
+    emulator_closed = False
     for line in reversed(log_lines[-200:]):
+        if any(marker in line for marker in WAIT_ENDED):
+            break
         m = WAIT_RE.search(line)
         if m:
             target = parse_log_time(m.group(1))
             if target is not None:
-                return target + timedelta(minutes=5) > now
-    return False
+                return target, emulator_closed
+        if "[AzurPilot] 等待期间已关闭模拟器" in line:
+            emulator_closed = True
+    return None, False
+
+
+def scheduler_is_sleeping(log_lines: list[str], now: datetime) -> bool:
+    target, _ = scheduler_wait(log_lines)
+    return target is not None and target + timedelta(minutes=5) > now
+
+
+def alas_log_lines(root: Path, instance: str, now: datetime, override: Path | None) -> list[str]:
+    days = (now - timedelta(days=1), now)
+    paths = (override,) if override else tuple(root / "log" / f"{day:%Y-%m-%d}_{instance}.txt" for day in days)
+    return [line for path in paths if path.is_file() for line in tail_text(path)]
 
 
 def stuck_findings(log_lines: list[str], now: datetime) -> list[dict[str, Any]]:
@@ -144,47 +161,46 @@ def stuck_findings(log_lines: list[str], now: datetime) -> list[dict[str, Any]]:
     return out
 
 
-def alas_findings(summary: dict[str, Any], alas_log: Path | None, now: datetime) -> list[dict[str, Any]]:
+def alas_findings(summary: dict[str, Any], lines: list[str], now: datetime) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
-    lines: list[str] = []
-    if alas_log and alas_log.exists():
-        lines = tail_text(alas_log)
     state = summary.get("state")
     reasons = sorted({reason for reason in (summary.get("stalled_reasons") or [])
                       if isinstance(reason, str) and reason in STALLED_REASONS})
     webui_ok = (summary.get("webui") or {}).get("available", True)
     emu_ok = (summary.get("emulator") or {}).get("online", True)
+    target, emulator_closed = scheduler_wait(lines)
+    expected_offline = emulator_closed and target is not None and target > now
 
     if not webui_ok:
         out.append(finding("alas:webui_down", "WARNING", "[AzurPilot] ALAS WebUI 健康探针失败",
                            "WebUI /healthz 不可用，详细信息见本地探针输出。",
                            ["确认 alas-launcher 进程是否还在；只读检查，不要重启。"]))
-    if not emu_ok:
+    if not emu_ok and not expected_offline:
         out.append(finding("alas:emulator_offline", "WARNING", "[AzurPilot] 模拟器 ADB 不在线",
                            "adb 未检测到在线设备，详细信息见本地探针输出。",
                            ["确认 MuMu 是否被手动关闭或崩溃；需要 Andrew 在场时再处理。"]))
-    if state == "stalled" and reasons:
-        sleeping = reasons == ["heartbeat_expired"] and scheduler_is_sleeping(lines, now)
-        if sleeping:
-            log("ALAS 心跳过期，但调度器在合法等待，不告警")
-        else:
-            out.append(finding(
-                "alas:stalled:" + ",".join(reasons), "WARNING",
-                "[AzurPilot] ALAS 实例运行受阻：" + ",".join(reasons),
-                f"state={state}，原因={','.join(reasons)}。详细信息见本地探针输出。",
-                ["在 WebUI 和日志里对照状态；若调度器死锁，需 Andrew 手动退出并重开 Launcher。"]))
+    if "heartbeat_expired" in reasons and scheduler_is_sleeping(lines, now):
+        log("ALAS 心跳过期，但调度器在合法等待，不告警")
+        reasons.remove("heartbeat_expired")
+    if state in ("stalled", "degraded") and reasons:
+        out.append(finding(
+            "alas:stalled:" + ",".join(reasons), "WARNING",
+            "[AzurPilot] ALAS 实例运行受阻：" + ",".join(reasons),
+            f"state={state}，原因={','.join(reasons)}。详细信息见本地探针输出。",
+            ["在 WebUI 和日志里对照状态；若调度器死锁，需 Andrew 手动退出并重开 Launcher。"]))
     out.extend(stuck_findings(lines, now))
     return out
 
 
-def run_probe(timezone_offset: str) -> dict[str, Any]:
+def run_probe(timezone_offset: str, instance: str) -> dict[str, Any]:
     py = ALAS_ROOT / ".venv" / "Scripts" / "python.exe"
     cmd = [str(py if py.exists() else sys.executable), "-B",
            str(ALAS_ROOT / "dev_tools" / "alas_maintenance_probe.py"),
-           "--live", "--alas-root", str(ALAS_ROOT), "--instance", "alas",
+           "--live", "--alas-root", str(ALAS_ROOT), f"--instance={instance}",
            f"--timezone-offset={timezone_offset}"]
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                           text=True, encoding="utf-8", timeout=60,
+                          env={**os.environ, "PYTHONIOENCODING": "utf-8"},
                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     if proc.returncode != 0:
         raise PatrolCommandError(f"probe exit {proc.returncode}")
@@ -308,11 +324,20 @@ def local_offset() -> str:
     return f"{sign}{abs(mins) // 60:02d}:{abs(mins) % 60:02d}"
 
 
+def instance_name(value: str) -> str:
+    name = value.strip()
+    if name in {"", ".", ".."} or re.search(r"""[\\/:*?"'<>|\x00-\x1f]""", name):
+        raise argparse.ArgumentTypeError("无效的 ALAS 实例名")
+    return name
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dry-run", action="store_true", help="不建票，只打印")
     ap.add_argument("--fixture", type=Path, help='夹具 JSON：{"alas_summary":{...}}，跳过真实探针')
-    ap.add_argument("--alas-log", type=Path, help="覆盖 ALAS 日志路径（默认当天 log\\YYYY-MM-DD_alas.txt）")
+    ap.add_argument("--instance", type=instance_name, default=DEFAULT_INSTANCE,
+                    help="ALAS 实例名（默认 %(default)s；旧实例可使用 alas）")
+    ap.add_argument("--alas-log", type=Path, help="覆盖 ALAS 日志路径（默认读取该实例昨天和今天的日志）")
     ap.add_argument("--maa-log", type=Path, help="覆盖 MAA asst.log 路径")
     ap.add_argument("--state", type=Path, help="覆盖状态文件路径")
     ap.add_argument("--now", help="覆盖当前时间 YYYY-MM-DD HH:MM:SS（测试用）")
@@ -321,15 +346,15 @@ def main(argv: list[str] | None = None) -> int:
     now = datetime.strptime(args.now, "%Y-%m-%d %H:%M:%S") if args.now else datetime.now()
     state_path = args.state or STATE_PATH
     try:
-        alas_log = args.alas_log or ALAS_ROOT / "log" / f"{now:%Y-%m-%d}_alas.txt"
+        lines = alas_log_lines(ALAS_ROOT, args.instance, now, args.alas_log)
         maa_log = args.maa_log or MAA_ROOT / "debug" / "asst.log"
         if args.fixture:
             summary = json.loads(args.fixture.read_text(encoding="utf-8"))["alas_summary"]
         else:
-            summary = run_probe(local_offset())
-        findings = alas_findings(summary, alas_log, now) + maa_findings(maa_log, now)
+            summary = run_probe(local_offset(), args.instance)
+        findings = alas_findings(summary, lines, now) + maa_findings(maa_log, now)
         state = load_state(state_path)
-        save = not args.dry_run or args.state is not None
+        save = not args.dry_run
         if save:
             state_path.parent.mkdir(parents=True, exist_ok=True)
         try:

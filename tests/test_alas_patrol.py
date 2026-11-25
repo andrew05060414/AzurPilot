@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 import unittest
 from datetime import datetime
 from pathlib import Path
@@ -84,6 +85,80 @@ class PatrolTest(unittest.TestCase):
                     self.assertEqual(patrol.main(args), 0)
                     post.assert_called_once()
                     self.assertEqual(post.call_args.args[0]["key"], "alas:emulator_offline")
+
+    def test_live_probe_decodes_chinese_and_uses_selected_instance(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            tools = root / "dev_tools"
+            tools.mkdir()
+            (tools / "alas_maintenance_probe.py").write_text(
+                'import json, sys\n'
+                'print(json.dumps({"summary": {"消息": "告警", "argv": sys.argv[1:]}}, ensure_ascii=False))\n',
+                encoding="utf-8",
+            )
+            with patch.object(patrol, "ALAS_ROOT", root), patch.dict(os.environ, {"PYTHONIOENCODING": "cp936"}):
+                summary = patrol.run_probe("+08:00", "ap.test")
+        self.assertEqual(summary["消息"], "告警")
+        self.assertIn("--instance=ap.test", summary["argv"])
+
+    def test_dry_run_does_not_write_explicit_state(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "state.json"
+            prior = '{"open": {}}\n'
+            state.write_text(prior, encoding="utf-8")
+            args = ["--dry-run", "--state", str(state)]
+            with patch.object(patrol, "LOG_PATH", root / "patrol.log"), \
+                 patch.object(patrol, "ALAS_ROOT", root), patch.object(patrol, "MAA_ROOT", root), \
+                 patch.object(patrol, "run_probe", return_value={"webui": {"available": False}}) as probe, \
+                 patch.object(patrol, "post") as post:
+                self.assertEqual(patrol.main(args), 0)
+                probe.assert_called_once_with(patrol.local_offset(), "ap")
+                self.assertTrue(post.call_args.args[1])
+            self.assertEqual(state.read_text(encoding="utf-8"), prior)
+
+    def test_instance_logs_include_both_dates_but_not_other_instances(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            log = root / "log"
+            log.mkdir()
+            old_stuck = "\n".join(STUCK).replace("20:10:00", "23:50:00") + "\n"
+            wait = "2026-11-23 23:55:00 | INFO | [AzurPilot] 等待直到 2026-11-24 02:00:00 执行任务 `Commission`\n"
+            (log / "2026-11-23_ap.txt").write_text(old_stuck * 2 + wait, encoding="utf-8")
+            current = log / "2026-11-24_ap.txt"
+            now = datetime(2026, 11, 24, 0, 10)
+            self.assertTrue(patrol.scheduler_is_sleeping(patrol.alas_log_lines(root, "ap", now, None), now))
+            new_stuck = "\n".join(STUCK).replace("2026-11-23 20:10:00", "2026-11-24 00:05:00")
+            current.write_text(new_stuck + "\n", encoding="utf-8")
+            (log / "2026-11-24_alas.txt").write_text("other instance\n", encoding="utf-8")
+            lines = patrol.alas_log_lines(root, "ap", now, None)
+            self.assertEqual(len(patrol.stuck_findings(lines, now)), 1)
+            self.assertNotIn("other instance", lines)
+            self.assertEqual(patrol.alas_log_lines(root, "ap", now, current), new_stuck.splitlines())
+
+    def test_degraded_alerts_report_ssh_or_missing_heartbeat_without_webui_duplicate(self):
+        for reason in ("ssh_unreachable", "heartbeat_absent"):
+            with self.subTest(reason=reason):
+                summary = {"state": "degraded", "stalled_reasons": [reason]}
+                self.assertEqual([f["key"] for f in patrol.alas_findings(summary, [], NOW)],
+                                 [f"alas:stalled:{reason}"])
+        summary = {"state": "degraded", "stalled_reasons": ["webui_unavailable"],
+                   "webui": {"available": False}}
+        self.assertEqual([f["key"] for f in patrol.alas_findings(summary, [], NOW)], ["alas:webui_down"])
+
+    def test_expected_emulator_shutdown_preserves_other_alerts_until_wakeup(self):
+        lines = [
+            "2026-11-23 20:00:00 | INFO | [AzurPilot] 等待直到 2026-11-24 01:00:00 执行任务 `Commission`",
+            "2026-11-23 20:00:01 | INFO | [AzurPilot] 等待期间已关闭模拟器",
+        ]
+        summary = {"state": "stalled", "emulator": {"online": False},
+                   "stalled_reasons": ["heartbeat_expired", "emulator_offline", "ssh_unreachable"]}
+        with patch.object(patrol, "log"):
+            self.assertEqual([f["key"] for f in patrol.alas_findings(summary, lines, NOW)],
+                             ["alas:stalled:ssh_unreachable"])
+        lines.append("2026-11-24 00:50:00 | INFO | [AzurPilot] 长时间等待后启动模拟器")
+        self.assertEqual([f["key"] for f in patrol.alas_findings(summary, lines, datetime(2026, 11, 24, 0, 51))],
+                         ["alas:emulator_offline", "alas:stalled:heartbeat_expired,ssh_unreachable"])
 
 
 if __name__ == "__main__":
