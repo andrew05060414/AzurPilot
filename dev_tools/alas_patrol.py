@@ -50,7 +50,7 @@ SCROLL_ERROR = "GameStuckError: Scroll drag page error."
 STALLED_REASONS = {
     "task_error", "heartbeat_expired", "heartbeat_absent",
 }
-HOST_ALERTS = {"alas:webui_down", "alas:emulator_offline", "alas:ssh_unreachable"}
+HOST_ALERTS = {"alas:webui_down", "alas:ssh_unreachable"}
 WAKE_STARTED = "[AzurPilot] 长时间等待后启动模拟器"
 WARMUP_DONE = "[预热] 提前启动完成"
 TASK_STARTED = "[AzurPilot] 调度器: 开始任务"
@@ -441,7 +441,7 @@ def main(argv: list[str] | None = None) -> int:
                 alert["fingerprint"] = instance_fingerprint(args.instance, alert["key"])
                 instance_alerts.append(alert)
         expected_offline = ((summary.get("emulator") or {}).get("online") is False
-                            and not any(alert["key"] == "alas:emulator_offline" for alert in host_alerts))
+                            and not any(alert["key"] == "alas:emulator_offline" for alert in instance_alerts))
         state = load_state(state_path)
         prepare_state(state, args.legacy_state_instance)
         instance_state = state["instances"].setdefault(args.instance, {})
@@ -452,9 +452,9 @@ def main(argv: list[str] | None = None) -> int:
             def deliver(alert: dict[str, Any]) -> None:
                 post(alert, args.dry_run, state_path.parent)
 
-            posted = len(decide(instance_alerts, instance_state, now, deliver))
             unobserved = frozenset({"alas:emulator_offline"}) if expected_offline else frozenset()
-            posted += len(decide(host_alerts, state, now, deliver, unobserved))
+            posted = len(decide(instance_alerts, instance_state, now, deliver, unobserved))
+            posted += len(decide(host_alerts, state, now, deliver))
         finally:
             if save:
                 with TemporaryDirectory(dir=state_path.parent) as directory:

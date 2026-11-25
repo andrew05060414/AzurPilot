@@ -79,12 +79,14 @@ class PatrolTest(unittest.TestCase):
                 with patch.object(patrol, "post", side_effect=[None, patrol.PatrolCommandError("failed")]) as post:
                     self.assertEqual(patrol.main(args), 1)
                     self.assertEqual(post.call_args.args[2], state.parent)
-                records = json.loads(state.read_text(encoding="utf-8"))["open"].values()
-                self.assertEqual([record["key"] for record in records], ["alas:webui_down"])
+                data = json.loads(state.read_text(encoding="utf-8"))
+                records = data["instances"]["ap"]["open"].values()
+                self.assertEqual([record["key"] for record in records], ["alas:emulator_offline"])
+                self.assertEqual(data["open"], {})
                 with patch.object(patrol, "post") as post:
                     self.assertEqual(patrol.main(args), 0)
                     post.assert_called_once()
-                    self.assertEqual(post.call_args.args[0]["key"], "alas:emulator_offline")
+                    self.assertEqual(post.call_args.args[0]["key"], "alas:webui_down")
 
     def test_live_probe_decodes_chinese_and_uses_selected_instance(self):
         with TemporaryDirectory() as directory:
@@ -192,6 +194,30 @@ class PatrolTest(unittest.TestCase):
             self.assertIn(maa["fingerprint"], data["open"])
             self.assertIn(alerts[0]["fingerprint"], data["instances"]["ap"]["open"])
             self.assertEqual(data["instances"]["farm"]["open"], {})
+
+    def test_emulator_offline_cooldown_does_not_cross_instances(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            log = root / "log"
+            log.mkdir()
+            (log / "2026-11-23_ap.txt").write_text(
+                "2026-11-23 20:00:00 | INFO | [AzurPilot] 等待直到 2026-11-23 23:30:00 执行任务 `Commission`\n"
+                "2026-11-23 20:00:01 | INFO | [AzurPilot] 等待期间已关闭模拟器\n",
+                encoding="utf-8",
+            )
+            args = ["--state", str(root / "state.json"), "--maa-log", str(root / "asst.log")]
+            offline = {"state": "stalled", "emulator": {"online": False},
+                       "stalled_reasons": ["emulator_offline"]}
+            with patch.object(patrol, "ALAS_ROOT", root), patch.object(patrol, "LOG_PATH", root / "patrol.log"), \
+                 patch.object(patrol, "run_probe", return_value=offline), patch.object(patrol, "post") as post:
+                self.assertEqual(patrol.main(args + ["--instance", "ap", "--now", str(NOW)]), 0)
+                post.assert_not_called()
+                self.assertEqual(patrol.main(args + ["--instance", "farm", "--now", str(NOW)]), 0)
+                self.assertEqual(post.call_count, 1)
+                self.assertEqual(patrol.main(args + ["--instance", "ap", "--now", "2026-11-23 23:45:00"]), 0)
+            alerts = [call.args[0] for call in post.call_args_list]
+            self.assertEqual([(f["instance"], f["key"]) for f in alerts],
+                             [("farm", "alas:emulator_offline"), ("ap", "alas:emulator_offline")])
 
     def test_legacy_cooldown_is_preserved_only_for_confirmed_instance(self):
         key = "alas:stalled:task_error,webui_unavailable"
