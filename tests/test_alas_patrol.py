@@ -79,7 +79,7 @@ class PatrolTest(unittest.TestCase):
                 with patch.object(patrol, "post", side_effect=[None, patrol.PatrolCommandError("failed")]) as post:
                     self.assertEqual(patrol.main(args), 1)
                     self.assertEqual(post.call_args.args[2], state.parent)
-                records = json.loads(state.read_text(encoding="utf-8"))["open"].values()
+                records = json.loads(state.read_text(encoding="utf-8"))["instances"]["ap"]["open"].values()
                 self.assertEqual([record["key"] for record in records], ["alas:webui_down"])
                 with patch.object(patrol, "post") as post:
                     self.assertEqual(patrol.main(args), 0)
@@ -159,6 +159,36 @@ class PatrolTest(unittest.TestCase):
         lines.append("2026-11-24 00:50:00 | INFO | [AzurPilot] 长时间等待后启动模拟器")
         self.assertEqual([f["key"] for f in patrol.alas_findings(summary, lines, datetime(2026, 11, 24, 0, 51))],
                          ["alas:emulator_offline", "alas:stalled:heartbeat_expired,ssh_unreachable"])
+        lines.append("2026-11-24 00:52:00 | INFO | [预热] 提前启动完成（模拟器/游戏 + 登录成功）")
+        with patch.object(patrol, "log"):
+            self.assertEqual([f["key"] for f in patrol.alas_findings(summary, lines, datetime(2026, 11, 24, 0, 58))],
+                             ["alas:emulator_offline", "alas:stalled:ssh_unreachable"])
+        lines.append("2026-11-24 01:00:00 | INFO | [AzurPilot] 调度器: 开始任务 `Commission`")
+        self.assertEqual([f["key"] for f in patrol.alas_findings(summary, lines, datetime(2026, 11, 24, 1, 1))],
+                         ["alas:emulator_offline", "alas:stalled:heartbeat_expired,ssh_unreachable"])
+
+    def test_state_isolates_alas_instances_and_keeps_maa_shared(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "state.json"
+            args = ["--state", str(state), "--now", str(NOW)]
+            failed = {"state": "stalled", "stalled_reasons": ["task_error"]}
+            maa = patrol.finding("maa:log_stale", "INFO", "t", "d", [])
+            with patch.object(patrol, "LOG_PATH", root / "patrol.log"), \
+                 patch.object(patrol, "ALAS_ROOT", root), patch.object(patrol, "post") as post, \
+                 patch.object(patrol, "run_probe", side_effect=[failed, failed, {}, {}]), \
+                 patch.object(patrol, "maa_findings", return_value=[maa]):
+                self.assertEqual(patrol.main(args), 0)
+                for _ in range(3):
+                    self.assertEqual(patrol.main(args + ["--instance", "farm"]), 0)
+            alerts = [call.args[0] for call in post.call_args_list]
+            self.assertEqual([alert.get("instance") for alert in alerts], ["ap", None, "farm"])
+            self.assertNotEqual(alerts[0]["fingerprint"], alerts[2]["fingerprint"])
+            self.assertIn("ALAS 实例：farm", patrol.render(alerts[2]))
+            data = json.loads(state.read_text(encoding="utf-8"))
+            self.assertIn(maa["fingerprint"], data["open"])
+            self.assertIn(alerts[0]["fingerprint"], data["instances"]["ap"]["open"])
+            self.assertEqual(data["instances"]["farm"]["open"], {})
 
 
 if __name__ == "__main__":

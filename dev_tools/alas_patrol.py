@@ -50,8 +50,9 @@ SCROLL_ERROR = "GameStuckError: Scroll drag page error."
 STALLED_REASONS = {
     "ssh_unreachable", "task_error", "heartbeat_expired", "heartbeat_absent",
 }
-WAIT_ENDED = ("[AzurPilot] 长时间等待后启动模拟器", "[预热] 提前启动完成",
-              "[AzurPilot] 调度器: 开始任务")
+WAKE_STARTED = "[AzurPilot] 长时间等待后启动模拟器"
+WARMUP_DONE = "[预热] 提前启动完成"
+TASK_STARTED = "[AzurPilot] 调度器: 开始任务"
 
 
 class PatrolCommandError(RuntimeError):
@@ -83,9 +84,12 @@ def tail_text(path: Path, max_bytes: int = 2_000_000) -> list[str]:
     return data.decode("utf-8", errors="replace").splitlines()
 
 
+def fingerprint(key: str) -> str:
+    return hashlib.sha1(key.encode("utf-8")).hexdigest()[:12]
+
+
 def finding(key: str, severity: str, title: str, detail: str, actions: list[str]) -> dict[str, Any]:
-    fp = hashlib.sha1(key.encode("utf-8")).hexdigest()[:12]
-    return {"fingerprint": fp, "key": key, "severity": severity, "title": title,
+    return {"fingerprint": fingerprint(key), "key": key, "severity": severity, "title": title,
             "detail": sanitize(detail), "actions": actions}
 
 
@@ -102,17 +106,21 @@ def parse_log_time(value: str) -> datetime | None:
 
 # ---------------------------------------------------------------- ALAS
 def scheduler_wait(log_lines: list[str]) -> tuple[datetime | None, bool]:
-    emulator_closed = False
+    emulator_closed = None
     for line in reversed(log_lines[-200:]):
-        if any(marker in line for marker in WAIT_ENDED):
+        if TASK_STARTED in line:
             break
+        if WARMUP_DONE in line:
+            emulator_closed = False
+        elif emulator_closed is None and WAKE_STARTED in line:
+            break
+        elif emulator_closed is None and "[AzurPilot] 等待期间已关闭模拟器" in line:
+            emulator_closed = True
         m = WAIT_RE.search(line)
         if m:
             target = parse_log_time(m.group(1))
             if target is not None:
-                return target, emulator_closed
-        if "[AzurPilot] 等待期间已关闭模拟器" in line:
-            emulator_closed = True
+                return target, bool(emulator_closed)
     return None, False
 
 
@@ -293,9 +301,10 @@ def decide(findings: list[dict[str, Any]], state: dict[str, Any], now: datetime,
 
 def render(f: dict[str, Any]) -> str:
     acts = "\n".join(f"{i}. {a}" for i, a in enumerate(f["actions"], 1))
+    instance = f"- ALAS 实例：{f['instance']}\n" if "instance" in f else ""
     return (f"## 现象\n{f['detail']}\n\n## 建议动作（只读，不自动恢复）\n{acts}\n\n"
             f"## 元数据\n- 指纹：`{f['fingerprint']}`（同一指纹 {COOLDOWN_HOURS} 小时内不重复建票）\n"
-            f"- 来源：巡检任务 AI-ALAS-Patrol，来自 PX-2039\n- key：`{f['key']}`\n")
+            f"- 来源：巡检任务 AI-ALAS-Patrol，来自 PX-2039\n{instance}- key：`{f['key']}`\n")
 
 
 def post(f: dict[str, Any], dry_run: bool, state_dir: Path) -> None:
@@ -352,20 +361,32 @@ def main(argv: list[str] | None = None) -> int:
             summary = json.loads(args.fixture.read_text(encoding="utf-8"))["alas_summary"]
         else:
             summary = run_probe(local_offset(), args.instance)
-        findings = alas_findings(summary, lines, now) + maa_findings(maa_log, now)
+        alas_alerts = alas_findings(summary, lines, now)
+        for alert in alas_alerts:
+            alert["instance"] = args.instance
+            alert["fingerprint"] = fingerprint(f"{args.instance}\0{alert['key']}")
+        maa_alerts = maa_findings(maa_log, now)
         state = load_state(state_path)
+        instance_state = state.setdefault("instances", {}).setdefault(args.instance, {})
+        for fp, record in list(state.get("open", {}).items()):
+            if record.get("key", "").startswith("alas:"):
+                del state["open"][fp]
         save = not args.dry_run
         if save:
             state_path.parent.mkdir(parents=True, exist_ok=True)
         try:
-            to_post = decide(findings, state, now, lambda f: post(f, args.dry_run, state_path.parent))
+            def deliver(alert: dict[str, Any]) -> None:
+                post(alert, args.dry_run, state_path.parent)
+
+            posted = len(decide(alas_alerts, instance_state, now, deliver))
+            posted += len(decide(maa_alerts, state, now, deliver))
         finally:
             if save:
                 with TemporaryDirectory(dir=state_path.parent) as directory:
                     pending_state = Path(directory) / "state.json"
                     pending_state.write_text(json.dumps(state, ensure_ascii=False, indent=1), encoding="utf-8")
                     pending_state.replace(state_path)
-        log(f"ok findings={len(findings)} posted={len(to_post)} dry_run={args.dry_run}")
+        log(f"ok findings={len(alas_alerts) + len(maa_alerts)} posted={posted} dry_run={args.dry_run}")
         return 0
     except Exception as exc:  # 巡检自己坏了也要留痕，退出码非 0 让计划任务显示失败
         error = str(exc) if isinstance(exc, PatrolCommandError) else type(exc).__name__
