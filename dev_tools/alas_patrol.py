@@ -48,8 +48,9 @@ LINE_TS_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
 MAA_TS_RE = re.compile(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
 SCROLL_ERROR = "GameStuckError: Scroll drag page error."
 STALLED_REASONS = {
-    "ssh_unreachable", "task_error", "heartbeat_expired", "heartbeat_absent",
+    "task_error", "heartbeat_expired", "heartbeat_absent",
 }
+HOST_ALERTS = {"alas:webui_down", "alas:emulator_offline", "alas:ssh_unreachable"}
 WAKE_STARTED = "[AzurPilot] 长时间等待后启动模拟器"
 WARMUP_DONE = "[预热] 提前启动完成"
 TASK_STARTED = "[AzurPilot] 调度器: 开始任务"
@@ -187,6 +188,10 @@ def alas_findings(summary: dict[str, Any], lines: list[str], now: datetime) -> l
         out.append(finding("alas:emulator_offline", "WARNING", "[AzurPilot] 模拟器 ADB 不在线",
                            "adb 未检测到在线设备，详细信息见本地探针输出。",
                            ["确认 MuMu 是否被手动关闭或崩溃；需要 Andrew 在场时再处理。"]))
+    if "ssh_unreachable" in (summary.get("stalled_reasons") or []):
+        out.append(finding("alas:ssh_unreachable", "WARNING", "[AzurPilot] ALAS SSH 端口无法连接",
+                           "SSH 端口连接失败，详细信息见本地探针输出。",
+                           ["检查 SSH 服务状态和网络；不要自动重启服务。"]))
     if "heartbeat_expired" in reasons and scheduler_is_sleeping(lines, now):
         log("ALAS 心跳过期，但调度器在合法等待，不告警")
         reasons.remove("heartbeat_expired")
@@ -266,8 +271,71 @@ def load_state(path: Path) -> dict[str, Any]:
     return {"open": {}}
 
 
+def instance_fingerprint(instance: str, key: str) -> str:
+    return fingerprint(f"{instance}\0{key}")
+
+
+def normalize_legacy_key(key: str) -> list[str]:
+    if key.startswith("alas:stuck:"):
+        group = key.removeprefix("alas:stuck:")
+        if not re.fullmatch(r"[0-9a-f]{16}", group):
+            return ["alas:stuck:" + log_group(group)]
+    if key.startswith("alas:stalled:"):
+        reasons = set(key.removeprefix("alas:stalled:").split(","))
+        split_keys = []
+        if "webui_unavailable" in reasons:
+            split_keys.append("alas:webui_down")
+        if "emulator_offline" in reasons:
+            split_keys.append("alas:emulator_offline")
+        if "ssh_unreachable" in reasons:
+            split_keys.append("alas:ssh_unreachable")
+        instance_reasons = reasons & STALLED_REASONS
+        if instance_reasons:
+            split_keys.append("alas:stalled:" + ",".join(sorted(instance_reasons)))
+        return split_keys
+    return [key]
+
+
+def merge_record(records: dict[str, Any], fp: str, record: dict[str, Any], key: str) -> None:
+    if fp not in records or record["alerted_at"] > records[fp]["alerted_at"]:
+        records[fp] = {**record, "key": key}
+
+
+def prepare_state(state: dict[str, Any], legacy_instance: str | None) -> None:
+    shared = state.setdefault("open", {})
+    instances = state.setdefault("instances", {})
+    legacy = state.setdefault("legacy_alas", {})
+    for fp, record in list(shared.items()):
+        key = record.get("key", "")
+        if key.startswith("alas:") and key not in HOST_ALERTS:
+            del shared[fp]
+            for new_key in normalize_legacy_key(key):
+                records = shared if new_key in HOST_ALERTS else legacy
+                merge_record(records, fingerprint(new_key), record, new_key)
+    for instance, instance_state in instances.items():
+        records = instance_state.setdefault("open", {})
+        for fp, record in list(records.items()):
+            key = record.get("key", "")
+            new_keys = normalize_legacy_key(key)
+            if key not in HOST_ALERTS and new_keys == [key]:
+                continue
+            del records[fp]
+            for new_key in new_keys:
+                if new_key in HOST_ALERTS:
+                    merge_record(shared, fingerprint(new_key), record, new_key)
+                else:
+                    merge_record(records, instance_fingerprint(instance, new_key), record, new_key)
+    if legacy_instance is not None:
+        records = instances.setdefault(legacy_instance, {}).setdefault("open", {})
+        for record in legacy.values():
+            key = record["key"]
+            merge_record(records, instance_fingerprint(legacy_instance, key), record, key)
+        legacy.clear()
+
+
 def decide(findings: list[dict[str, Any]], state: dict[str, Any], now: datetime,
-           deliver: Callable[[dict[str, Any]], None] | None = None) -> list[dict[str, Any]]:
+           deliver: Callable[[dict[str, Any]], None] | None = None,
+           unobserved: frozenset[str] = frozenset()) -> list[dict[str, Any]]:
     """返回本轮要新发的告警；就地更新 state。"""
     to_post = []
     seen = {f["fingerprint"] for f in findings}
@@ -292,7 +360,7 @@ def decide(findings: list[dict[str, Any]], state: dict[str, Any], now: datetime,
                                        "alerted_at": now.isoformat(timespec="seconds"), "clean_runs": 0}
             to_post.append(f)
     for fp in list(open_):
-        if fp not in seen:
+        if fp not in seen and open_[fp]["key"] not in unobserved:
             open_[fp]["clean_runs"] = open_[fp].get("clean_runs", 0) + 1
             if open_[fp]["clean_runs"] >= RECOVER_AFTER_CLEAN_RUNS:
                 del open_[fp]
@@ -349,6 +417,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--alas-log", type=Path, help="覆盖 ALAS 日志路径（默认读取该实例昨天和今天的日志）")
     ap.add_argument("--maa-log", type=Path, help="覆盖 MAA asst.log 路径")
     ap.add_argument("--state", type=Path, help="覆盖状态文件路径")
+    ap.add_argument("--legacy-state-instance", type=instance_name,
+                    help="只在已知旧状态所属实例时指定；否则保留旧记录而不跨实例抑制告警")
     ap.add_argument("--now", help="覆盖当前时间 YYYY-MM-DD HH:MM:SS（测试用）")
     args = ap.parse_args(argv)
 
@@ -361,16 +431,20 @@ def main(argv: list[str] | None = None) -> int:
             summary = json.loads(args.fixture.read_text(encoding="utf-8"))["alas_summary"]
         else:
             summary = run_probe(local_offset(), args.instance)
-        alas_alerts = alas_findings(summary, lines, now)
-        for alert in alas_alerts:
-            alert["instance"] = args.instance
-            alert["fingerprint"] = fingerprint(f"{args.instance}\0{alert['key']}")
-        maa_alerts = maa_findings(maa_log, now)
+        instance_alerts = []
+        host_alerts = maa_findings(maa_log, now)
+        for alert in alas_findings(summary, lines, now):
+            if alert["key"] in HOST_ALERTS:
+                host_alerts.append(alert)
+            else:
+                alert["instance"] = args.instance
+                alert["fingerprint"] = instance_fingerprint(args.instance, alert["key"])
+                instance_alerts.append(alert)
+        expected_offline = ((summary.get("emulator") or {}).get("online") is False
+                            and not any(alert["key"] == "alas:emulator_offline" for alert in host_alerts))
         state = load_state(state_path)
-        instance_state = state.setdefault("instances", {}).setdefault(args.instance, {})
-        for fp, record in list(state.get("open", {}).items()):
-            if record.get("key", "").startswith("alas:"):
-                del state["open"][fp]
+        prepare_state(state, args.legacy_state_instance)
+        instance_state = state["instances"].setdefault(args.instance, {})
         save = not args.dry_run
         if save:
             state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -378,15 +452,16 @@ def main(argv: list[str] | None = None) -> int:
             def deliver(alert: dict[str, Any]) -> None:
                 post(alert, args.dry_run, state_path.parent)
 
-            posted = len(decide(alas_alerts, instance_state, now, deliver))
-            posted += len(decide(maa_alerts, state, now, deliver))
+            posted = len(decide(instance_alerts, instance_state, now, deliver))
+            unobserved = frozenset({"alas:emulator_offline"}) if expected_offline else frozenset()
+            posted += len(decide(host_alerts, state, now, deliver, unobserved))
         finally:
             if save:
                 with TemporaryDirectory(dir=state_path.parent) as directory:
                     pending_state = Path(directory) / "state.json"
                     pending_state.write_text(json.dumps(state, ensure_ascii=False, indent=1), encoding="utf-8")
                     pending_state.replace(state_path)
-        log(f"ok findings={len(alas_alerts) + len(maa_alerts)} posted={posted} dry_run={args.dry_run}")
+        log(f"ok findings={len(instance_alerts) + len(host_alerts)} posted={posted} dry_run={args.dry_run}")
         return 0
     except Exception as exc:  # 巡检自己坏了也要留痕，退出码非 0 让计划任务显示失败
         error = str(exc) if isinstance(exc, PatrolCommandError) else type(exc).__name__

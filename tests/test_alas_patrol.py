@@ -79,7 +79,7 @@ class PatrolTest(unittest.TestCase):
                 with patch.object(patrol, "post", side_effect=[None, patrol.PatrolCommandError("failed")]) as post:
                     self.assertEqual(patrol.main(args), 1)
                     self.assertEqual(post.call_args.args[2], state.parent)
-                records = json.loads(state.read_text(encoding="utf-8"))["instances"]["ap"]["open"].values()
+                records = json.loads(state.read_text(encoding="utf-8"))["open"].values()
                 self.assertEqual([record["key"] for record in records], ["alas:webui_down"])
                 with patch.object(patrol, "post") as post:
                     self.assertEqual(patrol.main(args), 0)
@@ -140,8 +140,9 @@ class PatrolTest(unittest.TestCase):
         for reason in ("ssh_unreachable", "heartbeat_absent"):
             with self.subTest(reason=reason):
                 summary = {"state": "degraded", "stalled_reasons": [reason]}
+                key = "alas:ssh_unreachable" if reason == "ssh_unreachable" else "alas:stalled:heartbeat_absent"
                 self.assertEqual([f["key"] for f in patrol.alas_findings(summary, [], NOW)],
-                                 [f"alas:stalled:{reason}"])
+                                 [key])
         summary = {"state": "degraded", "stalled_reasons": ["webui_unavailable"],
                    "webui": {"available": False}}
         self.assertEqual([f["key"] for f in patrol.alas_findings(summary, [], NOW)], ["alas:webui_down"])
@@ -155,40 +156,59 @@ class PatrolTest(unittest.TestCase):
                    "stalled_reasons": ["heartbeat_expired", "emulator_offline", "ssh_unreachable"]}
         with patch.object(patrol, "log"):
             self.assertEqual([f["key"] for f in patrol.alas_findings(summary, lines, NOW)],
-                             ["alas:stalled:ssh_unreachable"])
+                             ["alas:ssh_unreachable"])
         lines.append("2026-11-24 00:50:00 | INFO | [AzurPilot] 长时间等待后启动模拟器")
         self.assertEqual([f["key"] for f in patrol.alas_findings(summary, lines, datetime(2026, 11, 24, 0, 51))],
-                         ["alas:emulator_offline", "alas:stalled:heartbeat_expired,ssh_unreachable"])
+                         ["alas:emulator_offline", "alas:ssh_unreachable", "alas:stalled:heartbeat_expired"])
         lines.append("2026-11-24 00:52:00 | INFO | [预热] 提前启动完成（模拟器/游戏 + 登录成功）")
         with patch.object(patrol, "log"):
             self.assertEqual([f["key"] for f in patrol.alas_findings(summary, lines, datetime(2026, 11, 24, 0, 58))],
-                             ["alas:emulator_offline", "alas:stalled:ssh_unreachable"])
+                             ["alas:emulator_offline", "alas:ssh_unreachable"])
         lines.append("2026-11-24 01:00:00 | INFO | [AzurPilot] 调度器: 开始任务 `Commission`")
         self.assertEqual([f["key"] for f in patrol.alas_findings(summary, lines, datetime(2026, 11, 24, 1, 1))],
-                         ["alas:emulator_offline", "alas:stalled:heartbeat_expired,ssh_unreachable"])
+                         ["alas:emulator_offline", "alas:ssh_unreachable", "alas:stalled:heartbeat_expired"])
 
-    def test_state_isolates_alas_instances_and_keeps_maa_shared(self):
+    def test_state_isolates_alas_instances_and_keeps_host_alerts_shared(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             state = root / "state.json"
             args = ["--state", str(state), "--now", str(NOW)]
-            failed = {"state": "stalled", "stalled_reasons": ["task_error"]}
+            webui_down = {"webui": {"available": False}}
+            failed = {**webui_down, "state": "stalled", "stalled_reasons": ["task_error"]}
             maa = patrol.finding("maa:log_stale", "INFO", "t", "d", [])
             with patch.object(patrol, "LOG_PATH", root / "patrol.log"), \
                  patch.object(patrol, "ALAS_ROOT", root), patch.object(patrol, "post") as post, \
-                 patch.object(patrol, "run_probe", side_effect=[failed, failed, {}, {}]), \
+                 patch.object(patrol, "run_probe", side_effect=[failed, failed, webui_down, webui_down]), \
                  patch.object(patrol, "maa_findings", return_value=[maa]):
                 self.assertEqual(patrol.main(args), 0)
                 for _ in range(3):
                     self.assertEqual(patrol.main(args + ["--instance", "farm"]), 0)
             alerts = [call.args[0] for call in post.call_args_list]
-            self.assertEqual([alert.get("instance") for alert in alerts], ["ap", None, "farm"])
-            self.assertNotEqual(alerts[0]["fingerprint"], alerts[2]["fingerprint"])
-            self.assertIn("ALAS 实例：farm", patrol.render(alerts[2]))
+            self.assertEqual([alert.get("instance") for alert in alerts], ["ap", None, None, "farm"])
+            self.assertEqual([alert["key"] for alert in alerts].count("alas:webui_down"), 1)
+            self.assertNotEqual(alerts[0]["fingerprint"], alerts[3]["fingerprint"])
+            self.assertIn("ALAS 实例：farm", patrol.render(alerts[3]))
             data = json.loads(state.read_text(encoding="utf-8"))
             self.assertIn(maa["fingerprint"], data["open"])
             self.assertIn(alerts[0]["fingerprint"], data["instances"]["ap"]["open"])
             self.assertEqual(data["instances"]["farm"]["open"], {})
+
+    def test_legacy_cooldown_is_preserved_only_for_confirmed_instance(self):
+        key = "alas:stalled:task_error,webui_unavailable"
+        record = {"key": key, "alerted_at": NOW.isoformat(), "clean_runs": 1}
+        state = {"open": {patrol.fingerprint(key): record}}
+        patrol.prepare_state(state, None)
+        self.assertIn(patrol.fingerprint("alas:webui_down"), state["open"])
+        self.assertIn(patrol.fingerprint("alas:stalled:task_error"), state["legacy_alas"])
+        self.assertEqual(state["instances"], {})
+        patrol.prepare_state(state, "alas")
+        key = "alas:stalled:task_error"
+        records = state["instances"]["alas"]["open"]
+        fp = patrol.instance_fingerprint("alas", key)
+        self.assertEqual(records[fp], {**record, "key": key})
+        alert = {**patrol.finding(key, "WARNING", "t", "d", []), "fingerprint": fp}
+        self.assertEqual(patrol.decide([alert], state["instances"]["alas"], NOW), [])
+        self.assertEqual(state["legacy_alas"], {})
 
 
 if __name__ == "__main__":
