@@ -88,9 +88,12 @@ class Scroll:
         mask = self.match_color(main)
         middle = np.mean(np.where(mask)[0])
 
-        position = (middle - self.length / 2) / (self.total - self.length)
-        position = position if position > 0 else 0.0
-        position = position if position < 1 else 1.0
+        if self.total <= self.length:
+            position = 0.0
+        else:
+            position = (middle - self.length / 2) / (self.total - self.length)
+            position = position if position > 0 else 0.0
+            position = position if position < 1 else 1.0
         logger.attr(self.name, f'{position:.2f} ({middle}-{self.length / 2})/({self.total}-{self.length})')
         return position
 
@@ -262,6 +265,8 @@ class Scroll:
             main.device.screenshot()
         current = self.cal_position(main)
 
+        if self.total <= self.length:
+            return 0
         multiply = self.length / (self.total - self.length)
         target = current + page * multiply
         target = round(min(max(target, 0), 1), 3)
@@ -350,7 +355,7 @@ class AdaptiveScroll(Scroll):
         peaks, _ = signal.find_peaks(image, **parameters)
         peaks //= wlen
 
-        self.length = len(peaks)
         mask = np.zeros((self.total,), dtype=np.bool_)
         mask[peaks] = 1
+        self.length = np.sum(mask)
         return mask
